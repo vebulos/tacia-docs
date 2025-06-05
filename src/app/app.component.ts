@@ -1,12 +1,18 @@
 import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { RouterModule } from '@angular/router';
+import { LayoutComponent } from './core/layout/layout.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.css'
+  standalone: true,
+  imports: [RouterModule, LayoutComponent],
+  template: `
+    <app-layout>
+      <router-outlet></router-outlet>
+    </app-layout>
+  `,
+  styles: []
 })
 export class AppComponent {
-  title = 'frontend';
+  title = 'MXC Documentation';
 }
