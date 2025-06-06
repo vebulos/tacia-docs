@@ -8,9 +8,9 @@ import { NavigationComponent } from '../documents/components/navigation/navigati
   standalone: true,
   imports: [CommonModule, RouterModule, RouterOutlet, NavigationComponent],
   template: `
-    <div class="flex h-screen w-full bg-white dark:bg-gray-900 overflow-hidden">
-      <!-- Sidebar -->
-      <div class="w-72 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto flex-shrink-0">
+    <div class="relative min-h-screen w-full bg-white dark:bg-gray-900">
+      <!-- Left Sidebar -->
+      <div class="fixed left-0 top-0 h-screen w-64 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto z-10">
         <div class="p-4">
           <h2 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Documentation</h2>
           
@@ -35,10 +35,40 @@ import { NavigationComponent } from '../documents/components/navigation/navigati
         </div>
       </div>
       
-      <!-- Main content -->
-      <div class="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-        <div class="max-w-5xl mx-auto px-6 py-8 w-full">
-          <router-outlet></router-outlet>
+      <!-- Main content wrapper -->
+      <div class="flex">
+        <!-- Main content -->
+        <div class="flex-1 min-w-0 bg-gray-50 dark:bg-gray-900">
+          <div class="w-full min-h-screen">
+            <div class="w-full h-full">
+              <router-outlet></router-outlet>
+            </div>
+          </div>
+        </div> 
+      </div>
+      
+      <!-- Right Sidebar -->
+      <div class="fixed right-0 top-0 h-screen w-80 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto">
+        <div class="p-6">
+          <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">On this page</h3>
+          <div class="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+            <!-- Table of contents will be populated here -->
+            <div class="animate-pulse space-y-2">
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 ml-4"></div>
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 ml-4"></div>
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+            </div>
+          </div>
+          
+          <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+            <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Related</h3>
+            <div class="space-y-3">
+              <a href="#" class="block text-sm text-blue-600 dark:text-blue-400 hover:underline">Getting Started</a>
+              <a href="#" class="block text-sm text-blue-600 dark:text-blue-400 hover:underline">API Reference</a>
+              <a href="#" class="block text-sm text-blue-600 dark:text-blue-400 hover:underline">Guides</a>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -9,38 +9,38 @@ import { CommonModule } from '@angular/common';
   imports: [CommonModule],
   selector: 'app-document',
   template: `
-    <div class="flex-1 overflow-y-auto focus:outline-none">
-      <div class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <!-- Loading state -->
-        <div *ngIf="loading" class="flex justify-center items-center h-64">
-          <div class="text-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p class="mt-4 text-gray-600 dark:text-gray-400">Loading document...</p>
+    <div class="w-full h-full">
+      <!-- Loading state -->
+      <div *ngIf="loading" class="flex justify-center items-center h-64 w-full">
+        <div class="text-center">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p class="mt-4 text-gray-600 dark:text-gray-400">Loading document...</p>
+        </div>
+      </div>
+
+      <!-- Error state -->
+      <div *ngIf="error && !loading" class="w-full bg-red-50 dark:bg-red-900/20 border-l-4 border-red-400 dark:border-red-600 p-4 rounded">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-red-700 dark:text-red-300">
+              {{ error }}
+              <button (click)="goHome()" class="ml-2 text-sm font-medium text-red-700 dark:text-red-300 underline hover:text-red-600 dark:hover:text-red-400">
+                Go to Home
+              </button>
+            </p>
           </div>
         </div>
+      </div>
 
-        <!-- Error state -->
-        <div *ngIf="error && !loading" class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-400 dark:border-red-600 p-4 rounded">
-          <div class="flex">
-            <div class="flex-shrink-0">
-              <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
-              </svg>
-            </div>
-            <div class="ml-3">
-              <p class="text-sm text-red-700 dark:text-red-300">
-                {{ error }}
-                <button (click)="goHome()" class="ml-2 text-sm font-medium text-red-700 dark:text-red-300 underline hover:text-red-600 dark:hover:text-red-400">
-                  Go to Home
-                </button>
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Content -->
-        <div *ngIf="content && !loading && !error" class="prose dark:prose-invert max-w-none">
-          <div class="markdown-content" [innerHTML]="content"></div>
+      <!-- Content -->
+      <div *ngIf="content && !loading && !error" class="w-full h-full">
+        <div class="w-full h-full px-8 py-8">
+          <div class="prose dark:prose-invert w-full max-w-none" [innerHTML]="content"></div>
         </div>
       </div>
     </div>
