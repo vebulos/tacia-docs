@@ -1,0 +1,19 @@
+<div class="document-container">
+  <div *ngIf="loading" class="loading-state">
+    <div class="animate-pulse space-y-4">
+      <div class="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+      <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+      <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+    </div>
+  </div>
+
+  <div *ngIf="error" class="error-state">
+    <div class="text-red-600 dark:text-red-400">
+      {{ error }}
+    </div>
+  </div>
+
+  <div *ngIf="content && !loading && !error" class="document-content">
+    <div class="prose dark:prose-invert max-w-none" [innerHTML]="content"></div>
+  </div>
+</div>
