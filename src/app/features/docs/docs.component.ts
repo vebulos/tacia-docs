@@ -8,6 +8,7 @@ import { Observable } from 'rxjs';
   selector: 'app-docs',
   standalone: true,
   imports: [CommonModule, RouterModule, RouterLink, RouterLinkActive],
+  providers: [ContentService],
   template: `
     <div class="flex flex-col md:flex-row h-screen bg-white dark:bg-gray-900">
       <!-- Sidebar -->

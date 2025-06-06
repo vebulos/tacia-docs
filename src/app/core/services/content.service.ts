@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { map, shareReplay, catchError } from 'rxjs/operators';
+import contentStructure from '../../../assets/content/structure.json';
 
 export interface ContentItem {
   name: string;
@@ -20,17 +20,16 @@ export interface ContentItem {
   providedIn: 'root'
 })
 export class ContentService {
-  private contentPath = '/assets/content';
   private contentCache: Observable<ContentItem[]> | null = null;
 
-  constructor(private http: HttpClient) {}
+  constructor() {}
 
   getContentStructure(): Observable<ContentItem[]> {
     if (this.contentCache) {
       return this.contentCache;
     }
 
-    this.contentCache = this.http.get<ContentItem[]>(`${this.contentPath}/structure.json`).pipe(
+    this.contentCache = of(contentStructure).pipe(
       map(structure => this.transformStructure(structure)),
       shareReplay(1),
       catchError(error => {
