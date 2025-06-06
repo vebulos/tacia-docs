@@ -8,9 +8,9 @@ import { NavigationComponent } from '../documents/components/navigation/navigati
   standalone: true,
   imports: [CommonModule, RouterModule, RouterOutlet, NavigationComponent],
   template: `
-    <div class="flex flex-col md:flex-row h-screen bg-white dark:bg-gray-900">
+    <div class="flex h-screen w-full bg-white dark:bg-gray-900 overflow-hidden">
       <!-- Sidebar -->
-      <div class="w-full md:w-64 lg:w-80 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto">
+      <div class="w-72 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto flex-shrink-0">
         <div class="p-4">
           <h2 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Documentation</h2>
           
@@ -36,8 +36,8 @@ import { NavigationComponent } from '../documents/components/navigation/navigati
       </div>
       
       <!-- Main content -->
-      <div class="flex-1 overflow-y-auto">
-        <div class="p-6">
+      <div class="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+        <div class="max-w-5xl mx-auto px-6 py-8 w-full">
           <router-outlet></router-outlet>
         </div>
       </div>
