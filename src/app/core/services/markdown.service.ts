@@ -1,22 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { map, catchError, shareReplay } from 'rxjs/operators';
+import { Observable, of, throwError } from 'rxjs';
+import { map, catchError, shareReplay, tap } from 'rxjs/operators';
 import { marked } from 'marked';
+
+// Import highlight.js for syntax highlighting
 import hljs from 'highlight.js';
 
-// Extend the marked types to include our custom options
-declare module 'marked' {
-  namespace marked {
-    interface MarkedOptions {
-      highlight?: (code: string, language: string) => string;
-      langPrefix?: string;
-      gfm?: boolean;
-      breaks?: boolean;
-      silent?: boolean;
-    }
-  }
-}
+// Import highlight.js styles
+import 'highlight.js/styles/github.css';
 
 export interface MarkdownFile {
   content: string;
@@ -28,19 +20,18 @@ export interface MarkdownFile {
   };
   html: string;
   path: string;
-  headings: { text: string; level: number; id: string }[];
+  headings: Array<{ text: string; level: number; id: string }>;
 }
 
 @Injectable({
   providedIn: 'root'
 })
 export class MarkdownService {
-  private basePath = '/assets/content';
   private cache = new Map<string, Observable<MarkdownFile>>();
-
+  
   constructor(private http: HttpClient) {
     // Configure marked with highlight.js
-    const markedOptions: marked.MarkedOptions = {
+    const markedOptions: any = {
       highlight: (code: string, lang: string) => {
         const language = hljs.getLanguage(lang) ? lang : 'plaintext';
         try {
@@ -57,56 +48,84 @@ export class MarkdownService {
     
     marked.setOptions(markedOptions);
   }
+  
+  private loadMarkdownFile(path: string): Observable<string> {
+    // Remove leading/trailing slashes and add .md extension if not present
+    const normalizedPath = path.replace(/^\/+|\/+$/g, '');
+    const filePath = normalizedPath.endsWith('.md') ? normalizedPath : `${normalizedPath}.md`;
+    const url = `/assets/content/${filePath}`;
+    
+    return this.http.get(url, { responseType: 'text' }).pipe(
+      tap(() => console.log(`Loading markdown from: ${url}`)),
+      catchError(error => {
+        console.error(`Error loading markdown file: ${url}`, error);
+        return throwError(() => new Error(`Failed to load markdown file: ${path}`));
+      })
+    );
+  }
 
   getMarkdownFile(path: string): Observable<MarkdownFile> {
-    const fullPath = `${this.basePath}${path}.md`;
+    // Normalize the path (remove leading/trailing slashes)
+    const normalizedPath = path.replace(/^\/+|\/+$/g, '');
     
-    // Return cached observable if available
-    if (this.cache.has(fullPath)) {
-      return this.cache.get(fullPath)!;
+    console.log('Getting markdown file:', normalizedPath);
+    
+    // Check cache first
+    if (this.cache.has(normalizedPath)) {
+      console.log('Returning from cache:', normalizedPath);
+      return this.cache.get(normalizedPath)!;
     }
-
-    const request = this.http.get(fullPath, { responseType: 'text' }).pipe(
-      map(markdown => this.parseMarkdown(markdown, path)),
-      shareReplay(1), // Cache the result
+    
+    // Load and parse the markdown
+    const markdown$ = this.loadMarkdownFile(normalizedPath).pipe(
+      map(markdownContent => this.parseMarkdown(markdownContent, normalizedPath)),
+      shareReplay(1),
       catchError(error => {
-        console.error(`Error loading markdown file: ${path}`, error);
+        console.error(`Error loading markdown: ${normalizedPath}`, error);
         return of({
-          content: `# Error loading content\n\nUnable to load the requested document.`,
-          metadata: { title: 'Error' },
-          html: '<h1>Error loading content</h1><p>Unable to load the requested document.</p>',
-          path,
+          content: '',
+          metadata: {},
+          html: `<p>Error loading content: ${error.message}</p>`,
+          path: normalizedPath,
           headings: []
         });
       })
     );
-
-    this.cache.set(fullPath, request);
-    return request;
+    
+    // Cache the result
+    this.cache.set(normalizedPath, markdown$);
+    
+    return markdown$;
   }
 
   private parseMarkdown(markdown: string, path: string): MarkdownFile {
-    // Parse frontmatter
-    const frontMatterRegex = /^---\n([\s\S]*?)\n---\n/;
-    const match = markdown.match(frontMatterRegex);
+    // Parse frontmatter if present
+    const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/;
     let content = markdown;
     const metadata: Record<string, any> = {};
-    const headings: { text: string; level: number; id: string }[] = [];
+    let html = '';
+    const headings: Array<{ text: string; level: number; id: string }> = [];
 
-    if (match) {
-      content = markdown.slice(match[0].length);
-      const frontMatter = match[1];
+    // Extract frontmatter if it exists
+    const frontMatterMatch = markdown.match(frontMatterRegex);
+    if (frontMatterMatch) {
+      const frontMatter = frontMatterMatch[1];
+      content = frontMatterMatch[2];
       
-      // Parse YAML frontmatter
+      // Parse YAML frontmatter (simplified example)
       frontMatter.split('\n').forEach(line => {
-        const colonIndex = line.indexOf(':');
-        if (colonIndex > 0) {
-          const key = line.slice(0, colonIndex).trim();
-          let value: any = line.slice(colonIndex + 1).trim();
+        const match = line.match(/^([^:]+):\s*(.*)$/);
+        if (match) {
+          const key = match[1].trim();
+          let value: any = match[2].trim();
           
-          // Parse arrays like [item1, item2]
+          // Handle array values
           if (value.startsWith('[') && value.endsWith(']')) {
-            value = value.slice(1, -1).split(',').map((item: string) => item.trim());
+            value = value
+              .slice(1, -1)
+              .split(',')
+              .map((item: string) => item.trim())
+              .filter(Boolean);
           }
           
           metadata[key] = value;
@@ -114,17 +133,63 @@ export class MarkdownService {
       });
     }
 
-    // Parse markdown to HTML
-    const html = marked.parse(content, { async: false }) as string;
+    // Ensure required metadata fields have default values
+    if (!metadata['title']) {
+      // Try to extract title from the first heading if not in frontmatter
+      const headingMatch = content.match(/^#\s+(.+)$/m);
+      if (headingMatch) {
+        metadata['title'] = headingMatch[1].trim();
+      } else {
+        metadata['title'] = path.split('/').pop() || 'Untitled';
+      }
+    }
 
-    // Extract headings from the content
-    const headingRegex = /<h([1-6])[^>]*id="([^"]*)"[^>]*>(.*?)<\/h[1-6]>/g;
-    let headingMatch: RegExpExecArray | null;
-    while ((headingMatch = headingRegex.exec(html)) !== null) {
-      const level = parseInt(headingMatch[1], 10);
-      const id = headingMatch[2];
-      const text = headingMatch[3].replace(/<[^>]*>/g, ''); // Remove any HTML tags from the heading text
-      headings.push({ text, level, id });
+    // Parse markdown to HTML
+    try {
+      // Configure marked options
+      const markedOptions: any = {
+        highlight: (code: string, lang: string) => {
+          const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+          try {
+            return hljs.highlight(code, { language }).value;
+          } catch (err) {
+            return code;
+          }
+        },
+        gfm: true,
+        breaks: true,
+        smartypants: true,
+      };
+
+      // Set options and parse
+      marked.setOptions(markedOptions);
+      
+      // Parse the markdown synchronously
+      const parseResult = marked.parse(content);
+      
+      // Handle both string and Promise<string> return types
+      if (typeof parseResult === 'string') {
+        html = parseResult;
+      } else {
+        // If it's a Promise, we'll handle it asynchronously
+        console.warn('Marked returned a Promise, but synchronous parsing was expected');
+        html = 'Error: Asynchronous parsing not supported';
+      }
+
+      // Extract headings
+      const headingRegex = /<h([1-6])[^>]*id="([^"]+)"[^>]*>(.*?)<\/h[1-6]>/g;
+      let match: RegExpExecArray | null;
+      while ((match = headingRegex.exec(html)) !== null) {
+        headings.push({
+          level: parseInt(match[1], 10),
+          id: match[2],
+          text: match[3].replace(/<[^>]*>/g, ''), // Remove HTML tags from heading text
+        });
+      }
+    } catch (error) {
+      console.error('Error parsing markdown:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      html = `<div class="markdown-error">Error parsing markdown: ${errorMessage}</div>`;
     }
 
     return {
@@ -132,7 +197,7 @@ export class MarkdownService {
       metadata,
       html,
       path,
-      headings
+      headings,
     };
   }
 }

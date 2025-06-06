@@ -42,7 +42,7 @@ import { Observable } from 'rxjs';
                 <div class="mt-2 space-y-1">
                   <a 
                     *ngFor="let item of category.children"
-                    [routerLink]="['/docs' + item.path]"
+                    [routerLink]="[item.path]"
                     routerLinkActive="bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400"
                     class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white rounded-md"
                   >

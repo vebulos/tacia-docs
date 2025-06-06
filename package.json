@@ -3,11 +3,13 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "npm run generate:content && ng serve",
-    "build": "npm run generate:content && ng build",
-    "watch": "npm run generate:content && ng build --watch --configuration development",
+    "prestart": "node scripts/copy-content.js",
+    "start": "ng serve --open",
+    "prebuild": "node scripts/copy-content.js",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "generate:content": "ts-node --project ./scripts/tsconfig.json scripts/generate-content-structure.ts"
+    "lint": "ng lint"
   },
   "private": true,
   "dependencies": {

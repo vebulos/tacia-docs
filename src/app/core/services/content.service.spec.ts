@@ -1,63 +1,61 @@
-import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { of, throwError } from 'rxjs';
 import { ContentService } from './content.service';
 
 describe('ContentService', () => {
   let service: ContentService;
-  let httpMock: HttpTestingController;
+  
+  // Mock content structure
+  const mockStructure = [
+    {
+      name: 'getting-started',
+      path: '/getting-started',
+      type: 'directory',
+      children: [
+        {
+          name: 'installation',
+          path: '/getting-started/installation',
+          type: 'file',
+          metadata: { title: 'Installation' }
+        }
+      ]
+    }
+  ];
 
   beforeEach(() => {
-    TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
-      providers: [ContentService]
-    });
-    
-    service = TestBed.inject(ContentService);
-    httpMock = TestBed.inject(HttpTestingController);
-  });
-
-  afterEach(() => {
-    httpMock.verify();
+    // Create a new instance of the service
+    service = new ContentService();
   });
 
   it('should be created', () => {
     expect(service).toBeTruthy();
   });
 
-  it('should load content structure', () => {
-    const mockStructure = [
-      {
-        name: 'getting-started',
-        path: '/getting-started',
-        type: 'directory',
-        children: [
-          {
-            name: 'installation',
-            path: '/getting-started/installation',
-            type: 'file',
-            metadata: { title: 'Installation' }
-          }
-        ]
-      }
-    ];
-
+  it('should load content structure', (done) => {
+    // Mock the loadContentStructure method
+    spyOn(service as any, 'loadContentStructure').and.returnValue(of(mockStructure));
+    
     service.getContentStructure().subscribe(structure => {
       expect(structure.length).toBe(1);
       expect(structure[0].name).toBe('getting-started');
       expect(structure[0].children?.[0].name).toBe('installation');
+      done();
     });
-
-    const req = httpMock.expectOne('/assets/content/structure.json');
-    expect(req.request.method).toBe('GET');
-    req.flush(mockStructure);
   });
 
-  it('should handle empty structure', () => {
-    service.getContentStructure().subscribe(structure => {
-      expect(structure).toEqual([]);
+  it('should handle error when loading content structure', (done) => {
+    const errorMessage = 'Failed to load content structure';
+    // Mock the loadContentStructure method to return an error
+    spyOn(service as any, 'loadContentStructure').and.returnValue(
+      throwError(() => new Error(errorMessage))
+    );
+    
+    service.getContentStructure().subscribe({
+      next: () => fail('should have failed with an error'),
+      error: (error) => {
+        expect(error).toBeTruthy();
+        expect(error.message).toContain(errorMessage);
+        done();
+      }
     });
-
-    const req = httpMock.expectOne('/assets/content/structure.json');
-    req.flush(null, { status: 404, statusText: 'Not Found' });
   });
 });

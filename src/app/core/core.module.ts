@@ -1,5 +1,6 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClientModule } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { LayoutComponent } from './layout/layout.component';
 
@@ -9,6 +10,7 @@ import { LayoutComponent } from './layout/layout.component';
   ],
   imports: [
     CommonModule,
+    HttpClientModule,
     RouterModule
   ],
   exports: [
