@@ -50,10 +50,14 @@ export class MarkdownService {
   }
   
   private loadMarkdownFile(path: string): Observable<string> {
-    // Remove leading/trailing slashes and add .md extension if not present
+    // Remove leading/trailing slashes
     const normalizedPath = path.replace(/^\/+|\/+$/g, '');
-    const filePath = normalizedPath.endsWith('.md') ? normalizedPath : `${normalizedPath}.md`;
-    const url = `/assets/content/${filePath}`;
+    // Don't add .md extension if it's already there
+    const filePath = normalizedPath.endsWith('.md') 
+      ? normalizedPath 
+      : `${normalizedPath}.md`;
+    // Ensure the path uses forward slashes
+    const url = `/assets/content/${filePath.replace(/\\/g, '/')}`;
     
     return this.http.get(url, { responseType: 'text' }).pipe(
       tap(() => console.log(`Loading markdown from: ${url}`)),

@@ -1,14 +1,17 @@
 import { Routes } from '@angular/router';
-import { DocumentComponent } from './pages/document/document.component';
 
 export const DOCS_ROUTES: Routes = [
   {
     path: '',
-    redirectTo: 'getting-started/installation',
+    redirectTo: 'content/getting-started/introduction',
     pathMatch: 'full'
   },
   {
-    path: ':path',
-    component: DocumentComponent
+    path: 'content/:path',
+    loadComponent: () => import('../documents/components/document/document.component').then(m => m.DocumentComponent)
+  },
+  {
+    path: '**',
+    redirectTo: 'content/getting-started/introduction'
   }
 ];

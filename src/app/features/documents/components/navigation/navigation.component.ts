@@ -1,60 +1,50 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-
-interface NavItem {
-  title: string;
-  path: string;
-  children?: NavItem[];
-}
+import { ContentService, ContentItem } from '../../../../core/services/content.service';
+import { map } from 'rxjs/operators';
 
 @Component({
   selector: 'app-navigation',
   standalone: true,
   imports: [CommonModule, RouterModule],
-  template: `
-    <nav class="space-y-1">
-      <ng-container *ngFor="let item of navItems">
-        <h3 class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          {{ item.title }}
-        </h3>
-        <div class="mt-1 space-y-1">
-          <a *ngFor="let child of item.children" 
-             [routerLink]="['/docs', child.path]"
-             routerLinkActive="bg-gray-100 text-gray-900"
-             class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-50 hover:text-gray-900">
-            <span class="truncate">{{ child.title }}</span>
-          </a>
-        </div>
-      </ng-container>
-    </nav>
-  `,
-  styles: []
+  templateUrl: './navigation.component.html',
+  styleUrls: ['./navigation.component.css'],
+  providers: [ContentService]
 })
 export class NavigationComponent implements OnInit {
-  navItems: NavItem[] = [
-    {
-      title: 'Getting Started',
-      path: 'getting-started',
-      children: [
-        { title: 'Introduction', path: 'getting-started/introduction' },
-        { title: 'Installation', path: 'getting-started/installation' },
-        { title: 'Configuration', path: 'getting-started/configuration' }
-      ]
-    },
-    {
-      title: 'Guides',
-      path: 'guides',
-      children: [
-        { title: 'Authentication', path: 'guides/authentication' },
-        { title: 'API Usage', path: 'guides/api-usage' },
-        { title: 'Deployment', path: 'guides/deployment' }
-      ]
-    }
-  ];
+  contentStructure: ContentItem[] = [];
+  loading = true;
+  error: string | null = null;
 
-  constructor() { }
+  constructor(private contentService: ContentService) {}
 
   ngOnInit(): void {
+    this.loadNavigation();
+  }
+
+  loadNavigation(): void {
+    this.contentService.getContentStructure().pipe(
+      map(items => this.transformContentItems(items))
+    ).subscribe({
+      next: (items: ContentItem[]) => {
+        this.contentStructure = items;
+        this.loading = false;
+      },
+      error: (err: Error) => {
+        console.error('Failed to load navigation:', err);
+        this.error = 'Failed to load navigation';
+        this.loading = false;
+      }
+    });
+  }
+
+  // Transform the content items to ensure paths are correct
+  private transformContentItems(items: ContentItem[]): ContentItem[] {
+    return items.map(item => ({
+      ...item,
+      children: item.children ? this.transformContentItems(item.children) : [],
+      path: item.path.startsWith('/') ? item.path.substring(1) : item.path // Remove leading slash
+    }));
   }
 }

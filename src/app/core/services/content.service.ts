@@ -42,67 +42,12 @@ export class ContentService {
   }
 
   private transformStructure(items: any[]): ContentItem[] {
-    const result: ContentItem[] = [];
-    const itemMap = new Map<string, ContentItem>();
-    
-    // First pass: create all items
-    items.forEach(item => {
-      const path = item.path;
-      const name = path.split('/').pop() || '';
-      const isDirectory = item.type === 'directory';
-      
-      const contentItem: ContentItem = {
-        name,
-        path,
-        isDirectory,
-        metadata: item.metadata || {}
-      };
-      
-      if (isDirectory) {
-        contentItem.children = [];
-      }
-      
-      itemMap.set(path, contentItem);
-    });
-    
-    // Second pass: build the tree
-    itemMap.forEach(item => {
-      const pathParts = item.path.split('/').filter(Boolean);
-      
-      if (pathParts.length === 1) {
-        // Root level item
-        result.push(item);
-      } else {
-        // Child item, find its parent
-        const parentPath = pathParts.slice(0, -1).join('/');
-        const parent = itemMap.get(parentPath);
-        
-        if (parent && parent.isDirectory && parent.children) {
-          parent.children.push(item);
-        }
-      }
-    });
-    
-    // Sort directories first, then by name
-    const sortItems = (items: ContentItem[]): ContentItem[] => {
-      return [...items]
-        .sort((a, b) => {
-          // Directories first
-          if (a.isDirectory && !b.isDirectory) return -1;
-          if (!a.isDirectory && b.isDirectory) return 1;
-          
-          // Then sort by name
-          return a.name.localeCompare(b.name);
-        })
-        .map(item => {
-          // Sort children recursively
-          if (item.children) {
-            item.children = sortItems(item.children);
-          }
-          return item;
-        });
-    };
-    
-    return sortItems(result);
+    return items.map(item => ({
+      name: item.name,
+      path: item.path,
+      isDirectory: item.type === 'directory',
+      metadata: item.metadata || {},
+      children: item.children ? this.transformStructure(item.children) : []
+    }));
   }
 }

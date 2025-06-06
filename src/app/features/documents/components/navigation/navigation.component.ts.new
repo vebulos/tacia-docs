@@ -1,0 +1,39 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { NavigationService } from '../../../../core/services/navigation.service';
+import { NavItem } from '../../../../core/models/nav-item.model';
+
+@Component({
+  selector: 'app-navigation',
+  standalone: true,
+  imports: [CommonModule, RouterModule],
+  templateUrl: './navigation.component.html',
+  styleUrls: ['./navigation.component.css'],
+  providers: [NavigationService]
+})
+export class NavigationComponent implements OnInit {
+  navItems: NavItem[] = [];
+  loading = true;
+  error: string | null = null;
+
+  constructor(private navigationService: NavigationService) {}
+
+  ngOnInit(): void {
+    this.loadNavigation();
+  }
+
+  private loadNavigation(): void {
+    this.navigationService.getNavigation().subscribe({
+      next: (items: NavItem[]) => {
+        this.navItems = items;
+        this.loading = false;
+      },
+      error: (err: Error) => {
+        console.error('Failed to load navigation:', err);
+        this.error = 'Failed to load navigation';
+        this.loading = false;
+      }
+    });
+  }
+}

@@ -1,14 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule, RouterLink, RouterLinkActive } from '@angular/router';
-import { ContentService, ContentItem } from '../../core/services/content.service';
-import { Observable } from 'rxjs';
+import { RouterModule, RouterOutlet } from '@angular/router';
+import { NavigationComponent } from '../documents/components/navigation/navigation.component';
 
 @Component({
   selector: 'app-docs',
   standalone: true,
-  imports: [CommonModule, RouterModule, RouterLink, RouterLinkActive],
-  providers: [ContentService],
+  imports: [CommonModule, RouterModule, RouterOutlet, NavigationComponent],
   template: `
     <div class="flex flex-col md:flex-row h-screen bg-white dark:bg-gray-900">
       <!-- Sidebar -->
@@ -32,26 +30,8 @@ import { Observable } from 'rxjs';
             </div>
           </div>
           
-          <!-- Navigation -->
-          <nav class="space-y-1">
-            <ng-container *ngFor="let category of contentStructure">
-              <div class="mb-4">
-                <h3 class="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  {{ category.name }}
-                </h3>
-                <div class="mt-2 space-y-1">
-                  <a 
-                    *ngFor="let item of category.children"
-                    [routerLink]="[item.path]"
-                    routerLinkActive="bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400"
-                    class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white rounded-md"
-                  >
-                    <span class="truncate">{{ item.metadata?.title || item.name }}</span>
-                  </a>
-                </div>
-              </div>
-            </ng-container>
-          </nav>
+          <!-- Navigation Component -->
+          <app-navigation></app-navigation>
         </div>
       </div>
       
@@ -65,18 +45,5 @@ import { Observable } from 'rxjs';
   `,
   styles: []
 })
-export class DocsComponent implements OnInit {
-  contentStructure: ContentItem[] = [];
-  
-  constructor(private contentService: ContentService) {}
-  
-  ngOnInit() {
-    this.loadContentStructure();
-  }
-  
-  private loadContentStructure() {
-    this.contentService.getContentStructure().subscribe(structure => {
-      this.contentStructure = structure;
-    });
-  }
+export class DocsComponent {
 }
