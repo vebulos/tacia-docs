@@ -130,18 +130,6 @@
           ],
           "difficulty": "beginner"
         }
-      },
-      {
-        "name": "SOLID_java",
-        "path": "/guides/SOLID_java",
-        "type": "file",
-        "metadata": {
-          "title": "SOLID_java",
-          "categories": [
-            "guides"
-          ],
-          "tags": []
-        }
       }
     ]
   }

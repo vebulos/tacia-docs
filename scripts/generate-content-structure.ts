@@ -61,21 +61,54 @@ function scanDirectory(directory: string, basePath: string = ''): ContentItem[] 
     
     if (entry.isDirectory()) {
       const children = scanDirectory(fullPath, relativePath);
+      // Check for README.md in the directory for metadata
+      let dirMetadata: {
+        title?: string;
+        categories?: string[];
+        tags?: string[];
+        [key: string]: any;
+      } = {};
+      const readmePath = join(fullPath, 'README.md');
+      
+      if (existsSync(readmePath)) {
+        try {
+          const readmeContent = readFileSync(readmePath, 'utf8');
+          const { metadata } = readFrontMatter(readmeContent);
+          dirMetadata = metadata;
+        } catch (e) {
+          console.warn(`Error reading README.md in ${fullPath}:`, e);
+        }
+      }
+      
       items.push({
-        name: entry.name,
+        name: entry.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         path: `/${relativePath.replace(/\\/g, '/')}`,
         type: 'directory',
+        metadata: {
+          title: dirMetadata.title || entry.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          categories: Array.isArray(dirMetadata.categories) ? dirMetadata.categories : [basePath.split('/')[0] || 'uncategorized'],
+          tags: Array.isArray(dirMetadata.tags) ? dirMetadata.tags : [],
+          ...dirMetadata
+        },
         children
       });
     } else if (entry.isFile() && entry.name.endsWith('.md')) {
       const content = readFileSync(fullPath, 'utf8');
       const { metadata } = readFrontMatter(content);
       
+      // Ensure metadata has required fields
+      const fileMetadata = {
+        title: metadata.title || entry.name.replace(/\.md$/, '').replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        categories: Array.isArray(metadata.categories) ? metadata.categories : [basePath.split('/')[0] || 'uncategorized'],
+        tags: Array.isArray(metadata.tags) ? metadata.tags : [],
+        ...metadata
+      };
+      
       items.push({
-        name: entry.name.replace(/\.md$/, ''),
+        name: entry.name.replace(/\.md$/, '').replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         path: `/${relativePath.replace(/\.md$/, '').replace(/\\/g, '/')}`,
         type: 'file',
-        metadata
+        metadata: fileMetadata
       });
     }
   }

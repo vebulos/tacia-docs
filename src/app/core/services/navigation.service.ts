@@ -7,7 +7,7 @@ import { NavItem } from '../models/nav-item.model';
   providedIn: 'root'
 })
 export class NavigationService {
-  private readonly NAVIGATION_JSON = 'assets/content/navigation.json';
+  private readonly NAVIGATION_JSON = 'assets/content/structure.json';
 
   constructor(private http: HttpClient) { }
 
