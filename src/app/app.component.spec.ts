@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { RouterModule } from '@angular/router';
+import { RouterTestingModule } from '@angular/router/testing';
 import { AppComponent } from './app.component';
 import { LayoutComponent } from './core/layout/layout.component';
 
@@ -10,7 +10,7 @@ describe('AppComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [
-        RouterModule.forRoot([]),
+        RouterTestingModule,
         AppComponent,
         LayoutComponent
       ],
@@ -25,8 +25,8 @@ describe('AppComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it(`should have the 'MXC Documentation' title`, () => {
-    expect(component.title).toEqual('MXC Documentation');
+  it('should have the correct title', () => {
+    expect(component.title).toBe('MXC Documentation');
   });
 
   it('should render router outlet inside layout', () => {
