@@ -9,8 +9,7 @@ import { map } from 'rxjs/operators';
   standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './navigation.component.html',
-  styleUrls: ['./navigation.component.css'],
-  providers: [ContentService]
+  styleUrls: ['./navigation.component.css']
 })
 export class NavigationComponent implements OnInit {
   contentStructure: ContentItem[] = [];

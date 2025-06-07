@@ -8,7 +8,7 @@ export const DOCS_ROUTES: Routes = [
   },
   {
     path: 'content/:path',
-    loadComponent: () => import('../documents/components/document/document.component').then(m => m.DocumentComponent)
+    loadComponent: () => import('./components/document/document.component').then(m => m.DocumentComponent)
   },
   {
     path: '**',
