@@ -148,6 +148,33 @@ export class MarkdownService {
       }
     }
 
+    // Extract headings from markdown content first
+    const headingRegex = /^(#{1,6})\s+(.+?)(?:\s*\{#[^}]+\})?\s*$/gm;
+    let match: RegExpExecArray | null;
+    let headingText: string;
+    
+    while ((match = headingRegex.exec(content)) !== null) {
+      const level = match[1].length; // Number of # characters
+      headingText = match[2].trim();
+      
+      // Remove markdown formatting like **bold** from heading text
+      headingText = headingText.replace(/\*\*([^*]+)\*\*/g, '$1');
+      
+      // Generate an ID from the heading text
+      const id = headingText
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, '')     // Remove special characters
+        .replace(/\s+/g, '-')          // Replace spaces with hyphens
+        .replace(/-+/g, '-')            // Replace multiple hyphens with single hyphen
+        .replace(/^-+|-+$/g, '');       // Remove leading/trailing hyphens
+      
+      headings.push({
+        level,
+        id,
+        text: headingText
+      });
+    }
+    
     // Parse markdown to HTML
     try {
       // Configure marked options
@@ -178,17 +205,6 @@ export class MarkdownService {
         // If it's a Promise, we'll handle it asynchronously
         console.warn('Marked returned a Promise, but synchronous parsing was expected');
         html = 'Error: Asynchronous parsing not supported';
-      }
-
-      // Extract headings
-      const headingRegex = /<h([1-6])[^>]*id="([^"]+)"[^>]*>(.*?)<\/h[1-6]>/g;
-      let match: RegExpExecArray | null;
-      while ((match = headingRegex.exec(html)) !== null) {
-        headings.push({
-          level: parseInt(match[1], 10),
-          id: match[2],
-          text: match[3].replace(/<[^>]*>/g, ''), // Remove HTML tags from heading text
-        });
       }
     } catch (error) {
       console.error('Error parsing markdown:', error);

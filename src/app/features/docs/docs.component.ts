@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { DocumentComponent } from './components/document/document.component';
 import { CommonModule } from '@angular/common';
 import { RouterModule, RouterOutlet } from '@angular/router';
 import { NavigationComponent } from './components/navigation/navigation.component';
@@ -21,12 +22,57 @@ export interface Heading {
   templateUrl: './docs.component.html',
   styleUrls: ['./docs.component.css']
 })
-export class DocsComponent {
+export class DocsComponent implements OnInit, OnDestroy, AfterViewInit {
+  @ViewChild('routerOutlet', { static: true }) routerOutletRef!: ElementRef;
+  private documentComponent: DocumentComponent | null = null;
   headings: Heading[] = [];
+  private subscriptions: any[] = [];
 
-  onHeadingsChange(event: Event) {
-    const customEvent = event as CustomEvent<Heading[]>;
-    this.headings = customEvent.detail;
+  constructor() {}
+
+  ngOnInit() {
+    // Initialize component
+  }
+  
+  ngAfterViewInit() {
+    // This will be called after the view is initialized
+  }
+
+  ngOnDestroy() {
+    this.cleanupSubscriptions();
+  }
+
+  onHeadingsChange(component: any) {
+    console.log('Router outlet activated with component:', component);
+    
+    // Clean up previous subscriptions
+    this.cleanupSubscriptions();
+    
+    if (component instanceof DocumentComponent) {
+      this.documentComponent = component;
+      
+      // Initial update
+      this.updateHeadings(component.headings || []);
+      
+      // Subscribe to future updates
+      if (component.headingsChange) {
+        const sub = component.headingsChange.subscribe((headings: Heading[]) => {
+          console.log('Received headings via subscription:', headings);
+          this.updateHeadings(headings);
+        });
+        this.subscriptions.push(sub);
+      }
+    }
+  }
+  
+  private updateHeadings(headings: Heading[]) {
+    console.log('Updating headings:', headings);
+    this.headings = [...headings]; // Create a new array reference to trigger change detection
+  }
+  
+  private cleanupSubscriptions() {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions = [];
   }
 
   scrollToHeading(event: Event, id: string) {

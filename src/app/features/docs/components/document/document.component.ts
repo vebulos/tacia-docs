@@ -13,12 +13,13 @@ import { CommonModule } from '@angular/common';
 })
 export class DocumentComponent implements OnInit, OnDestroy {
   @Output() headingsChange = new EventEmitter<Array<{ text: string; level: number; id: string }>>();
-  private headings: Array<{ text: string; level: number; id: string }> = [];
+  public headings: Array<{ text: string; level: number; id: string }> = [];
+  private _currentPath: string | null = null;
+  private subscription: Subscription | null = null;
   
   content: string | null = null;
   loading = true;
   error: string | null = null;
-  private subscription: Subscription | null = null;
 
   private elementRef = inject(ElementRef);
 
@@ -29,60 +30,65 @@ export class DocumentComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    // Clean up any existing subscription
+    if (this.subscription) {
+      this.subscription.unsubscribe();
+    }
+    
     this.subscription = this.route.paramMap.pipe(
       switchMap(params => {
-        let path = params.get('path');
-        this.loading = true;
-        this.error = null;
-        
+        const path = params.get('path');
         if (!path) {
-          this.error = 'No document path provided';
-          this.loading = false;
-          return of<MarkdownFile | null>(null);
+          this.router.navigate(['/docs/content/getting-started/introduction']);
+          return of(null);
         }
         
-        // Ensure path has .md extension if it's a file
-        if (!path.endsWith('.md') && !path.endsWith('/')) {
-          path = `${path}.md`;
+        // Clear previous headings when path changes
+        if (this._currentPath !== path) {
+          this.headings = [];
+          this._currentPath = path;
         }
         
         return this.markdownService.getMarkdownFile(path).pipe(
-          catchError(error => {
-            console.error('Error loading markdown:', error);
+          catchError(err => {
+            console.error('Error loading markdown:', err);
             this.error = 'Failed to load document. Please try again later.';
             this.loading = false;
-            return of<MarkdownFile | null>(null);
+            return of(null);
           })
         );
       })
-    ).subscribe({
-      next: (file) => {
-        if (file) {
-          this.content = file.html;
-          if (file.headings && file.headings.length > 0) {
-            this.headings = file.headings;
-            // Emit the headings directly since we're using @Output()
-            this.headingsChange.emit(this.headings);
-            // Also dispatch a custom event for the router-outlet
-            this.elementRef.nativeElement.dispatchEvent(new CustomEvent('headingsChange', { 
-              detail: this.headings,
-              bubbles: true
-            }));
-          }
-        }
-        this.loading = false;
-      },
-      error: (error) => {
-        console.error('Error in subscription:', error);
-        this.error = 'An unexpected error occurred. Please try again later.';
-        this.loading = false;
+    ).subscribe(file => {
+      if (file) {
+        this.content = file.html;
+        
+        // Always update headings, even if empty
+        this.headings = file.headings || [];
+        console.log('Loaded markdown with headings:', this.headings);
+        
+        // Emit the headings
+        this.headingsChange.emit(this.headings);
+        
+        // Also dispatch a custom event
+        const event = new CustomEvent('headingsUpdate', { 
+          detail: this.headings,
+          bubbles: true,
+          cancelable: true
+        });
+        console.log('Dispatching custom event:', event);
+        const dispatched = this.elementRef.nativeElement.dispatchEvent(event);
+        console.log('Event dispatched successfully:', dispatched);
       }
+      this.loading = false;
     });
   }
+
+  // Removed loadMarkdown method as its logic is now in ngOnInit
 
   ngOnDestroy(): void {
     if (this.subscription) {
       this.subscription.unsubscribe();
+      this.subscription = null;
     }
   }
 

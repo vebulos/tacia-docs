@@ -28,14 +28,14 @@
   <!-- Main content -->
   <main class="main-content">
     <div class="content-wrapper">
-      <router-outlet (headingsChange)="onHeadingsChange($event)"></router-outlet>
+      <router-outlet #routerOutlet (activate)="onHeadingsChange($event)"></router-outlet>
     </div>
   </main>
   
   <!-- Right Sidebar -->
   <aside class="sidebar right-sidebar">
     <div class="p-6">
-      <h3 class="sidebar-heading">On this pageXXX</h3>
+      <h3 class="sidebar-heading">On this page</h3>
       <div class="toc">
         <ng-container *ngIf="headings.length > 0; else loadingToc">
           <ul class="space-y-2">
