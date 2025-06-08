@@ -8,7 +8,7 @@
     "watch": "npm run generate:content && npm run copy:content && ng build --watch --configuration development",
     "test": "ng test",
     "lint": "ng lint",
-    "generate:content": "tsx ./scripts/tsconfig.json scripts/generate-content-structure.ts",
+    "generate:content": "tsx scripts/generate-content-structure.ts",
     "copy:content": "node scripts/copy-content.js"
   },
   "private": true,

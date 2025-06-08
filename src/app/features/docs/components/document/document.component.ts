@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Output, EventEmitter } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MarkdownService, MarkdownFile } from '@app/core/services/markdown.service';
 import { Subscription, catchError, of, switchMap } from 'rxjs';
@@ -13,11 +13,14 @@ import { CommonModule } from '@angular/common';
 })
 export class DocumentComponent implements OnInit, OnDestroy {
   @Output() headingsChange = new EventEmitter<Array<{ text: string; level: number; id: string }>>();
+  private headings: Array<{ text: string; level: number; id: string }> = [];
   
   content: string | null = null;
   loading = true;
   error: string | null = null;
   private subscription: Subscription | null = null;
+
+  private elementRef = inject(ElementRef);
 
   constructor(
     private route: ActivatedRoute,
@@ -57,7 +60,14 @@ export class DocumentComponent implements OnInit, OnDestroy {
         if (file) {
           this.content = file.html;
           if (file.headings && file.headings.length > 0) {
-            this.headingsChange.emit(file.headings);
+            this.headings = file.headings;
+            // Emit the headings directly since we're using @Output()
+            this.headingsChange.emit(this.headings);
+            // Also dispatch a custom event for the router-outlet
+            this.elementRef.nativeElement.dispatchEvent(new CustomEvent('headingsChange', { 
+              detail: this.headings,
+              bubbles: true
+            }));
           }
         }
         this.loading = false;

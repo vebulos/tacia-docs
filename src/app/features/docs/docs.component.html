@@ -28,22 +28,37 @@
   <!-- Main content -->
   <main class="main-content">
     <div class="content-wrapper">
-      <router-outlet></router-outlet>
+      <router-outlet (headingsChange)="onHeadingsChange($event)"></router-outlet>
     </div>
   </main>
   
   <!-- Right Sidebar -->
   <aside class="sidebar right-sidebar">
     <div class="p-6">
-      <h3 class="sidebar-heading">On this page</h3>
+      <h3 class="sidebar-heading">On this pageXXX</h3>
       <div class="toc">
-        <!-- Table of contents will be populated here -->
-        <div class="animate-pulse space-y-2">
-          <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-          <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 ml-4"></div>
-          <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 ml-4"></div>
-          <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
-        </div>
+        <ng-container *ngIf="headings.length > 0; else loadingToc">
+          <ul class="space-y-2">
+            <li *ngFor="let heading of headings" 
+                [class.ml-4]="heading.level > 2"
+                [class.ml-8]="heading.level > 3">
+              <a 
+                [href]="'#' + heading.id" 
+                class="text-sm text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors"
+                (click)="scrollToHeading($event, heading.id)">
+                {{ heading.text }}
+              </a>
+            </li>
+          </ul>
+        </ng-container>
+        <ng-template #loadingToc>
+          <div class="animate-pulse space-y-2">
+            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 ml-4"></div>
+            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 ml-4"></div>
+            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+          </div>
+        </ng-template>
       </div>
       
       <div class="related-links">

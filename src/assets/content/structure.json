@@ -144,5 +144,47 @@
         }
       }
     ]
+  },
+  {
+    "name": "Guides2",
+    "path": "/guides2",
+    "type": "directory",
+    "metadata": {
+      "title": "Guides2",
+      "categories": [
+        "uncategorized"
+      ],
+      "tags": []
+    },
+    "children": [
+      {
+        "name": "Getting Started",
+        "path": "/guides2/getting-started",
+        "type": "file",
+        "metadata": {
+          "title": "Getting Started with Our Framework",
+          "categories": [
+            "guides"
+          ],
+          "tags": [
+            "tutorial",
+            "beginner"
+          ],
+          "difficulty": "beginner"
+        }
+      },
+      {
+        "name": "SOLID_java",
+        "path": "/guides2/SOLID_java",
+        "type": "file",
+        "metadata": {
+          "title": "SOLID_java",
+          "categories": [
+            "guides2"
+          ],
+          "tags": []
+        }
+      }
+    ]
   }
 ]
