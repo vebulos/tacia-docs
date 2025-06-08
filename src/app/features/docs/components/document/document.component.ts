@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, EventEmitter } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MarkdownService, MarkdownFile } from '@app/core/services/markdown.service';
 import { Subscription, catchError, of, switchMap } from 'rxjs';
@@ -12,6 +12,8 @@ import { CommonModule } from '@angular/common';
   styleUrls: ['./document.component.css']
 })
 export class DocumentComponent implements OnInit, OnDestroy {
+  @Output() headingsChange = new EventEmitter<Array<{ text: string; level: number; id: string }>>();
+  
   content: string | null = null;
   loading = true;
   error: string | null = null;
@@ -54,6 +56,9 @@ export class DocumentComponent implements OnInit, OnDestroy {
       next: (file) => {
         if (file) {
           this.content = file.html;
+          if (file.headings && file.headings.length > 0) {
+            this.headingsChange.emit(file.headings);
+          }
         }
         this.loading = false;
       },
