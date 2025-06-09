@@ -139,14 +139,31 @@ export class DocumentComponent implements OnInit, OnDestroy {
         // Try exact match first
         let element = document.getElementById(fragment);
         
-        // If not found, try decoding the fragment
+        // If not found, try decoding the fragment (for encoded umlauts)
         if (!element) {
-          element = document.getElementById(decodeURIComponent(fragment));
+          const decodedFragment = decodeURIComponent(fragment);
+          element = document.getElementById(decodedFragment);
+          
+          // If still not found, try to find by URL-encoded version of the fragment
+          if (!element && fragment !== decodedFragment) {
+            element = document.getElementById(encodeURIComponent(decodedFragment));
+          }
         }
         
         // If still not found, try to find a partial match (for backward compatibility)
         if (!element) {
-          const elements = document.querySelectorAll(`[id*="${fragment}"]`);
+          // Try with the original fragment
+          let elements = Array.from(document.querySelectorAll(`[id*="${fragment}"]`));
+          
+          // If no matches, try with decoded fragment
+          if (elements.length === 0) {
+            const decodedFragment = decodeURIComponent(fragment);
+            if (decodedFragment !== fragment) {
+              elements = Array.from(document.querySelectorAll(`[id*="${decodedFragment}"]`));
+            }
+          }
+          
+          // If we found elements, use the first one
           if (elements.length > 0) {
             element = elements[0] as HTMLElement;
           }
@@ -183,18 +200,36 @@ export class DocumentComponent implements OnInit, OnDestroy {
     try {
       const doc = parseHtml(`<div>${html}</div>`);
       
+      // Function to create a URL-friendly ID from text (matching the TOC generation)
+      const createId = (text: string): string => {
+        // Replace umlauts with their non-umlaut equivalents first
+        const umlautMap: {[key: string]: string} = {
+          'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 'ss',
+          'Ä': 'A', 'Ö': 'O', 'Ü': 'U',
+          'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'å': 'a',
+          'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+          'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
+          'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ø': 'o',
+          'ù': 'u', 'ú': 'u', 'û': 'u',
+          'ý': 'y', 'ÿ': 'y',
+          'ñ': 'n', 'ç': 'c', 'æ': 'ae', 'œ': 'oe'
+        };
+        
+        return text.trim()
+          .toLowerCase()
+          .replace(/[äöüßáàâãåéèêëíìîïóòôõøúùûýÿñçæœ]/g, match => umlautMap[match] || match)
+          .replace(/[^\w\s-]/g, '')  // Remove any remaining special chars
+          .replace(/\s+/g, '-')      // Replace spaces with -
+          .replace(/-+/g, '-')       // Replace multiple - with single -
+          .replace(/^-+|-+$/g, '');  // Remove leading/trailing -
+      };
+
       // Ensure all headings have IDs that match their fragment links
       const headings = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
       headings.forEach(heading => {
         if (!heading.id) {
-          // Generate ID from text content if not set
           const text = heading.textContent || '';
-          const id = text.trim()
-            .toLowerCase()
-            .replace(/[^\w\s-]/g, '')  // Remove special chars
-            .replace(/\s+/g, '-')       // Replace spaces with -
-            .replace(/-+/g, '-')         // Replace multiple - with single -
-            .replace(/^-+|-+$/g, '');    // Remove leading/trailing -
+          const id = createId(text);
           if (id) {
             heading.id = id;
           }
@@ -208,19 +243,41 @@ export class DocumentComponent implements OnInit, OnDestroy {
         if (href && href.startsWith('#')) {
           const fragment = href.substring(1);
           if (fragment) {
-            // Update the href to include the current path
+            // Create an ID that matches the TOC generation (without umlauts)
+            const normalizedId = createId(fragment);
+            
+            // If the fragment contains URL-encoded characters, try to decode it first
+            let decodedFragment = fragment;
+            try {
+              decodedFragment = decodeURIComponent(fragment);
+            } catch (e) {
+              // If decoding fails, use the original fragment
+              console.warn('Failed to decode fragment:', fragment);
+            }
+            
+            // Create a clean ID from the decoded fragment
+            const cleanId = createId(decodedFragment);
+            
+            // Update the href to use the clean ID
             const currentPath = this.router.url.split('#')[0];
-            link.setAttribute('href', `${currentPath}#${fragment}`);
+            link.setAttribute('href', `${currentPath}#${cleanId}`);
             
             // Add click handler for smooth scrolling
             link.addEventListener('click', (event) => {
               event.preventDefault();
+              
+              // Navigate using the clean ID
               this.router.navigate([], {
-                fragment: fragment,
+                fragment: cleanId,
                 replaceUrl: true
               }).then(() => {
-                const element = document.getElementById(fragment) || 
+                // Try multiple ways to find the target element
+                const element = document.getElementById(cleanId) || 
+                               document.getElementById(fragment) ||
+                               document.getElementById(decodedFragment) ||
+                               document.getElementById(encodeURIComponent(decodedFragment)) ||
                                document.getElementById(decodeURIComponent(fragment));
+                
                 if (element) {
                   element.scrollIntoView({ behavior: 'smooth' });
                 }

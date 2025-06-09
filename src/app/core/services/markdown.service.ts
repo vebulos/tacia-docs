@@ -160,13 +160,26 @@ export class MarkdownService {
       // Remove markdown formatting like **bold** from heading text
       headingText = headingText.replace(/\*\*([^*]+)\*\*/g, '$1');
       
-      // Generate an ID from the heading text
+      // Generate an ID from the heading text (matching the document component's logic)
+      const umlautMap: {[key: string]: string} = {
+        'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 'ss',
+        'Ä': 'A', 'Ö': 'O', 'Ü': 'U',
+        'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'å': 'a',
+        'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+        'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
+        'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ø': 'o',
+        'ù': 'u', 'ú': 'u', 'û': 'u',
+        'ý': 'y', 'ÿ': 'y',
+        'ñ': 'n', 'ç': 'c', 'æ': 'ae', 'œ': 'oe'
+      };
+      
       const id = headingText
         .toLowerCase()
-        .replace(/[^\w\s-]/g, '')     // Remove special characters
-        .replace(/\s+/g, '-')          // Replace spaces with hyphens
-        .replace(/-+/g, '-')            // Replace multiple hyphens with single hyphen
-        .replace(/^-+|-+$/g, '');       // Remove leading/trailing hyphens
+        .replace(/[äöüßáàâãåéèêëíìîïóòôõøúùûýÿñçæœ]/g, match => umlautMap[match] || match)
+        .replace(/[^\w\s-]/g, '')  // Remove any remaining special chars
+        .replace(/\s+/g, '-')      // Replace spaces with -
+        .replace(/-+/g, '-')       // Replace multiple - with single -
+        .replace(/^-+|-+$/g, '');  // Remove leading/trailing -
       
       headings.push({
         level,
