@@ -47,9 +47,11 @@ export class DocumentComponent implements OnInit, OnDestroy {
       this.subscription.unsubscribe();
     }
     
-    this.subscription = this.route.paramMap.pipe(
-      switchMap(params => {
-        const path = params.get('path');
+    this.subscription = this.route.url.pipe(
+      switchMap(urlSegments => {
+        // Get the full path from URL segments
+        const path = urlSegments.map(s => s.path).join('/');
+        
         if (!path) {
           this.router.navigate(['/docs/content/getting-started/introduction']);
           return of(null);
@@ -61,6 +63,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
           this._currentPath = path;
         }
         
+        // Pass the path to the markdown service
         return this.markdownService.getMarkdownFile(path).pipe(
           catchError(err => {
             console.error('Error loading markdown:', err);
@@ -132,9 +135,12 @@ export class DocumentComponent implements OnInit, OnDestroy {
       links.forEach(link => {
         const href = link.getAttribute('href');
         if (href && href.startsWith('#')) {
-          // Only update if it's a fragment link and not already containing the path
-          if (!href.startsWith(`#${currentPath}`)) {
-            link.setAttribute('href', `${currentPath}${href}`);
+          // Get the fragment (without #)
+          const fragment = href.substring(1);
+          if (fragment) {
+            // Keep the fragment as is - the browser will handle scrolling to the element
+            // The element IDs are already set in the markdown content
+            link.setAttribute('href', `#${fragment}`);
           }
         }
       });

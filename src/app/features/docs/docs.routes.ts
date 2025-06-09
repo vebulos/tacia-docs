@@ -7,8 +7,13 @@ export const DOCS_ROUTES: Routes = [
     pathMatch: 'full'
   },
   {
-    path: 'content/:path',
-    loadComponent: () => import('./components/document/document.component').then(m => m.DocumentComponent)
+    path: 'content',
+    children: [
+      {
+        path: '**',
+        loadComponent: () => import('./components/document/document.component').then(m => m.DocumentComponent)
+      }
+    ]
   },
   {
     path: '**',
