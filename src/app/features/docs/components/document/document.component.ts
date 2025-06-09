@@ -5,6 +5,16 @@ import { MarkdownService, MarkdownFile } from '@app/core/services/markdown.servi
 import { Subscription, catchError, of, switchMap } from 'rxjs';
 import { CommonModule } from '@angular/common';
 
+// Simple DOM parser to safely manipulate HTML
+const parseHtml = (html: string): Document => {
+  const parser = new DOMParser();
+  return parser.parseFromString(html, 'text/html');
+};
+
+const serializeDocument = (doc: Document): string => {
+  return doc.documentElement.outerHTML;
+};
+
 @Component({
   standalone: true,
   imports: [CommonModule],
@@ -80,8 +90,11 @@ export class DocumentComponent implements OnInit, OnDestroy {
           }
         });
         
+        // Process fragment links in the HTML
+        const processedHtml = this.processHtmlLinks(tempDiv.innerHTML, this._currentPath || '');
+        
         // Mark the HTML as safe to render
-        this.content = this.sanitizer.bypassSecurityTrustHtml(tempDiv.innerHTML);
+        this.content = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
         
         // Always update headings, even if empty
         this.headings = file.headings || [];
@@ -110,6 +123,29 @@ export class DocumentComponent implements OnInit, OnDestroy {
   }
 
   // Removed loadMarkdown method as its logic is now in ngOnInit
+
+  private processHtmlLinks(html: string, currentPath: string): string {
+    try {
+      const doc = parseHtml(`<div>${html}</div>`);
+      const links = doc.querySelectorAll('a[href^="#"]');
+      
+      links.forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && href.startsWith('#')) {
+          // Only update if it's a fragment link and not already containing the path
+          if (!href.startsWith(`#${currentPath}`)) {
+            link.setAttribute('href', `${currentPath}${href}`);
+          }
+        }
+      });
+      
+      // Return the innerHTML of our wrapper div
+      return doc.body.innerHTML;
+    } catch (error) {
+      console.error('Error processing HTML links:', error);
+      return html; // Return original HTML if processing fails
+    }
+  }
 
   ngOnDestroy(): void {
     if (this.subscription) {

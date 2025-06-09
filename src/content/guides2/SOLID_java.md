@@ -151,11 +151,11 @@ class Switch {
 ### **Zusammenfassung der SOLID-Prinzipien**  
 | Prinzip                      | Kurzregel                                  | Beispiel-Java-Code |  
 |------------------------------|-------------------------------------------|--------------------|  
-| **Single Responsibility**    | Eine Klasse = eine Aufgabe.               | [Beispiel](#1-s--single-responsibility-eine-aufgabe-pro-klasse) |  
-| **Open-Closed**              | Erweitern, nicht ändern.                  | [Beispiel](#2-o--open-closed-offen-für-erweiterung-geschlossen-für-modifikation) |  
-| **Liskov Substitution**      | Subklassen sollten Eltern ersetzen können. | [Beispiel](#3-l--liskov-substitution-ersetzbarkeit-durch-subklassen) |  
-| **Interface Segregation**    | Keine überflüssigen Methoden in Interfaces. | [Beispiel](#4-i--interface-segregation-kleine-spezifische-interfaces) |  
-| **Dependency Inversion**     | Abhängigkeiten von Abstraktionen, nicht Implementierungen. | [Beispiel](#5-d--dependency-inversion-abhängigkeiten-von-abstraktionen) |  
+| **Single Responsibility**    | Eine Klasse = eine Aufgabe.               | [Beispiel](#1-s-single-responsibility-eine-aufgabe-pro-klasse) |  
+| **Open-Closed**              | Erweitern, nicht ändern.                  | [Beispiel](#2-o-open-closed-offen-für-erweiterung-geschlossen-für-modifikation) |  
+| **Liskov Substitution**      | Subklassen sollten Eltern ersetzen können. | [Beispiel](#3-l-liskov-substitution-ersetzbarkeit-durch-subklassen) |  
+| **Interface Segregation**    | Keine überflüssigen Methoden in Interfaces. | [Beispiel](#4-i-interface-segregation-kleine-spezifische-interfaces) |  
+| **Dependency Inversion**     | Abhängigkeiten von Abstraktionen, nicht Implementierungen. | [Beispiel](#5-d-dependency-inversion-abhängigkeiten-von-abstraktionen) |  
 
 Diese Prinzipien machen Code **flexibler, testbarer und wartbarer** – besonders in großen Projekten! 🚀  
 
