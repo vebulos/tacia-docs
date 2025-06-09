@@ -25,7 +25,12 @@
         (mouseenter)="onCategoryMouseEnter(category)"
         class="px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50 cursor-pointer flex justify-between items-center rounded-md"
       >
-        <span>{{ category.metadata?.title || category.name }}</span>
+        <div class="flex items-center">
+          <svg class="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          </svg>
+          <span>{{ category.metadata?.title || category.name }}</span>
+        </div>
         <svg 
           [class.transform]="category.isOpen" 
           [class.rotate-180]="category.isOpen"
@@ -47,11 +52,11 @@
           <!-- Directory -->
           <div *ngIf="item.isDirectory">
             <!-- Directory Header -->
-            <div class="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center">
-              <svg class="w-4 h-4 mr-1.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            <div class="pl-6 pr-3 py-1.5 text-sm font-normal text-gray-600 dark:text-gray-300 flex items-center hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded-md">
+              <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
               </svg>
-              {{ item.metadata?.title || item.name }}
+              <span class="flex-1">{{ item.metadata?.title || item.name }}</span>
             </div>
             
             <!-- Directory Children -->
@@ -74,9 +79,9 @@
             [routerLink]="'/docs/content/' + item.path"
             [queryParams]="{}"
             routerLinkActive="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-            class="flex items-center px-3 py-1.5 text-sm font-normal text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white rounded-md"
+            class="flex items-center pl-6 pr-3 py-1.5 text-sm font-normal text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white rounded-md"
           >
-            <svg class="w-4 h-4 mr-1.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <span class="truncate">{{ item.metadata?.title || item.name }}</span>
