@@ -100,10 +100,28 @@ export class NavigationComponent implements OnInit {
     return false;
   }
 
-  // Handle category mouse enter
+  private hoverTimeout: any = null;
+
+  // Handle category mouse enter with delay
   onCategoryMouseEnter(category: any): void {
     if (this.activeCategory !== category.path) {
-      category.isOpen = true;
+      // Clear any existing timeout to prevent multiple triggers
+      if (this.hoverTimeout) {
+        clearTimeout(this.hoverTimeout);
+      }
+      
+      // Set a new timeout to open the category after 300ms
+      this.hoverTimeout = setTimeout(() => {
+        category.isOpen = true;
+      }, 300);
+    }
+  }
+
+  // Handle category mouse leave to cancel pending expansion
+  onCategoryMouseLeave(category: any): void {
+    if (this.hoverTimeout) {
+      clearTimeout(this.hoverTimeout);
+      this.hoverTimeout = null;
     }
   }
 
