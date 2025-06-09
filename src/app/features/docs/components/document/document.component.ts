@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject, SecurityContext } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, ParamMap } from '@angular/router';
 import { MarkdownService, MarkdownFile } from '@app/core/services/markdown.service';
 import { Subscription, catchError, of, switchMap } from 'rxjs';
 import { CommonModule } from '@angular/common';
@@ -50,10 +50,10 @@ export class DocumentComponent implements OnInit, OnDestroy {
     // Handle fragment navigation when component loads
     this.handleFragmentNavigation();
     
-    this.subscription = this.route.url.pipe(
-      switchMap(urlSegments => {
-        // Get the full path from URL segments
-        const path = urlSegments.map(s => s.path).join('/');
+    this.subscription = this.route.paramMap.pipe(
+      switchMap((params: ParamMap) => {
+        // Get the full path from the path parameter
+        const path = params.get('path') || '';
         
         if (!path) {
           this.router.navigate(['/docs/content/getting-started/introduction']);
@@ -236,11 +236,23 @@ export class DocumentComponent implements OnInit, OnDestroy {
         }
       });
       
-      // Process all fragment links
-      const links = doc.querySelectorAll('a[href^="#"]');
+      // Process all links
+      const links = doc.querySelectorAll('a[href]');
       links.forEach(link => {
         const href = link.getAttribute('href');
-        if (href && href.startsWith('#')) {
+        
+        // Handle relative URLs
+        if (href && !href.startsWith('http') && !href.startsWith('#')) {
+          // For relative URLs, ensure they're properly formatted with literal slashes
+          const basePath = currentPath.split('/').slice(0, -1).join('/');
+          const newHref = `/${basePath ? basePath + '/' : ''}${href}`.replace(/\/\//g, '/');
+          
+          // Use setAttributeNS to prevent Angular from URL-encoding the slashes
+          link.removeAttribute('href');
+          link.setAttribute('href', newHref);
+        }
+        // Handle fragment links
+        else if (href && href.startsWith('#')) {
           const fragment = href.substring(1);
           if (fragment) {
             // Create an ID that matches the TOC generation (without umlauts)

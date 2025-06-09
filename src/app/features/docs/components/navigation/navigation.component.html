@@ -40,7 +40,8 @@
             <div class="ml-6 border-l border-gray-200 dark:border-gray-700 pl-2 space-y-0.5">
               <a 
                 *ngFor="let child of item.children" 
-                [routerLink]="['/docs/content', child.path]"
+                [routerLink]="'/docs/content/' + child.path"
+                [queryParams]="{}"
                 routerLinkActive="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-l-2 border-blue-500"
                 class="block pl-3 pr-2 py-1.5 text-sm font-normal text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white rounded-r-md"
               >
@@ -52,7 +53,8 @@
           <!-- Regular file -->
           <a 
             *ngIf="!item.isDirectory" 
-            [routerLink]="['/docs/content', item.path]"
+            [routerLink]="'/docs/content/' + item.path"
+            [queryParams]="{}"
             routerLinkActive="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
             class="flex items-center px-3 py-1.5 text-sm font-normal text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white rounded-md"
           >
