@@ -15,7 +15,35 @@
   margin-right: -50vw;
 }
 
+/* Sidebar styles */
+.left-sidebar {
+  background-color: white;
+  height: 100%;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.main-content {
+  background-color: white;
+  min-height: 100vh;
+  z-index: 5;
+}
+
+.right-sidebar {
+  background-color: white;
+  height: 100%;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+/* Dark mode styles */
 .dark .docs-container {
+  background-color: #111827; /* bg-gray-900 */
+}
+
+.dark .left-sidebar,
+.dark .main-content,
+.dark .right-sidebar {
   background-color: #111827; /* bg-gray-900 */
 }
 

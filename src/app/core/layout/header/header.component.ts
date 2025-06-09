@@ -7,9 +7,9 @@ import { RouterModule } from '@angular/router';
   standalone: true,
   imports: [CommonModule, RouterModule],
   template: `
-    <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
+    <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-20 h-16">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16">
+        <div class="flex justify-between items-center h-16">
           <div class="flex items-center">
             <a routerLink="/" class="flex items-center">
               <span class="text-xl font-bold text-gray-900 dark:text-white">MXC</span>
