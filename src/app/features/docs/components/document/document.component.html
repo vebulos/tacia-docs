@@ -29,7 +29,10 @@
   <!-- Content -->
   <div *ngIf="content && !loading && !error" class="w-full h-full">
     <div class="w-full h-full px-8 py-8">
-      <div class="prose dark:prose-invert w-full max-w-none" [innerHTML]="content"></div>
+      <div class="prose dark:prose-invert w-full max-w-none" 
+           [innerHTML]="content"
+           (click)="onContentClick($event)">
+      </div>
     </div>
   </div>
 </div>

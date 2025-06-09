@@ -47,6 +47,9 @@ export class DocumentComponent implements OnInit, OnDestroy {
       this.subscription.unsubscribe();
     }
     
+    // Handle fragment navigation when component loads
+    this.handleFragmentNavigation();
+    
     this.subscription = this.route.url.pipe(
       switchMap(urlSegments => {
         // Get the full path from URL segments
@@ -127,25 +130,106 @@ export class DocumentComponent implements OnInit, OnDestroy {
 
   // Removed loadMarkdown method as its logic is now in ngOnInit
 
+  // Handle fragment links in the URL when component loads
+  private handleFragmentNavigation() {
+    // Wait for the content to be rendered
+    setTimeout(() => {
+      const fragment = this.router.parseUrl(this.router.url).fragment;
+      if (fragment) {
+        // Try exact match first
+        let element = document.getElementById(fragment);
+        
+        // If not found, try decoding the fragment
+        if (!element) {
+          element = document.getElementById(decodeURIComponent(fragment));
+        }
+        
+        // If still not found, try to find a partial match (for backward compatibility)
+        if (!element) {
+          const elements = document.querySelectorAll(`[id*="${fragment}"]`);
+          if (elements.length > 0) {
+            element = elements[0] as HTMLElement;
+          }
+        }
+        
+        // Scroll to the element if found
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    }, 100);
+  }
+  
+  // Handle clicks on fragment links
+  onContentClick(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    const link = target.closest('a[href^="#"]') as HTMLAnchorElement;
+    
+    if (link) {
+      // Let the browser handle the fragment navigation
+      // We'll handle the scrolling in handleFragmentNavigation
+      const fragment = link.getAttribute('href');
+      if (fragment) {
+        // Update URL without page reload
+        history.pushState(null, '', fragment);
+        // Trigger fragment handling
+        this.handleFragmentNavigation();
+        event.preventDefault();
+      }
+    }
+  }
+
   private processHtmlLinks(html: string, currentPath: string): string {
     try {
       const doc = parseHtml(`<div>${html}</div>`);
-      const links = doc.querySelectorAll('a[href^="#"]');
       
-      links.forEach(link => {
-        const href = link.getAttribute('href');
-        if (href && href.startsWith('#')) {
-          // Get the fragment (without #)
-          const fragment = href.substring(1);
-          if (fragment) {
-            // Keep the fragment as is - the browser will handle scrolling to the element
-            // The element IDs are already set in the markdown content
-            link.setAttribute('href', `#${fragment}`);
+      // Ensure all headings have IDs that match their fragment links
+      const headings = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      headings.forEach(heading => {
+        if (!heading.id) {
+          // Generate ID from text content if not set
+          const text = heading.textContent || '';
+          const id = text.trim()
+            .toLowerCase()
+            .replace(/[^\w\s-]/g, '')  // Remove special chars
+            .replace(/\s+/g, '-')       // Replace spaces with -
+            .replace(/-+/g, '-')         // Replace multiple - with single -
+            .replace(/^-+|-+$/g, '');    // Remove leading/trailing -
+          if (id) {
+            heading.id = id;
           }
         }
       });
       
-      // Return the innerHTML of our wrapper div
+      // Process all fragment links
+      const links = doc.querySelectorAll('a[href^="#"]');
+      links.forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && href.startsWith('#')) {
+          const fragment = href.substring(1);
+          if (fragment) {
+            // Update the href to include the current path
+            const currentPath = this.router.url.split('#')[0];
+            link.setAttribute('href', `${currentPath}#${fragment}`);
+            
+            // Add click handler for smooth scrolling
+            link.addEventListener('click', (event) => {
+              event.preventDefault();
+              this.router.navigate([], {
+                fragment: fragment,
+                replaceUrl: true
+              }).then(() => {
+                const element = document.getElementById(fragment) || 
+                               document.getElementById(decodeURIComponent(fragment));
+                if (element) {
+                  element.scrollIntoView({ behavior: 'smooth' });
+                }
+              });
+            });
+          }
+        }
+      });
+      
       return doc.body.innerHTML;
     } catch (error) {
       console.error('Error processing HTML links:', error);
