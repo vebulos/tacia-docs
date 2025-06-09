@@ -18,13 +18,31 @@
 
   <!-- Navigation Items -->
   <ng-container *ngIf="!loading && !error">
-    <div *ngFor="let category of contentStructure">
+    <div *ngFor="let category of contentStructure" class="relative">
       <!-- Category Header -->
-      <div class="px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800/50">
-        {{ category.metadata?.title || category.name }}
+      <div 
+        (click)="onCategoryClick(category, $event)"
+        (mouseenter)="onCategoryMouseEnter(category)"
+        class="px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50 cursor-pointer flex justify-between items-center rounded-md"
+      >
+        <span>{{ category.metadata?.title || category.name }}</span>
+        <svg 
+          [class.transform]="category.isOpen" 
+          [class.rotate-180]="category.isOpen"
+          class="w-4 h-4 text-gray-400 transition-transform duration-200" 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke="currentColor"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
       </div>
       
-      <div class="mt-1 space-y-0.5">
+      <div 
+        *ngIf="category.isOpen" 
+        class="mt-1 space-y-0.5 transition-all duration-200 ease-in-out overflow-hidden"
+        [@slideInOut]="category.isOpen ? 'expanded' : 'collapsed'"
+      >
         <ng-container *ngFor="let item of category.children">
           <!-- Directory -->
           <div *ngIf="item.isDirectory">

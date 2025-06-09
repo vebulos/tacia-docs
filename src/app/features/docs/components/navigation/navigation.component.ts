@@ -1,22 +1,53 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { ContentService, ContentItem } from '../../../../core/services/content.service';
-import { map } from 'rxjs/operators';
+import { map, filter } from 'rxjs/operators';
+import { NavigationEnd } from '@angular/router';
+import { animate, state, style, transition, trigger } from '@angular/animations';
 
 @Component({
   selector: 'app-navigation',
   standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './navigation.component.html',
-  styleUrls: ['./navigation.component.css']
+  styleUrls: ['./navigation.component.css'],
+  animations: [
+    trigger('slideInOut', [
+      state('expanded', style({
+        height: '*',
+        opacity: 1,
+        visibility: 'visible'
+      })),
+      state('collapsed', style({
+        height: '0',
+        opacity: 0,
+        visibility: 'hidden',
+        overflow: 'hidden'
+      })),
+      transition('expanded <=> collapsed', [
+        animate('200ms ease-in-out')
+      ])
+    ])
+  ]
 })
 export class NavigationComponent implements OnInit {
-  contentStructure: ContentItem[] = [];
+  contentStructure: (ContentItem & { isOpen?: boolean })[] = [];
   loading = true;
   error: string | null = null;
+  activeCategory: string | null = null;
 
-  constructor(private contentService: ContentService) {}
+  constructor(
+    private contentService: ContentService,
+    private router: Router
+  ) {
+    // Keep track of the active route to keep categories open
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe(() => {
+      this.updateActiveStates();
+    });
+  }
 
   ngOnInit(): void {
     this.loadNavigation();
@@ -27,7 +58,11 @@ export class NavigationComponent implements OnInit {
       map(items => this.transformContentItems(items))
     ).subscribe({
       next: (items: ContentItem[]) => {
-        this.contentStructure = items;
+        this.contentStructure = items.map(item => ({
+          ...item,
+          isOpen: false
+        }));
+        this.updateActiveStates();
         this.loading = false;
       },
       error: (err: Error) => {
@@ -38,8 +73,49 @@ export class NavigationComponent implements OnInit {
     });
   }
 
+  // Update active states based on current route
+  private updateActiveStates(): void {
+    const currentPath = this.router.url.replace(/^\/docs\/content\/?/, '');
+    
+    this.contentStructure.forEach(category => {
+      // Check if any item in this category matches the current path
+      const hasActiveChild = this.hasActiveChild(category, currentPath);
+      if (hasActiveChild) {
+        category.isOpen = true;
+        this.activeCategory = category.path;
+      }
+    });
+  }
+
+  // Recursively check if any child matches the current path
+  private hasActiveChild(item: ContentItem, currentPath: string): boolean {
+    if (!item.isDirectory && item.path === currentPath) {
+      return true;
+    }
+    
+    if (item.children) {
+      return item.children.some(child => this.hasActiveChild(child, currentPath));
+    }
+    
+    return false;
+  }
+
+  // Handle category mouse enter
+  onCategoryMouseEnter(category: any): void {
+    if (this.activeCategory !== category.path) {
+      category.isOpen = true;
+    }
+  }
+
+  // Handle category click
+  onCategoryClick(category: any, event: Event): void {
+    event.stopPropagation();
+    this.activeCategory = category.path;
+    category.isOpen = !category.isOpen;
+  }
+
   // Transform the content items to ensure paths are correct
-  private transformContentItems(items: ContentItem[]): ContentItem[] {
+  private transformContentItems(items: ContentItem[]): (ContentItem & { isOpen?: boolean })[] {
     return items.map(item => {
       // Remove leading slash from path if present
       const path = item.path.startsWith('/') ? item.path.substring(1) : item.path;
