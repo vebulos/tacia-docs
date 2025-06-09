@@ -1,4 +1,5 @@
-import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject, SecurityContext } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MarkdownService, MarkdownFile } from '@app/core/services/markdown.service';
 import { Subscription, catchError, of, switchMap } from 'rxjs';
@@ -17,7 +18,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
   private _currentPath: string | null = null;
   private subscription: Subscription | null = null;
   
-  content: string | null = null;
+  content: SafeHtml | null = null;
   loading = true;
   error: string | null = null;
 
@@ -26,7 +27,8 @@ export class DocumentComponent implements OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private markdownService: MarkdownService
+    private markdownService: MarkdownService,
+    private sanitizer: DomSanitizer
   ) {}
 
   ngOnInit(): void {
@@ -60,23 +62,26 @@ export class DocumentComponent implements OnInit, OnDestroy {
       })
     ).subscribe(file => {
       if (file) {
-        // Process the HTML to add IDs to headings
-        let processedHtml = file.html;
+        // Create a temporary div to manipulate the HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = file.html;
         
         // Add IDs to all heading elements
         file.headings.forEach(heading => {
-          const headingRegex = new RegExp(
-            `<h${heading.level}[^>]*>${this.escapeRegExp(heading.text)}<\/h${heading.level}>`,
-            'i'
+          // Find the heading by its text content
+          const headings = Array.from(tempDiv.querySelectorAll(`h${heading.level}`));
+          const targetHeading = headings.find(h => 
+            h.textContent?.trim() === heading.text.trim()
           );
           
-          processedHtml = processedHtml.replace(
-            headingRegex,
-            `<h${heading.level} id="${heading.id}">${heading.text}</h${heading.level}>`
-          );
+          // If we found the heading, add the ID
+          if (targetHeading && !targetHeading.id) {
+            targetHeading.id = heading.id;
+          }
         });
         
-        this.content = processedHtml;
+        // Mark the HTML as safe to render
+        this.content = this.sanitizer.bypassSecurityTrustHtml(tempDiv.innerHTML);
         
         // Always update headings, even if empty
         this.headings = file.headings || [];
