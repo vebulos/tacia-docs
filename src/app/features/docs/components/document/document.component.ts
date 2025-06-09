@@ -60,7 +60,23 @@ export class DocumentComponent implements OnInit, OnDestroy {
       })
     ).subscribe(file => {
       if (file) {
-        this.content = file.html;
+        // Process the HTML to add IDs to headings
+        let processedHtml = file.html;
+        
+        // Add IDs to all heading elements
+        file.headings.forEach(heading => {
+          const headingRegex = new RegExp(
+            `<h${heading.level}[^>]*>${this.escapeRegExp(heading.text)}<\/h${heading.level}>`,
+            'i'
+          );
+          
+          processedHtml = processedHtml.replace(
+            headingRegex,
+            `<h${heading.level} id="${heading.id}">${heading.text}</h${heading.level}>`
+          );
+        });
+        
+        this.content = processedHtml;
         
         // Always update headings, even if empty
         this.headings = file.headings || [];
@@ -81,6 +97,11 @@ export class DocumentComponent implements OnInit, OnDestroy {
       }
       this.loading = false;
     });
+  }
+  
+  // Helper function to escape special regex characters
+  private escapeRegExp(string: string): string {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   // Removed loadMarkdown method as its logic is now in ngOnInit

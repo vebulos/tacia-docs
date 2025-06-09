@@ -1,7 +1,9 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { DocumentComponent } from './components/document/document.component';
 import { CommonModule } from '@angular/common';
-import { RouterModule, RouterOutlet } from '@angular/router';
+import { Router, ActivatedRoute, RouterOutlet, RouterModule, NavigationEnd } from '@angular/router';
+import { Subject, Subscription } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { NavigationComponent } from './components/navigation/navigation.component';
 
 export interface Heading {
@@ -22,69 +24,132 @@ export interface Heading {
   templateUrl: './docs.component.html',
   styleUrls: ['./docs.component.css']
 })
-export class DocsComponent implements OnInit, OnDestroy, AfterViewInit {
+export class DocsComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('routerOutlet', { static: true }) routerOutletRef!: ElementRef;
-  private documentComponent: DocumentComponent | null = null;
-  headings: Heading[] = [];
-  private subscriptions: any[] = [];
-
-  constructor() {}
-
-  ngOnInit() {
-    // Initialize component
-  }
   
-  ngAfterViewInit() {
+  headings: Heading[] = [];
+  currentPath: string = '';
+  
+  private documentComponent: DocumentComponent | null = null;
+  private subscriptions: Subscription[] = [];
+  private destroy$ = new Subject<void>();
+
+  constructor(private router: Router, private route: ActivatedRoute) {}
+
+  ngOnInit(): void {
+    // Get the current route path
+    this.route.paramMap
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(params => {
+        const path = params.get('path');
+        if (path) {
+          this.currentPath = path;
+        }
+        // Scroll to fragment if present in URL
+        setTimeout(() => this.scrollToFragment(), 100);
+      });
+
+    // Handle initial fragment if present in URL
+    this.route.fragment
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(fragment => {
+        if (fragment) {
+          setTimeout(() => this.scrollToFragment(fragment), 100);
+        }
+      });
+  }
+
+  ngAfterViewInit(): void {
     // This will be called after the view is initialized
   }
 
-  ngOnDestroy() {
+  ngOnDestroy(): void {
     this.cleanupSubscriptions();
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+  
+  private scrollToFragment(fragment?: string): void {
+    const id = fragment || window.location.hash.substring(1);
+    if (!id) return;
+    
+    const element = document.getElementById(id);
+    if (element) {
+      const headerOffset = 80;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+      
+      element.classList.add('heading-highlight');
+      setTimeout(() => element.classList.remove('heading-highlight'), 2000);
+    }
   }
 
-  onHeadingsChange(component: any) {
+  onHeadingsChange(component: unknown): void {
+    if (!(component instanceof DocumentComponent)) return;
+    
     console.log('Router outlet activated with component:', component);
     
     // Clean up previous subscriptions
     this.cleanupSubscriptions();
     
-    if (component instanceof DocumentComponent) {
-      this.documentComponent = component;
-      
-      // Initial update
-      this.updateHeadings(component.headings || []);
-      
-      // Subscribe to future updates
-      if (component.headingsChange) {
-        const sub = component.headingsChange.subscribe((headings: Heading[]) => {
-          console.log('Received headings via subscription:', headings);
-          this.updateHeadings(headings);
-        });
-        this.subscriptions.push(sub);
-      }
+    this.documentComponent = component;
+    
+    // Initial update
+    this.updateHeadings(component.headings || []);
+    
+    // Subscribe to future updates
+    if (component.headingsChange) {
+      const sub = component.headingsChange.subscribe((headings: Heading[]) => {
+        console.log('Received headings via subscription:', headings);
+        this.updateHeadings(headings);
+      });
+      this.subscriptions.push(sub);
     }
   }
   
-  private updateHeadings(headings: Heading[]) {
+  private updateHeadings(headings: Heading[]): void {
     console.log('Updating headings:', headings);
     this.headings = [...headings]; // Create a new array reference to trigger change detection
   }
   
-  private cleanupSubscriptions() {
+  private cleanupSubscriptions(): void {
     this.subscriptions.forEach(sub => sub.unsubscribe());
     this.subscriptions = [];
   }
 
-  scrollToHeading(event: Event, id: string) {
+  scrollToHeading(event: Event, id: string): void {
     event.preventDefault();
+    
+    // Update URL hash
+    const currentUrl = window.location.pathname;
+    window.history.pushState(null, '', `${currentUrl}#${id}`);
+    
+    // Find the element and scroll to it
     const element = document.getElementById(id);
     if (element) {
-      // Add a small delay to ensure the DOM has updated if needed
+      // Calculate the scroll position, accounting for any fixed header
+      const headerOffset = 80; // Adjust this value based on your header height
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      
+      // Smooth scroll to the element
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+      
+      // Add a class to highlight the target element
+      element.classList.add('heading-highlight');
+      
+      // Remove the highlight after animation completes
       setTimeout(() => {
-        element.scrollIntoView({ behavior: 'smooth' });
-        // Update URL without page reload
-        history.pushState(null, '', `#${id}`);
-      }, 100);
+        element.classList.remove('heading-highlight');
+      }, 2000);
     }
   }
 }

@@ -39,13 +39,13 @@
       <div class="toc">
         <ng-container *ngIf="headings.length > 0; else loadingToc">
           <ul class="space-y-2">
-            <li *ngFor="let heading of headings" 
-                [class.ml-4]="heading.level > 2"
-                [class.ml-8]="heading.level > 3">
+            <li *ngFor="let heading of headings">
               <a 
-                [href]="'#' + heading.id" 
-                class="text-sm text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors"
-                (click)="scrollToHeading($event, heading.id)">
+                (click)="scrollToHeading($event, heading.id)"
+                class="block py-1 text-sm text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200 cursor-pointer"
+                [class.pl-4]="heading.level > 2"
+                [class.pl-8]="heading.level > 3"
+                [class.pl-12]="heading.level > 4">
                 {{ heading.text }}
               </a>
             </li>
