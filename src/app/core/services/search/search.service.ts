@@ -59,15 +59,10 @@ export class SearchService {
   
   private initializeSearchIndex(): void {
     console.log('[SearchService] Initializing search index...');
-    this.contentService.getContentStructure().pipe(
+    this.contentService.getContentWithFilePaths().pipe(
       tap(contentItems => {
-        if (!contentItems || !Array.isArray(contentItems)) {
-          console.error('[SearchService] getContentStructure returned invalid data:', contentItems);
-        } else {
-          console.log('[SearchService] Received content structure with', contentItems.length, 'top-level items:', contentItems);
-        }
-        this.contentCache = this.flattenContentItems(contentItems || []);
-        console.log('[SearchService] Flattened content cache has', this.contentCache.length, 'items:', this.contentCache);
+        console.log('[SearchService] Received', contentItems.length, 'items with file paths');
+        this.contentCache = contentItems;
       }),
       switchMap(() => {
         console.log('[SearchService] Starting to index all content...');
@@ -75,7 +70,7 @@ export class SearchService {
       }),
       catchError(err => {
         console.error('[SearchService] Error in observable chain before subscribe:', err);
-        this.error.next('Failed before subscribe: ' + (err?.message || err));
+        this.error.next('Failed to initialize search index: ' + (err?.message || err));
         return of(undefined);
       })
     ).subscribe({

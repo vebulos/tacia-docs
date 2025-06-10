@@ -98,20 +98,52 @@ export class ContentService {
     }
     
     return items.map(item => {
-
       const itemPath = parentPath 
         ? `${parentPath}/${item.path || item.name}`
         : (item.path || item.name);
      
-      console.log(`[ContentService] Transforming item: ${itemPath} (isDir: ${item.isDirectory ?? false})`);
-      
-      return {
+      // Preserve the original filePath if it exists
+      const transformedItem: any = {
         name: item.name,
         path: itemPath, // Use the full path
         isDirectory: item.isDirectory ?? false,
         children: item.children ? this.transformStructure(item.children, itemPath) : undefined,
         metadata: item.metadata || {}
       };
+
+      // Preserve filePath if it exists
+      if (item.filePath) {
+        transformedItem.filePath = item.filePath;
+      }
+      
+      return transformedItem;
     });
+  }
+
+  /**
+   * Get all content items that have a filePath property
+   * @returns Observable of ContentItem[] containing only items with filePath
+   */
+  getContentWithFilePaths(): Observable<ContentItem[]> {
+    return this.getContentStructure().pipe(
+      map(items => {
+        const itemsWithFilePaths: ContentItem[] = [];
+        
+        const collectItemsWithFilePath = (items: ContentItem[]) => {
+          items.forEach(item => {
+            if ('filePath' in item) {
+              itemsWithFilePaths.push(item);
+            }
+            if (item.children) {
+              collectItemsWithFilePath(item.children);
+            }
+          });
+        };
+        
+        collectItemsWithFilePath(items);
+        console.log(`[ContentService] Found ${itemsWithFilePaths.length} items with filePath`);
+        return itemsWithFilePaths;
+      })
+    );
   }
 }
