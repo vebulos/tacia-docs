@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, writeFileSync, mkdirSync, existsSync, statSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 import yaml from 'js-yaml';
 
@@ -11,6 +11,7 @@ interface ContentItem {
   name: string;
   path: string;
   type: 'file' | 'directory';
+  filePath?: string; // Relative path to the file from the content directory
   metadata?: Record<string, any>;
   children?: ContentItem[];
 }
@@ -104,10 +105,14 @@ function scanDirectory(directory: string, basePath: string = ''): ContentItem[] 
         ...metadata
       };
       
+      // Calculate the relative file path from the content directory
+      const relativeToContent = relative(CONTENT_DIR, fullPath).replace(/\\/g, '/');
+      
       items.push({
         name: entry.name.replace(/\.md$/, '').replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         path: `/${relativePath.replace(/\.md$/, '').replace(/\\/g, '/')}`,
         type: 'file',
+        filePath: relativeToContent, // Store the actual file path relative to content dir
         metadata: fileMetadata
       });
     }

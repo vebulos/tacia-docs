@@ -50,29 +50,72 @@ export class MarkdownService {
   }
   
   private loadMarkdownFile(path: string): Observable<string> {
-    // Remove leading/trailing slashes
-    const normalizedPath = path.replace(/^\/+|\/+$/g, '');
+    // Log the original path for debugging
+    console.log(`[MarkdownService] Original path: ${path}`);
+    
+    // Normalize the path - remove leading/trailing slashes and any 'assets/content' prefix
+    let normalizedPath = path
+      .replace(/^\/+|\/+$/g, '')  // Remove leading/trailing slashes
+      .replace(/^assets\/content\//, '')  // Remove any assets/content/ prefix
+      .replace(/\/+/g, '/');  // Replace multiple slashes with a single one
+    
+    console.log(`[MarkdownService] Normalized path: ${normalizedPath}`);
+    
     // Don't add .md extension if it's already there
     const filePath = normalizedPath.endsWith('.md') 
       ? normalizedPath 
       : `${normalizedPath}.md`;
-    // Ensure the path uses forward slashes
-    const url = `/assets/content/${filePath.replace(/\\/g, '/')}`;
+    
+    // Ensure the path uses forward slashes and doesn't have duplicate segments
+    const pathSegments = filePath.split('/').filter(Boolean);
+    const uniqueSegments: string[] = [];
+    
+    // Remove duplicate consecutive segments
+    for (const segment of pathSegments) {
+      if (segment !== uniqueSegments[uniqueSegments.length - 1]) {
+        uniqueSegments.push(segment);
+      }
+    }
+    
+    const cleanPath = uniqueSegments.join('/');
+    const url = `/assets/content/${cleanPath}`;
+    
+    console.log(`Attempting to load markdown from URL: ${url}`);
     
     return this.http.get(url, { responseType: 'text' }).pipe(
-      tap(() => console.log(`Loading markdown from: ${url}`)),
+      tap(() => console.log(`Successfully loaded markdown from: ${url}`)),
       catchError(error => {
         console.error(`Error loading markdown file: ${url}`, error);
+        console.error('Error details:', {
+          status: error.status,
+          message: error.message,
+          url: error.url
+        });
         return throwError(() => new Error(`Failed to load markdown file: ${path}`));
       })
     );
   }
 
   getMarkdownFile(path: string): Observable<MarkdownFile> {
-    // Normalize the path (remove leading/trailing slashes)
-    const normalizedPath = path.replace(/^\/+|\/+$/g, '');
+    if (!path) {
+      const error = new Error('Path is required');
+      console.error('[MarkdownService] Error in getMarkdownFile: Path is required');
+      return of({
+        content: '',
+        metadata: {},
+        html: '<p>Error: No path provided</p>',
+        path: '',
+        headings: []
+      });
+    }
     
-    console.log('Getting markdown file:', normalizedPath);
+    // Normalize the path
+    const normalizedPath = path
+      .replace(/^\/+|\/+$/g, '')  // Remove leading/trailing slashes
+      .replace(/^assets\/content\//, '')  // Remove any assets/content/ prefix
+      .replace(/\/+/g, '/');  // Replace multiple slashes with a single one
+    
+    console.log('[MarkdownService] Getting markdown file:', normalizedPath);
     
     // Check cache first
     if (this.cache.has(normalizedPath)) {
@@ -80,16 +123,21 @@ export class MarkdownService {
       return this.cache.get(normalizedPath)!;
     }
     
+    console.log('Loading markdown file for the first time:', normalizedPath);
+    
     // Load and parse the markdown
     const markdown$ = this.loadMarkdownFile(normalizedPath).pipe(
+      tap(content => console.log(`Successfully loaded markdown content for: ${normalizedPath} (${content.length} chars)`)),
       map(markdownContent => this.parseMarkdown(markdownContent, normalizedPath)),
+      tap(parsed => console.log(`Successfully parsed markdown for: ${normalizedPath}`)),
       shareReplay(1),
       catchError(error => {
-        console.error(`Error loading markdown: ${normalizedPath}`, error);
+        console.error(`Error loading markdown file: ${normalizedPath}`, error);
+        const errorMessage = error.message || 'Unknown error loading content';
         return of({
           content: '',
-          metadata: {},
-          html: `<p>Error loading content: ${error.message}</p>`,
+          metadata: { title: 'Error loading content' },
+          html: `<p>Error loading content: ${this.escapeHtml(errorMessage)}</p>`,
           path: normalizedPath,
           headings: []
         });
@@ -232,5 +280,19 @@ export class MarkdownService {
       path,
       headings,
     };
+  }
+  
+  /**
+   * Escapes HTML special characters to prevent XSS
+   * @param unsafe Unsafe HTML string
+   * @returns Escaped HTML string
+   */
+  private escapeHtml(unsafe: string): string {
+    return unsafe
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 }

@@ -5,6 +5,7 @@ import { Router, ActivatedRoute, RouterOutlet, RouterModule, NavigationEnd } fro
 import { Subject, Subscription } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { NavigationComponent } from './components/navigation/navigation.component';
+import { SearchComponent } from './components/search/search.component';
 
 export interface Heading {
   text: string;
@@ -19,7 +20,8 @@ export interface Heading {
     CommonModule, 
     RouterModule, 
     RouterOutlet, 
-    NavigationComponent
+    NavigationComponent,
+    SearchComponent
   ],
   templateUrl: './docs.component.html',
   styleUrls: ['./docs.component.css']

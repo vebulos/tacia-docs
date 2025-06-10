@@ -5,11 +5,13 @@ import { ContentService, ContentItem } from '../../../../core/services/content.s
 import { map, filter } from 'rxjs/operators';
 import { NavigationEnd } from '@angular/router';
 import { animate, state, style, transition, trigger } from '@angular/animations';
+import { SearchComponent } from '../search/search.component';
+import { ReactiveFormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-navigation',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, SearchComponent, ReactiveFormsModule],
   templateUrl: './navigation.component.html',
   styleUrls: ['./navigation.component.css'],
   animations: [
