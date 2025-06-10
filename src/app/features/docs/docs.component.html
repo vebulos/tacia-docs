@@ -2,7 +2,6 @@
   <!-- Left Sidebar -->
   <div class="sidebar left-sidebar">
     <div class="p-4">
-      <h2 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Documentation</h2>
       <!-- Navigation Component -->
       <app-navigation></app-navigation>
     </div>
@@ -18,7 +17,6 @@
   <!-- Right Sidebar -->
   <aside class="sidebar right-sidebar">
     <div class="p-6">
-      <h3 class="sidebar-heading">On this page</h3>
       <div class="toc">
         <ng-container *ngIf="headings.length > 0; else loadingToc">
           <ul class="space-y-2">
