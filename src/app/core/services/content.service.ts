@@ -100,20 +100,25 @@ export class ContentService {
     
     return items.map(item => {
       // Use the item's path if it exists, otherwise use the item name
-      const itemPath = item.path || item.name;
+      let itemPath = item.path || item.name;
       
-      // Only build full path for non-directory items
-      const fullPath = item.isDirectory 
-        ? itemPath 
-        : (parentPath ? `${parentPath}/${itemPath}` : itemPath);
+      // Remove any segments from itemPath that are already in parentPath to avoid duplication
+      if (parentPath && itemPath.startsWith(parentPath)) {
+        itemPath = itemPath.substring(parentPath.length).replace(/^\//, '');
+      }
+      
+      // Build the full path by combining parentPath and itemPath
+      const fullPath = parentPath 
+        ? (itemPath ? `${parentPath}/${itemPath}` : parentPath)
+        : itemPath;
      
       // Create the transformed item
       const transformedItem: any = {
         name: item.name,
         path: itemPath, // Store relative path
-        fullPath: fullPath, // Store full path separately if needed
+        fullPath: fullPath, // Store full path
         isDirectory: item.isDirectory ?? false,
-        children: item.children ? this.transformStructure(item.children, itemPath) : undefined,
+        children: item.children ? this.transformStructure(item.children, fullPath) : undefined,
         metadata: item.metadata || {}
       };
 
