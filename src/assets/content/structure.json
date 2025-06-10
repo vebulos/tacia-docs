@@ -1,0 +1,198 @@
+[
+  {
+    "name": "Api Reference",
+    "path": "/api-reference",
+    "type": "directory",
+    "metadata": {
+      "title": "Api Reference",
+      "categories": [
+        "uncategorized"
+      ],
+      "tags": []
+    },
+    "children": [
+      {
+        "name": "Components",
+        "path": "/api-reference/components",
+        "type": "directory",
+        "metadata": {
+          "title": "Components",
+          "categories": [
+            "api-reference"
+          ],
+          "tags": []
+        },
+        "children": [
+          {
+            "name": "Button",
+            "path": "/api-reference/components/button",
+            "type": "file",
+            "filePath": "api-reference/components/button.md",
+            "metadata": {
+              "title": "Button Component",
+              "categories": [
+                "api-reference",
+                "components"
+              ],
+              "tags": [
+                "ui",
+                "components",
+                "button"
+              ],
+              "difficulty": "intermediate"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Introduction",
+        "path": "/api-reference/introduction",
+        "type": "file",
+        "filePath": "api-reference/introduction.md",
+        "metadata": {
+          "title": "API Introduction",
+          "categories": [
+            "api-reference"
+          ],
+          "tags": [
+            "api",
+            "overview"
+          ],
+          "difficulty": "beginner"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Getting Started",
+    "path": "/getting-started",
+    "type": "directory",
+    "metadata": {
+      "title": "Getting Started",
+      "categories": [
+        "uncategorized"
+      ],
+      "tags": []
+    },
+    "children": [
+      {
+        "name": "Guides2",
+        "path": "/getting-started/guides2",
+        "type": "directory",
+        "metadata": {
+          "title": "Guides2",
+          "categories": [
+            "getting-started"
+          ],
+          "tags": []
+        },
+        "children": [
+          {
+            "name": "Getting Started",
+            "path": "/getting-started/guides2/getting-started",
+            "type": "file",
+            "filePath": "getting-started/guides2/getting-started.md",
+            "metadata": {
+              "title": "Getting Started with Our Framework",
+              "categories": [
+                "guides"
+              ],
+              "tags": [
+                "tutorial",
+                "beginner"
+              ],
+              "difficulty": "beginner"
+            }
+          },
+          {
+            "name": "SOLID_java",
+            "path": "/getting-started/guides2/SOLID_java",
+            "type": "file",
+            "filePath": "getting-started/guides2/SOLID_java.md",
+            "metadata": {
+              "title": "SOLID_java",
+              "categories": [
+                "getting-started\\guides2"
+              ],
+              "tags": []
+            }
+          }
+        ]
+      },
+      {
+        "name": "Installation",
+        "path": "/getting-started/installation",
+        "type": "file",
+        "filePath": "getting-started/installation.md",
+        "metadata": {
+          "title": "Installation Guide",
+          "categories": [
+            "getting-started"
+          ],
+          "tags": [
+            "setup",
+            "installation"
+          ],
+          "difficulty": "beginner"
+        }
+      },
+      {
+        "name": "Introduction",
+        "path": "/getting-started/introduction",
+        "type": "file",
+        "filePath": "getting-started/introduction.md",
+        "metadata": {
+          "title": "Introduction",
+          "categories": [
+            "getting-started"
+          ],
+          "tags": []
+        }
+      }
+    ]
+  },
+  {
+    "name": "Guides",
+    "path": "/guides",
+    "type": "directory",
+    "metadata": {
+      "title": "Guides",
+      "categories": [
+        "uncategorized"
+      ],
+      "tags": []
+    },
+    "children": [
+      {
+        "name": "Getting Started",
+        "path": "/guides/getting-started",
+        "type": "file",
+        "filePath": "guides/getting-started.md",
+        "metadata": {
+          "title": "Getting Started with Our Framework",
+          "categories": [
+            "guides"
+          ],
+          "tags": [
+            "tutorial",
+            "beginner"
+          ],
+          "difficulty": "beginner"
+        }
+      },
+      {
+        "name": "SOLID_java",
+        "path": "/guides/SOLID_java",
+        "type": "file",
+        "filePath": "guides/SOLID_java.md",
+        "metadata": {
+          "title": "SOLID_java",
+          "categories": [
+            "guides"
+          ],
+          "tags": []
+        }
+      }
+    ]
+  }
+]
