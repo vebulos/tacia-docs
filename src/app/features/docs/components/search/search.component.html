@@ -44,7 +44,27 @@
       </svg>
     </div>
     
-  
+    <!-- Clear button -->
+    <button
+      *ngIf="searchControl.value"
+      (mousedown)="$event.preventDefault()"
+      (click)="clearSearch($event)"
+      type="button"
+      class="clear-button absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none"
+      [attr.aria-label]="'Clear search'"
+      [attr.aria-controls]="'search-input'"
+      [attr.aria-expanded]="isFocused && (searchControl.value || showRecentSearches)"
+      tabindex="-1"
+    >
+      <span class="sr-only">Clear search</span>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+
+
+    
   </div>
 
   <!-- Search Results Dropdown -->
