@@ -238,24 +238,62 @@ export class SearchComponent implements OnInit, OnDestroy {
   }
 
   selectResult(result: SearchResult): void {
-    if (!result || !result.path) return;
+    console.log('Navigating to result:', result);
+    if (!result || !result.path) {
+      console.error('No result or path provided for navigation');
+      return;
+    }
     
-    // Add to recent searches
-    this.searchService.addRecentSearch(result.title);
-    
-    // Navigate to the result
-    this.router.navigateByUrl(result.path).then(() => {
-      // Close the search dropdown after navigation
+    try {
+      // Ensure the path is properly formatted for navigation
+      let targetPath = result.path.trim();
+      
+      // Remove any leading/trailing slashes and normalize the path
+      targetPath = targetPath.replace(/^\/+|\/+$/g, '');
+      
+      // Prepend the base path for documentation content
+      targetPath = `/docs/content/${targetPath}`;
+      
+      console.log('Formatted path for navigation:', targetPath);
+      
+      // Add to recent searches
+      this.searchService.addRecentSearch(result.title);
+      
+      // Reset search UI state before navigation
       this.searchControl.setValue('', { emitEvent: false });
       this.showRecentSearches = false;
       this.searchResults = [];
-      
-      // Focus the main content for accessibility
-      this.focusMainContent();
-      
-      // Close the search dropdown
       this.isFocused = false;
-    });
+      
+      // Use location.href as a fallback if router navigation fails
+      const fallbackNavigation = () => {
+        console.warn('Router navigation failed, falling back to location.href');
+        window.location.href = targetPath;
+      };
+      
+      // Try router navigation first
+      this.router.navigateByUrl(targetPath, { replaceUrl: true })
+        .then(navigated => {
+          if (!navigated) {
+            console.error('Router navigation returned false for path:', targetPath);
+            fallbackNavigation();
+          } else {
+            console.log('Navigation successful to:', targetPath);
+          }
+        })
+        .catch(error => {
+          console.error('Router navigation error:', error);
+          fallbackNavigation();
+        });
+        
+    } catch (error) {
+      console.error('Error during navigation preparation:', error);
+      // Fallback to root if something goes wrong
+      this.router.navigate(['/']);
+    } finally {
+      // Ensure UI is reset even if navigation fails
+      this.focusMainContent();
+    }
   }
   
   private focusMainContent(): void {
