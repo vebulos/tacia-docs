@@ -26,8 +26,8 @@
           {
             "name": "Button",
             "path": "/api-reference/components/button",
+            "filePath": "/api-reference/components/button.md",
             "type": "file",
-            "filePath": "api-reference/components/button.md",
             "metadata": {
               "title": "Button Component",
               "categories": [
@@ -47,8 +47,8 @@
       {
         "name": "Introduction",
         "path": "/api-reference/introduction",
+        "filePath": "/api-reference/introduction.md",
         "type": "file",
-        "filePath": "api-reference/introduction.md",
         "metadata": {
           "title": "API Introduction",
           "categories": [
@@ -90,8 +90,8 @@
           {
             "name": "Getting Started",
             "path": "/getting-started/guides2/getting-started",
+            "filePath": "/getting-started/guides2/getting-started.md",
             "type": "file",
-            "filePath": "getting-started/guides2/getting-started.md",
             "metadata": {
               "title": "Getting Started with Our Framework",
               "categories": [
@@ -107,8 +107,8 @@
           {
             "name": "SOLID_java",
             "path": "/getting-started/guides2/SOLID_java",
+            "filePath": "/getting-started/guides2/SOLID_java.md",
             "type": "file",
-            "filePath": "getting-started/guides2/SOLID_java.md",
             "metadata": {
               "title": "SOLID_java",
               "categories": [
@@ -122,8 +122,8 @@
       {
         "name": "Installation",
         "path": "/getting-started/installation",
+        "filePath": "/getting-started/installation.md",
         "type": "file",
-        "filePath": "getting-started/installation.md",
         "metadata": {
           "title": "Installation Guide",
           "categories": [
@@ -139,8 +139,8 @@
       {
         "name": "Introduction",
         "path": "/getting-started/introduction",
+        "filePath": "/getting-started/introduction.md",
         "type": "file",
-        "filePath": "getting-started/introduction.md",
         "metadata": {
           "title": "Introduction",
           "categories": [
@@ -166,8 +166,8 @@
       {
         "name": "Getting Started",
         "path": "/guides/getting-started",
+        "filePath": "/guides/getting-started.md",
         "type": "file",
-        "filePath": "guides/getting-started.md",
         "metadata": {
           "title": "Getting Started with Our Framework",
           "categories": [
@@ -183,8 +183,8 @@
       {
         "name": "SOLID_java",
         "path": "/guides/SOLID_java",
+        "filePath": "/guides/SOLID_java.md",
         "type": "file",
-        "filePath": "guides/SOLID_java.md",
         "metadata": {
           "title": "SOLID_java",
           "categories": [

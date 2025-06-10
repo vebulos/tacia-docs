@@ -11,12 +11,13 @@ interface ContentItem {
   name: string;
   path: string;
   type: 'file' | 'directory';
+  filePath?: string;  // Only for files, includes .md extension
   metadata?: Record<string, any>;
   children?: ContentItem[];
 }
 
 const CONTENT_DIR = join(__dirname, '../src/content');
-const OUTPUT_FILE = join(__dirname, '../src/assets/content/structure.json');
+const OUTPUT_FILE = join(CONTENT_DIR, 'structure.json'); // Generate in source directory
 
 function readFrontMatter(content: string): { metadata: Record<string, any>; content: string } {
   const frontMatterRegex = /^---\n([\s\S]*?)\n---\n/;
@@ -97,19 +98,27 @@ function scanDirectory(directory: string, basePath: string = ''): ContentItem[] 
       const { metadata } = readFrontMatter(content);
       
       // Ensure metadata has required fields
+      const fileNameWithoutExt = entry.name.replace(/\.md$/, '');
+      const relativePathWithoutExt = join(basePath, fileNameWithoutExt);
+      const filePath = `/${relativePath.replace(/\\/g, '/')}`;
+      
+      // Ensure metadata has required fields
       const fileMetadata = {
-        title: metadata.title || entry.name.replace(/\.md$/, '').replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        title: metadata.title || fileNameWithoutExt.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         categories: Array.isArray(metadata.categories) ? metadata.categories : [basePath.split('/')[0] || 'uncategorized'],
         tags: Array.isArray(metadata.tags) ? metadata.tags : [],
         ...metadata
       };
       
-      items.push({
-        name: entry.name.replace(/\.md$/, '').replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        path: `/${relativePath.replace(/\.md$/, '').replace(/\\/g, '/')}`,
+      const item: ContentItem = {
+        name: fileNameWithoutExt.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        path: `/${relativePathWithoutExt.replace(/\\/g, '/')}`,
+        filePath: filePath,
         type: 'file',
         metadata: fileMetadata
-      });
+      };
+      
+      items.push(item);
     }
   }
   
@@ -128,9 +137,10 @@ function generateContentStructure() {
     const structure = scanDirectory(CONTENT_DIR);
     
     // Write to file
-    writeFileSync(OUTPUT_FILE, JSON.stringify(structure, null, 2));
-    
+    const outputContent = JSON.stringify(structure, null, 2);
+    writeFileSync(OUTPUT_FILE, outputContent, 'utf8');
     console.log(`Content structure generated at: ${OUTPUT_FILE}`);
+    
   } catch (error) {
     console.error('Error generating content structure:', error);
     process.exit(1);
