@@ -6,6 +6,7 @@ import { map, shareReplay, catchError, tap } from 'rxjs/operators';
 export interface ContentItem {
   name: string;
   path: string;
+  fullPath?: string;
   isDirectory: boolean;
   children?: ContentItem[];
   metadata?: {
@@ -98,14 +99,19 @@ export class ContentService {
     }
     
     return items.map(item => {
-      const itemPath = parentPath 
-        ? `${parentPath}/${item.path || item.name}`
-        : (item.path || item.name);
+      // Use the item's path if it exists, otherwise use the item name
+      const itemPath = item.path || item.name;
+      
+      // Only build full path for non-directory items
+      const fullPath = item.isDirectory 
+        ? itemPath 
+        : (parentPath ? `${parentPath}/${itemPath}` : itemPath);
      
-      // Preserve the original filePath if it exists
+      // Create the transformed item
       const transformedItem: any = {
         name: item.name,
-        path: itemPath, // Use the full path
+        path: itemPath, // Store relative path
+        fullPath: fullPath, // Store full path separately if needed
         isDirectory: item.isDirectory ?? false,
         children: item.children ? this.transformStructure(item.children, itemPath) : undefined,
         metadata: item.metadata || {}

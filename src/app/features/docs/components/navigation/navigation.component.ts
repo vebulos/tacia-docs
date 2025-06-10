@@ -137,30 +137,22 @@ export class NavigationComponent implements OnInit {
   // Transform the content items to ensure paths are correct
   private transformContentItems(items: ContentItem[]): (ContentItem & { isOpen?: boolean })[] {
     return items.map(item => {
-      // Remove leading slash from path if present
-      const path = item.path.startsWith('/') ? item.path.substring(1) : item.path;
+      // Process children first
+      const children = item.children ? this.transformContentItems(item.children) : [];
       
-      // For display, use the last part of the path
-      let displayName = item.name;
-      const pathParts = path.split('/');
-      
-      if (pathParts.length > 1) {
-        // If it's a file, use the last part as the display name
-        // If it's a directory, use the directory name
-        displayName = pathParts[pathParts.length - 1];
-      }
-      
-      // If the item has a title in metadata, use that for display
-      if (item.metadata?.title) {
-        displayName = item.metadata.title;
-      }
-      
-      return {
+      // Create the transformed item
+      const transformedItem: ContentItem & { isOpen?: boolean } = {
         ...item,
-        name: displayName,
-        children: item.children ? this.transformContentItems(item.children) : [],
-        path: path // Keep the path with forward slashes
+        // Use metadata title if available, otherwise use the item name
+        name: item.metadata?.title || item.name,
+        // Preserve the original path, just ensure no leading slash
+        path: item.path.startsWith('/') ? item.path.substring(1) : item.path,
+        children: children,
+        // Ensure isDirectory is set correctly based on children or existing flag
+        isDirectory: item.isDirectory || (children && children.length > 0)
       };
+      
+      return transformedItem;
     });
   }
 }
