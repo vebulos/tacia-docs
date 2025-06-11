@@ -12,6 +12,23 @@
     },
     "children": [
       {
+        "name": "Introduction",
+        "path": "/api-reference/introduction",
+        "filePath": "/api-reference/introduction.md",
+        "type": "file",
+        "metadata": {
+          "title": "API Introduction",
+          "categories": [
+            "api-reference"
+          ],
+          "tags": [
+            "api",
+            "overview"
+          ],
+          "difficulty": "beginner"
+        }
+      },
+      {
         "name": "Components",
         "path": "/api-reference/components",
         "type": "directory",
@@ -43,23 +60,6 @@
             }
           }
         ]
-      },
-      {
-        "name": "Introduction",
-        "path": "/api-reference/introduction",
-        "filePath": "/api-reference/introduction.md",
-        "type": "file",
-        "metadata": {
-          "title": "API Introduction",
-          "categories": [
-            "api-reference"
-          ],
-          "tags": [
-            "api",
-            "overview"
-          ],
-          "difficulty": "beginner"
-        }
       }
     ]
   },
@@ -76,6 +76,36 @@
     },
     "children": [
       {
+        "name": "Installation",
+        "path": "/getting-started/installation",
+        "filePath": "/getting-started/installation.md",
+        "type": "file",
+        "metadata": {
+          "title": "Installation Guide",
+          "categories": [
+            "getting-started"
+          ],
+          "tags": [
+            "setup",
+            "installation"
+          ],
+          "difficulty": "beginner"
+        }
+      },
+      {
+        "name": "Introduction",
+        "path": "/getting-started/introduction",
+        "filePath": "/getting-started/introduction.md",
+        "type": "file",
+        "metadata": {
+          "title": "Introduction",
+          "categories": [
+            "getting-started"
+          ],
+          "tags": []
+        }
+      },
+      {
         "name": "Guides2",
         "path": "/getting-started/guides2",
         "type": "directory",
@@ -88,6 +118,36 @@
         },
         "children": [
           {
+            "name": "Getting Started",
+            "path": "/getting-started/guides2/getting-started",
+            "filePath": "/getting-started/guides2/getting-started.md",
+            "type": "file",
+            "metadata": {
+              "title": "Getting Started with Our Framework",
+              "categories": [
+                "guides"
+              ],
+              "tags": [
+                "tutorial",
+                "beginner"
+              ],
+              "difficulty": "beginner"
+            }
+          },
+          {
+            "name": "SOLID_java",
+            "path": "/getting-started/guides2/SOLID_java",
+            "filePath": "/getting-started/guides2/SOLID_java.md",
+            "type": "file",
+            "metadata": {
+              "title": "SOLID_java",
+              "categories": [
+                "getting-started\\guides2"
+              ],
+              "tags": []
+            }
+          },
+          {
             "name": "Api Reference",
             "path": "/getting-started/guides2/api-reference",
             "type": "directory",
@@ -99,6 +159,23 @@
               "tags": []
             },
             "children": [
+              {
+                "name": "Introduction",
+                "path": "/getting-started/guides2/api-reference/introduction",
+                "filePath": "/getting-started/guides2/api-reference/introduction.md",
+                "type": "file",
+                "metadata": {
+                  "title": "API Introduction",
+                  "categories": [
+                    "api-reference"
+                  ],
+                  "tags": [
+                    "api",
+                    "overview"
+                  ],
+                  "difficulty": "beginner"
+                }
+              },
               {
                 "name": "Components",
                 "path": "/getting-started/guides2/api-reference/components",
@@ -131,87 +208,10 @@
                     }
                   }
                 ]
-              },
-              {
-                "name": "Introduction",
-                "path": "/getting-started/guides2/api-reference/introduction",
-                "filePath": "/getting-started/guides2/api-reference/introduction.md",
-                "type": "file",
-                "metadata": {
-                  "title": "API Introduction",
-                  "categories": [
-                    "api-reference"
-                  ],
-                  "tags": [
-                    "api",
-                    "overview"
-                  ],
-                  "difficulty": "beginner"
-                }
               }
             ]
-          },
-          {
-            "name": "Getting Started",
-            "path": "/getting-started/guides2/getting-started",
-            "filePath": "/getting-started/guides2/getting-started.md",
-            "type": "file",
-            "metadata": {
-              "title": "Getting Started with Our Framework",
-              "categories": [
-                "guides"
-              ],
-              "tags": [
-                "tutorial",
-                "beginner"
-              ],
-              "difficulty": "beginner"
-            }
-          },
-          {
-            "name": "SOLID_java",
-            "path": "/getting-started/guides2/SOLID_java",
-            "filePath": "/getting-started/guides2/SOLID_java.md",
-            "type": "file",
-            "metadata": {
-              "title": "SOLID_java",
-              "categories": [
-                "getting-started\\guides2"
-              ],
-              "tags": []
-            }
           }
         ]
-      },
-      {
-        "name": "Installation",
-        "path": "/getting-started/installation",
-        "filePath": "/getting-started/installation.md",
-        "type": "file",
-        "metadata": {
-          "title": "Installation Guide",
-          "categories": [
-            "getting-started"
-          ],
-          "tags": [
-            "setup",
-            "installation"
-          ],
-          "difficulty": "beginner"
-        }
-      },
-      {
-        "name": "Introduction",
-        "path": "/getting-started/introduction",
-        "filePath": "/getting-started/introduction.md",
-        "type": "file",
-        "metadata": {
-          "title": "Introduction",
-          "categories": [
-            "getting-started"
-          ],
-          "tags": []
-        }
       }
     ]
   },

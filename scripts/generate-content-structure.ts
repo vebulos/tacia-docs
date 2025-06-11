@@ -53,73 +53,89 @@ function readFrontMatter(content: string): { metadata: Record<string, any>; cont
 
 function scanDirectory(directory: string, basePath: string = ''): ContentItem[] {
   const items: ContentItem[] = [];
-  
   const entries = readdirSync(directory, { withFileTypes: true });
   
+  // Process files first, then directories
+  const files = [];
+  const dirs = [];
+  
   for (const entry of entries) {
+    if (entry.isDirectory()) {
+      dirs.push(entry);
+    } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      files.push(entry);
+    }
+  }
+  
+  // Process files first
+  for (const entry of files) {
     const fullPath = join(directory, entry.name);
     const relativePath = join(basePath, entry.name);
     
-    if (entry.isDirectory()) {
-      const children = scanDirectory(fullPath, relativePath);
-      // Check for README.md in the directory for metadata
-      let dirMetadata: {
-        title?: string;
-        categories?: string[];
-        tags?: string[];
-        [key: string]: any;
-      } = {};
-      const readmePath = join(fullPath, 'README.md');
-      
-      if (existsSync(readmePath)) {
-        try {
-          const readmeContent = readFileSync(readmePath, 'utf8');
-          const { metadata } = readFrontMatter(readmeContent);
-          dirMetadata = metadata;
-        } catch (e) {
-          console.warn(`Error reading README.md in ${fullPath}:`, e);
-        }
+    const content = readFileSync(fullPath, 'utf8');
+    const { metadata } = readFrontMatter(content);
+    
+    // Ensure metadata has required fields
+    const fileNameWithoutExt = entry.name.replace(/\.md$/, '');
+    const relativePathWithoutExt = join(basePath, fileNameWithoutExt);
+    const filePath = `/${relativePath.replace(/\\/g, '/')}`;
+    
+    // Ensure metadata has required fields
+    const fileMetadata = {
+      title: metadata.title || fileNameWithoutExt.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      categories: Array.isArray(metadata.categories) ? metadata.categories : [basePath.split('/')[0] || 'uncategorized'],
+      tags: Array.isArray(metadata.tags) ? metadata.tags : [],
+      ...metadata
+    };
+    
+    const item: ContentItem = {
+      name: fileNameWithoutExt.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      path: `/${relativePathWithoutExt.replace(/\\/g, '/')}`,
+      filePath: filePath,
+      type: 'file',
+      metadata: fileMetadata
+    };
+    
+    items.push(item);
+  }
+  
+  // Then process directories
+  for (const entry of dirs) {
+    const fullPath = join(directory, entry.name);
+    const relativePath = join(basePath, entry.name);
+    
+    const children = scanDirectory(fullPath, relativePath);
+    // Check for README.md in the directory for metadata
+    let dirMetadata: {
+      title?: string;
+      categories?: string[];
+      tags?: string[];
+      [key: string]: any;
+    } = {};
+    const readmePath = join(fullPath, 'README.md');
+    
+    if (existsSync(readmePath)) {
+      try {
+        const readmeContent = readFileSync(readmePath, 'utf8');
+        const { metadata } = readFrontMatter(readmeContent);
+        dirMetadata = metadata;
+      } catch (e) {
+        console.warn(`Error reading README.md in ${fullPath}:`, e);
       }
-      
-      items.push({
-        name: entry.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        path: `/${relativePath.replace(/\\/g, '/')}`,
-        type: 'directory',
-        metadata: {
-          title: dirMetadata.title || entry.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          categories: Array.isArray(dirMetadata.categories) ? dirMetadata.categories : [basePath.split('/')[0] || 'uncategorized'],
-          tags: Array.isArray(dirMetadata.tags) ? dirMetadata.tags : [],
-          ...dirMetadata
-        },
-        children
-      });
-    } else if (entry.isFile() && entry.name.endsWith('.md')) {
-      const content = readFileSync(fullPath, 'utf8');
-      const { metadata } = readFrontMatter(content);
-      
-      // Ensure metadata has required fields
-      const fileNameWithoutExt = entry.name.replace(/\.md$/, '');
-      const relativePathWithoutExt = join(basePath, fileNameWithoutExt);
-      const filePath = `/${relativePath.replace(/\\/g, '/')}`;
-      
-      // Ensure metadata has required fields
-      const fileMetadata = {
-        title: metadata.title || fileNameWithoutExt.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        categories: Array.isArray(metadata.categories) ? metadata.categories : [basePath.split('/')[0] || 'uncategorized'],
-        tags: Array.isArray(metadata.tags) ? metadata.tags : [],
-        ...metadata
-      };
-      
-      const item: ContentItem = {
-        name: fileNameWithoutExt.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        path: `/${relativePathWithoutExt.replace(/\\/g, '/')}`,
-        filePath: filePath,
-        type: 'file',
-        metadata: fileMetadata
-      };
-      
-      items.push(item);
     }
+    
+    items.push({
+      name: entry.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      path: `/${relativePath.replace(/\\/g, '/')}`,
+      type: 'directory',
+      metadata: {
+        title: dirMetadata.title || entry.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        categories: Array.isArray(dirMetadata.categories) ? dirMetadata.categories : [basePath.split('/')[0] || 'uncategorized'],
+        tags: Array.isArray(dirMetadata.tags) ? dirMetadata.tags : [],
+        ...dirMetadata
+      },
+      children
+    });
   }
   
   return items;
