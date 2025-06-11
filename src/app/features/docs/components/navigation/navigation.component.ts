@@ -4,40 +4,21 @@ import { Router, RouterModule } from '@angular/router';
 import { ContentService, ContentItem } from '../../../../core/services/content.service';
 import { map, filter } from 'rxjs/operators';
 import { NavigationEnd } from '@angular/router';
-import { animate, state, style, transition, trigger } from '@angular/animations';
-import { SearchComponent } from '../search/search.component';
-import { ReactiveFormsModule } from '@angular/forms';
+import { NavigationItemComponent } from './navigation-item.component';
+import { SearchComponent as DocsSearchComponent } from '../search/search.component';
 
 @Component({
   selector: 'app-navigation',
   standalone: true,
-  imports: [CommonModule, RouterModule, SearchComponent, ReactiveFormsModule],
+  imports: [CommonModule, RouterModule, NavigationItemComponent, DocsSearchComponent],
   templateUrl: './navigation.component.html',
-  styleUrls: ['./navigation.component.css'],
-  animations: [
-    trigger('slideInOut', [
-      state('expanded', style({
-        height: '*',
-        opacity: 1,
-        visibility: 'visible'
-      })),
-      state('collapsed', style({
-        height: '0',
-        opacity: 0,
-        visibility: 'hidden',
-        overflow: 'hidden'
-      })),
-      transition('expanded <=> collapsed', [
-        animate('200ms ease-in-out')
-      ])
-    ])
-  ]
+  styleUrls: ['./navigation.component.css']
 })
 export class NavigationComponent implements OnInit {
   contentStructure: (ContentItem & { isOpen?: boolean })[] = [];
   loading = true;
   error: string | null = null;
-  activeCategory: string | null = null;
+  activePath: string = '';
 
   constructor(
     private contentService: ContentService,
@@ -77,82 +58,54 @@ export class NavigationComponent implements OnInit {
 
   // Update active states based on current route
   private updateActiveStates(): void {
-    const currentPath = this.router.url.replace(/^\/docs\/content\/?/, '');
-    
-    this.contentStructure.forEach(category => {
-      // Check if any item in this category matches the current path
-      const hasActiveChild = this.hasActiveChild(category, currentPath);
-      if (hasActiveChild) {
-        category.isOpen = true;
-        this.activeCategory = category.path;
-      }
-    });
+    this.activePath = this.router.url.replace(/^\/docs\/content\/?/, '');
+    this.setActiveStates(this.contentStructure, this.activePath);
   }
 
-  // Recursively check if any child matches the current path
-  private hasActiveChild(item: ContentItem, currentPath: string): boolean {
-    if (!item.isDirectory && item.path === currentPath) {
-      return true;
-    }
+  private setActiveStates(items: (ContentItem & { isOpen?: boolean })[], currentPath: string): boolean {
+    let hasActiveChild = false;
     
-    if (item.children) {
-      return item.children.some(child => this.hasActiveChild(child, currentPath));
-    }
-    
-    return false;
-  }
-
-  private hoverTimeout: any = null;
-
-  // Handle category mouse enter with delay
-  onCategoryMouseEnter(category: any): void {
-    if (this.activeCategory !== category.path) {
-      // Clear any existing timeout to prevent multiple triggers
-      if (this.hoverTimeout) {
-        clearTimeout(this.hoverTimeout);
+    for (const item of items) {
+      if (item.children) {
+        const childHasActive = this.setActiveStates(item.children, currentPath);
+        if (childHasActive) {
+          item.isOpen = true;
+          hasActiveChild = true;
+        }
       }
       
-      // Set a new timeout to open the category after 300ms
-      this.hoverTimeout = setTimeout(() => {
-        category.isOpen = true;
-      }, 300);
+      if (!hasActiveChild && item.path && currentPath.startsWith(item.path)) {
+        hasActiveChild = true;
+      }
     }
-  }
-
-  // Handle category mouse leave to cancel pending expansion
-  onCategoryMouseLeave(category: any): void {
-    if (this.hoverTimeout) {
-      clearTimeout(this.hoverTimeout);
-      this.hoverTimeout = null;
-    }
+    
+    return hasActiveChild;
   }
 
   // Handle category click
   onCategoryClick(category: any, event: Event): void {
     event.stopPropagation();
-    this.activeCategory = category.path;
-    category.isOpen = !category.isOpen;
+    if (category.children?.length) {
+      category.isOpen = !category.isOpen;
+    }
   }
 
   // Transform the content items to ensure paths are correct
   private transformContentItems(items: ContentItem[]): (ContentItem & { isOpen?: boolean })[] {
     return items.map(item => {
-      // Process children first
       const children = item.children ? this.transformContentItems(item.children) : [];
-      
-      // Create the transformed item
-      const transformedItem: ContentItem & { isOpen?: boolean } = {
+      return {
         ...item,
-        // Use metadata title if available, otherwise use the item name
         name: item.metadata?.title || item.name,
-        // Preserve the original path, just ensure no leading slash
         path: item.path.startsWith('/') ? item.path.substring(1) : item.path,
-        children: children,
-        // Ensure isDirectory is set correctly based on children or existing flag
-        isDirectory: item.isDirectory || (children && children.length > 0)
+        children,
+        isDirectory: item.isDirectory || children.length > 0,
+        isOpen: false
       };
-      
-      return transformedItem;
     });
+  }
+
+  trackByFn(index: number, item: any): string {
+    return item.path || index.toString();
   }
 }

@@ -88,6 +88,70 @@
         },
         "children": [
           {
+            "name": "Api Reference",
+            "path": "/getting-started/guides2/api-reference",
+            "type": "directory",
+            "metadata": {
+              "title": "Api Reference",
+              "categories": [
+                "getting-started\\guides2"
+              ],
+              "tags": []
+            },
+            "children": [
+              {
+                "name": "Components",
+                "path": "/getting-started/guides2/api-reference/components",
+                "type": "directory",
+                "metadata": {
+                  "title": "Components",
+                  "categories": [
+                    "getting-started\\guides2\\api-reference"
+                  ],
+                  "tags": []
+                },
+                "children": [
+                  {
+                    "name": "Button",
+                    "path": "/getting-started/guides2/api-reference/components/button",
+                    "filePath": "/getting-started/guides2/api-reference/components/button.md",
+                    "type": "file",
+                    "metadata": {
+                      "title": "Button Component",
+                      "categories": [
+                        "api-reference",
+                        "components"
+                      ],
+                      "tags": [
+                        "ui",
+                        "components",
+                        "button"
+                      ],
+                      "difficulty": "intermediate"
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "Introduction",
+                "path": "/getting-started/guides2/api-reference/introduction",
+                "filePath": "/getting-started/guides2/api-reference/introduction.md",
+                "type": "file",
+                "metadata": {
+                  "title": "API Introduction",
+                  "categories": [
+                    "api-reference"
+                  ],
+                  "tags": [
+                    "api",
+                    "overview"
+                  ],
+                  "difficulty": "beginner"
+                }
+              }
+            ]
+          },
+          {
             "name": "Getting Started",
             "path": "/getting-started/guides2/getting-started",
             "filePath": "/getting-started/guides2/getting-started.md",
