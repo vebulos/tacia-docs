@@ -41,6 +41,33 @@ export class ContentService {
     return this.contentCache;
   }
   
+  getContent(path: string): Observable<ContentItem[]> {
+    // For now, we'll use the full structure and filter by path
+    // In a real implementation, this would be an API call to get children of a specific path
+    return this.getContentStructure().pipe(
+      map(items => this.findItemsByPath(items, path))
+    );
+  }
+  
+  private findItemsByPath(items: ContentItem[], targetPath: string): ContentItem[] {
+    if (!targetPath) {
+      return items;
+    }
+    
+    const pathSegments = targetPath.split('/').filter(segment => segment);
+    let currentItems = items;
+    
+    for (const segment of pathSegments) {
+      const found = currentItems.find(item => item.name === segment);
+      if (!found || !found.children) {
+        return [];
+      }
+      currentItems = found.children;
+    }
+    
+    return currentItems;
+  }
+  
   private transformStructure(items: any[], parentPath = ''): ContentItem[] {
     if (!Array.isArray(items)) {
       return [];

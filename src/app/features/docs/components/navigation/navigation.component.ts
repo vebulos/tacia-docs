@@ -1,11 +1,19 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { ContentService, ContentItem } from '../../../../core/services/content.service';
-import { map, filter } from 'rxjs/operators';
-import { NavigationEnd } from '@angular/router';
+import { map, filter, takeUntil } from 'rxjs/operators';
 import { NavigationItemComponent } from './navigation-item.component';
 import { SearchComponent as DocsSearchComponent } from '../search/search.component';
+import { Subject } from 'rxjs';
+
+interface NavigationItem extends ContentItem {
+  isOpen?: boolean;
+  isLoading?: boolean;
+  hasError?: boolean;
+  childrenLoaded?: boolean;
+  children?: NavigationItem[];
+}
 
 @Component({
   selector: 'app-navigation',
@@ -14,37 +22,50 @@ import { SearchComponent as DocsSearchComponent } from '../search/search.compone
   templateUrl: './navigation.component.html',
   styleUrls: ['./navigation.component.css']
 })
-export class NavigationComponent implements OnInit {
-  contentStructure: (ContentItem & { isOpen?: boolean })[] = [];
+export class NavigationComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+  private hoverTimers = new Map<string, any>();
+  
+  contentStructure: NavigationItem[] = [];
   loading = true;
   error: string | null = null;
-  activePath: string = '';
+  activePath = '';
 
   constructor(
     private contentService: ContentService,
     private router: Router
-  ) {
-    // Keep track of the active route to keep categories open
+  ) {}
+
+  ngOnInit(): void {
+    this.loadRootContent();
+    
+    // Update active states on route changes
     this.router.events.pipe(
-      filter(event => event instanceof NavigationEnd)
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      takeUntil(this.destroy$)
     ).subscribe(() => {
       this.updateActiveStates();
     });
   }
 
-  ngOnInit(): void {
-    this.loadNavigation();
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    this.clearAllHoverTimers();
+  }
+  
+  private clearAllHoverTimers(): void {
+    this.hoverTimers.forEach(timerId => clearTimeout(timerId));
+    this.hoverTimers.clear();
   }
 
-  loadNavigation(): void {
-    this.contentService.getContentStructure().pipe(
-      map(items => this.transformContentItems(items))
-    ).subscribe({
+  loadRootContent(): void {
+    this.loading = true;
+    this.error = null;
+    
+    this.contentService.getContent('').subscribe({
       next: (items: ContentItem[]) => {
-        this.contentStructure = items.map(item => ({
-          ...item,
-          isOpen: false
-        }));
+        this.contentStructure = this.transformContentItems(items);
         this.updateActiveStates();
         this.loading = false;
       },
@@ -55,14 +76,95 @@ export class NavigationComponent implements OnInit {
       }
     });
   }
+  
+  private transformContentItems(items: ContentItem[]): NavigationItem[] {
+    return items.map(item => ({
+      ...item,
+      name: item.metadata?.title || item.name,
+      path: item.path?.startsWith('/') ? item.path.substring(1) : item.path || '',
+      children: item.children ? this.transformContentItems(item.children) : undefined,
+      isDirectory: item.isDirectory || (item.children?.length ?? 0) > 0,
+      isOpen: false,
+      isLoading: false,
+      hasError: false,
+      childrenLoaded: false
+    }));
+  }
+
+  onItemHover(item: NavigationItem): void {
+    if (!item.isDirectory || item.childrenLoaded || item.isLoading) {
+      return;
+    }
+
+    // Clear any existing timer for this item
+    if (this.hoverTimers.has(item.path)) {
+      clearTimeout(this.hoverTimers.get(item.path));
+    }
+
+    // Set a new timer
+    const timerId = setTimeout(() => {
+      this.loadChildItems(item);
+      this.hoverTimers.delete(item.path);
+    }, 300);
+
+    this.hoverTimers.set(item.path, timerId);
+  }
+
+  onItemLeave(item: NavigationItem): void {
+    if (this.hoverTimers.has(item.path)) {
+      clearTimeout(this.hoverTimers.get(item.path));
+      this.hoverTimers.delete(item.path);
+    }
+  }
+
+  private loadChildItems(parentItem: NavigationItem): void {
+    if (!parentItem.isDirectory || parentItem.isLoading || parentItem.childrenLoaded) {
+      return;
+    }
+
+    parentItem.isLoading = true;
+    parentItem.hasError = false;
+
+    this.contentService.getContent(parentItem.path).subscribe({
+      next: (items: ContentItem[]) => {
+        parentItem.children = this.transformContentItems(items);
+        parentItem.isLoading = false;
+        parentItem.childrenLoaded = true;
+        this.updateActiveStates();
+      },
+      error: (error: Error) => {
+        console.error('Failed to load child items:', error);
+        parentItem.isLoading = false;
+        parentItem.hasError = true;
+      }
+    });
+  }
+
+  toggleItem(event: Event, item: NavigationItem): void {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (item.isDirectory) {
+      if (!item.childrenLoaded) {
+        this.loadChildItems(item);
+      }
+      item.isOpen = !item.isOpen;
+    }
+  }
 
   // Update active states based on current route
   private updateActiveStates(): void {
-    this.activePath = this.router.url.replace(/^\/docs\/content\/?/, '');
+    if (!this.router.navigated) return;
+    
+    const url = this.router.url;
+    this.activePath = url.startsWith('/docs/content/') 
+      ? url.replace(/^\/docs\/content\//, '')
+      : '';
+      
     this.setActiveStates(this.contentStructure, this.activePath);
   }
 
-  private setActiveStates(items: (ContentItem & { isOpen?: boolean })[], currentPath: string): boolean {
+  private setActiveStates(items: NavigationItem[], currentPath: string): boolean {
     let hasActiveChild = false;
     
     for (const item of items) {
@@ -82,30 +184,7 @@ export class NavigationComponent implements OnInit {
     return hasActiveChild;
   }
 
-  // Handle category click
-  onCategoryClick(category: any, event: Event): void {
-    event.stopPropagation();
-    if (category.children?.length) {
-      category.isOpen = !category.isOpen;
-    }
-  }
-
-  // Transform the content items to ensure paths are correct
-  private transformContentItems(items: ContentItem[]): (ContentItem & { isOpen?: boolean })[] {
-    return items.map(item => {
-      const children = item.children ? this.transformContentItems(item.children) : [];
-      return {
-        ...item,
-        name: item.metadata?.title || item.name,
-        path: item.path.startsWith('/') ? item.path.substring(1) : item.path,
-        children,
-        isDirectory: item.isDirectory || children.length > 0,
-        isOpen: false
-      };
-    });
-  }
-
-  trackByFn(index: number, item: any): string {
+  trackByFn(index: number, item: NavigationItem): string {
     return item.path || index.toString();
   }
 }
