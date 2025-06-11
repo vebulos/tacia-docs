@@ -10,6 +10,10 @@ import { animate, state, style, transition, trigger } from '@angular/animations'
   imports: [CommonModule, RouterModule],
   templateUrl: './navigation-item.component.html',
   styleUrls: ['./navigation-item.component.css'],
+  host: {
+    '[attr.level]': 'level',
+    '[class]': '"level-" + level'
+  },
   animations: [
     trigger('slideInOut', [
       state('expanded', style({

@@ -2,37 +2,36 @@
   <!-- Directory Item -->
   <div 
     (click)="toggleItem($event)" 
-    class="directory-item"
+    class="nav-item directory-item"
     [class.font-medium]="level === 0"
     [class.text-gray-900]="level === 0"
     [class.dark:text-gray-100]="level === 0"
     [class.text-gray-600]="level > 0"
     [class.dark:text-gray-300]="level > 0"
   >
-    <div class="flex items-center flex-1">
-      <!-- Chevron icon for directories with children -->
+    <div class="flex items-center">
+      <!-- Chevron or folder icon -->
       <svg 
         *ngIf="hasChildren"
         [class.transform]="item.isOpen" 
         [class.rotate-90]="item.isOpen"
-        class="w-4 h-4 mr-2 text-gray-400 transition-transform duration-200 flex-shrink-0" 
+        class="w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0" 
         fill="none" 
         viewBox="0 0 24 24" 
         stroke="currentColor"
       >
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
       </svg>
-      <!-- Folder icon for empty directories -->
       <svg 
         *ngIf="!hasChildren"
-        class="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" 
+        class="w-4 h-4 text-gray-400 flex-shrink-0" 
         fill="none" 
         viewBox="0 0 24 24" 
         stroke="currentColor"
       >
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
       </svg>
-      <span class="truncate">{{ item.metadata?.title || item.name }}</span>
+      <span class="ml-2 truncate">{{ item.metadata?.title || item.name }}</span>
     </div>
   </div>
 
@@ -40,7 +39,7 @@
   <div 
     *ngIf="hasChildren"
     [@slideInOut]="item.isOpen ? 'expanded' : 'collapsed'"
-    class="overflow-hidden"
+    class="nested-items"
   >
     <app-navigation-item 
       *ngFor="let child of item.children; trackBy: trackByFn"
@@ -58,12 +57,12 @@
   [routerLink]="'/docs/content/' + (item.fullPath || item.path)"
   [queryParams]="{}"
   routerLinkActive="active"
-  class="file-item"
+  class="nav-item file-item"
 >
   <div class="flex items-center">
-    <svg class="w-4 h-4 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
-    <span class="truncate ml-2">{{ item.metadata?.title || item.name }}</span>
+    <span class="ml-2 truncate">{{ item.metadata?.title || item.name }}</span>
   </div>
 </a>
