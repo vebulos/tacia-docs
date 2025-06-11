@@ -1,13 +1,14 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, Inject, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
-import { ContentService, ContentItem } from '../../../../core/services/content.service';
+import { IContentService } from '../../../../core/services/content.interface';
+import { ContentItem } from '../../../../core/services/content.interface';
 import { map, filter, takeUntil } from 'rxjs/operators';
 import { NavigationItemComponent } from './navigation-item.component';
 import { SearchComponent as DocsSearchComponent } from '../search/search.component';
 import { Subject } from 'rxjs';
 
-interface NavigationItem extends ContentItem {
+export interface NavigationItem extends ContentItem {
   isOpen?: boolean;
   isLoading?: boolean;
   hasError?: boolean;
@@ -32,7 +33,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   activePath = '';
 
   constructor(
-    private contentService: ContentService,
+    @Inject('IContentService') private contentService: IContentService,
     private router: Router
   ) {}
 

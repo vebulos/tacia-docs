@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { ContentItem } from '../../../../core/services/content.service';
+import { ContentItem } from '../../../../core/services/content.interface';
 import { animate, state, style, transition, trigger } from '@angular/animations';
 
 @Component({

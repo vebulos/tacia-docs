@@ -1,26 +1,13 @@
-import { Injectable } from '@angular/core';
+import { Inject, Injectable, InjectionToken } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { map, shareReplay, catchError, tap } from 'rxjs/operators';
+import { map, shareReplay, catchError } from 'rxjs/operators';
+import { IContentService, ContentItem } from './content.interface';
 
-export interface ContentItem {
-  name: string;
-  path: string;
-  fullPath?: string;
-  isDirectory: boolean;
-  children?: ContentItem[];
-  metadata?: {
-    title?: string;
-    categories?: string[];
-    tags?: string[];
-    [key: string]: any;
-  };
-}
+export const CONTENT_SERVICE = new InjectionToken<IContentService>('ContentService');
 
-@Injectable({
-  providedIn: 'root'
-})
-export class ContentService {
+@Injectable()
+export class ContentService implements IContentService {
   private contentCache: Observable<ContentItem[]> | null = null;
 
   constructor(private http: HttpClient) {}
@@ -41,7 +28,7 @@ export class ContentService {
     return this.contentCache;
   }
   
-  getContent(path: string): Observable<ContentItem[]> {
+  getContent(path: string = ''): Observable<ContentItem[]> {
     // For now, we'll use the full structure and filter by path
     // In a real implementation, this would be an API call to get children of a specific path
     return this.getContentStructure().pipe(

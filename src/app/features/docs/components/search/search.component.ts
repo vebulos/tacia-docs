@@ -257,7 +257,7 @@ export class SearchComponent implements OnInit, OnDestroy {
       console.log('Formatted path for navigation:', targetPath);
       
       // Add to recent searches
-      this.searchService.addRecentSearch(result.title);
+      this.searchService.addToRecentSearches(result.title);
       
       // Reset search UI state before navigation
       this.searchControl.setValue('', { emitEvent: false });
