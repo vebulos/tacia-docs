@@ -26,4 +26,30 @@ export class ApiContentService implements IContentService {
   getContentStructure(): Observable<ContentItem[]> {
     return this.getContent('');
   }
+
+  getContentWithFilePaths(): Observable<ContentItem[]> {
+    return this.getContent('').pipe(
+      map(items => {
+        const itemsWithFilePaths: ContentItem[] = [];
+        
+        const collectItemsWithFilePath = (items: ContentItem[]) => {
+          items.forEach(item => {
+            if ('filePath' in item) {
+              itemsWithFilePaths.push(item);
+            }
+            if (item.children) {
+              collectItemsWithFilePath(item.children);
+            }
+          });
+        };
+        
+        collectItemsWithFilePath(items);
+        return itemsWithFilePaths;
+      }),
+      catchError(error => {
+        console.error('Error getting content with file paths:', error);
+        return of([]);
+      })
+    );
+  }
 }

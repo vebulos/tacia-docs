@@ -1,11 +1,16 @@
-import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, ElementRef, HostListener, Inject, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, takeUntil, tap } from 'rxjs/operators';
 import { SearchService, SearchResult } from '../../../../core/services/search/search.service';
-import { SEARCH_CONFIG } from '../../../../core/services/search/search.config';
+// Configuration de la recherche locale (valeurs par défaut si la configuration n'est pas injectée)
+const DEFAULT_SEARCH_CONFIG = {
+  initialResultsLimit: 10,
+  maxResults: 20,
+  debounceTime: 300
+};
 
 @Component({
   selector: 'app-docs-search',
@@ -30,6 +35,13 @@ export class SearchComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private router = inject(Router);
   private searchService = inject(SearchService);
+  private searchConfig: any;
+
+  constructor(
+    @Inject('APP_CONFIG') private appConfig: any
+  ) {
+    this.searchConfig = appConfig?.search || DEFAULT_SEARCH_CONFIG;
+  }
 
   ngOnInit(): void {
     console.log('[SearchComponent] ngOnInit called');
@@ -50,7 +62,7 @@ export class SearchComponent implements OnInit, OnDestroy {
   private setupSearchSubscriptions(): void {
     // Subscribe to search input changes with debounce
     this.searchControl.valueChanges.pipe(
-      debounceTime(SEARCH_CONFIG.debounceTime),
+      debounceTime(this.searchConfig.debounceTime),
       distinctUntilChanged(),
       filter(term => term !== null && term !== undefined),
       tap(() => this.isLoading = true),

@@ -1,11 +1,10 @@
-import { Inject, Injectable, Optional } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, of, forkJoin, firstValueFrom, throwError } from 'rxjs';
 import { map, catchError, switchMap, tap, finalize } from 'rxjs/operators';
 import { MarkdownService } from '../markdown.service';
 import { IContentService, ContentItem } from '../content.interface';
-// Types de configuration
-import { AppConfig, SearchConfig } from '../../config/app.config';
+import { SEARCH_CONFIG } from './search.config';
 
 export interface SearchResult {
   path: string;
@@ -33,7 +32,10 @@ export class SearchService {
   private searchIndex: SearchResult[] = [];
   private indexReady = false;
   
-  private config: SearchConfig;
+  private readonly config: {
+    maxResults: number;
+    maxRecentSearches: number;
+  };
 
   // Public observables
   searchResults$ = this.searchResults.asObservable();
@@ -43,34 +45,15 @@ export class SearchService {
   constructor(
     private http: HttpClient,
     private markdownService: MarkdownService,
-    @Inject('IContentService') private contentService: IContentService,
-    @Inject('APP_CONFIG') @Optional() appConfig?: AppConfig
+    @Inject('IContentService') private contentService: IContentService
   ) {
-    // Utiliser la configuration de l'application si disponible, sinon utiliser les valeurs par défaut
-    this.config = appConfig?.search || {
-      initialResultsLimit: 10,
-      maxResults: 20,
-      maxRecentSearches: 5,
-      debounceTime: 300,
-      contentBasePath: '/assets/content',
-      contextLines: 1,
-      index: {
-        enabled: true,
-        interval: 60 * 60 * 1000, // 1 heure
-        initialDelay: 5000, // 5 secondes
-        indexOnStartup: true
-      }
+    this.config = {
+      maxResults: SEARCH_CONFIG.maxResults,
+      maxRecentSearches: SEARCH_CONFIG.maxRecentSearches
     };
-    
-    console.log('[SearchService] Constructor called with config:', this.config);
+    console.log('[SearchService] Constructor called');
     this.loadRecentSearches();
-    
-    // Initialiser l'index si configuré pour le démarrage
-    if (this.config.index.enabled && this.config.index.indexOnStartup) {
-      setTimeout(() => {
-        this.initializeSearchIndex().subscribe();
-      }, this.config.index.initialDelay);
-    }
+    this.initializeSearchIndex().subscribe();
   }
   
   /**

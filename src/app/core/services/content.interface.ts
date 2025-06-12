@@ -17,4 +17,5 @@ export interface ContentItem {
 export interface IContentService {
   getContent(path?: string): Observable<ContentItem[]>;
   getContentStructure(): Observable<ContentItem[]>;
+  getContentWithFilePaths(): Observable<ContentItem[]>;
 }
