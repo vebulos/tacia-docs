@@ -8,7 +8,7 @@ import { SearchService } from './core/services/search/search.service';
 
 // Configuration
 // Configuration
-import { environment } from './core/config/environments/environment';
+import { environment } from '../environments/environment';
 import { defaultConfig } from './core/config/app.config';
 
 // Créer un fournisseur pour la configuration de l'application

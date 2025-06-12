@@ -46,9 +46,8 @@ export class SearchService {
     @Inject('IContentService') private contentService: IContentService,
     @Inject('APP_CONFIG') @Optional() appConfig?: AppConfig
   ) {
-    // Utiliser la configuration de l'application si disponible, sinon utiliser les valeurs par défaut
-    this.config = appConfig?.search || {
-      initialResultsLimit: 10,
+    // Use app config if available, otherwise use default config
+    this.config = {
       maxResults: 20,
       maxRecentSearches: 5,
       debounceTime: 300,
@@ -56,20 +55,22 @@ export class SearchService {
       contextLines: 1,
       index: {
         enabled: true,
-        interval: 60 * 60 * 1000, // 1 heure
-        initialDelay: 5000, // 5 secondes
+        interval: 60 * 60 * 1000, // 1 hour
+        initialDelay: 5000, // 5 seconds
         indexOnStartup: true
-      }
+      },
+      ...appConfig?.search
     };
     
     console.log('[SearchService] Constructor called with config:', this.config);
     this.loadRecentSearches();
     
-    // Initialiser l'index si configuré pour le démarrage
-    if (this.config.index.enabled && this.config.index.indexOnStartup) {
+    // Initialize index if configured for startup
+    if (this.config.index?.enabled && this.config.index.indexOnStartup) {
+      const delay = this.config.index.initialDelay || 0;
       setTimeout(() => {
         this.initializeSearchIndex().subscribe();
-      }, this.config.index.initialDelay);
+      }, delay);
     }
   }
   
