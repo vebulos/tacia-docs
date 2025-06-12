@@ -1,14 +1,14 @@
-import { Inject, Injectable, Optional } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, of, forkJoin, firstValueFrom, throwError } from 'rxjs';
 import { map, catchError, switchMap, tap, finalize } from 'rxjs/operators';
 import { MarkdownService } from '../markdown.service';
 import { IContentService, ContentItem } from '../content.interface';
-// Types de configuration
-import { AppConfig, SearchConfig } from '../../config/app.config';
+import { SEARCH_CONFIG } from './search.config';
 
 export interface SearchResult {
   path: string;
+  fullPath?: string; // Full path including parent directories
   title: string;
   preview: string;
   score: number;
@@ -33,7 +33,10 @@ export class SearchService {
   private searchIndex: SearchResult[] = [];
   private indexReady = false;
   
-  private config: SearchConfig;
+  private readonly config: {
+    maxResults: number;
+    maxRecentSearches: number;
+  };
 
   // Public observables
   searchResults$ = this.searchResults.asObservable();
@@ -43,35 +46,15 @@ export class SearchService {
   constructor(
     private http: HttpClient,
     private markdownService: MarkdownService,
-    @Inject('IContentService') private contentService: IContentService,
-    @Inject('APP_CONFIG') @Optional() appConfig?: AppConfig
+    @Inject('IContentService') private contentService: IContentService
   ) {
-    // Use app config if available, otherwise use default config
     this.config = {
-      maxResults: 20,
-      maxRecentSearches: 5,
-      debounceTime: 300,
-      contentBasePath: '/assets/content',
-      contextLines: 1,
-      index: {
-        enabled: true,
-        interval: 60 * 60 * 1000, // 1 hour
-        initialDelay: 5000, // 5 seconds
-        indexOnStartup: true
-      },
-      ...appConfig?.search
+      maxResults: SEARCH_CONFIG.maxResults,
+      maxRecentSearches: SEARCH_CONFIG.maxRecentSearches
     };
-    
-    console.log('[SearchService] Constructor called with config:', this.config);
+    console.log('[SearchService] Constructor called');
     this.loadRecentSearches();
-    
-    // Initialize index if configured for startup
-    if (this.config.index?.enabled && this.config.index.indexOnStartup) {
-      const delay = this.config.index.initialDelay || 0;
-      setTimeout(() => {
-        this.initializeSearchIndex().subscribe();
-      }, delay);
-    }
+    this.initializeSearchIndex().subscribe();
   }
   
   /**
@@ -221,9 +204,10 @@ export class SearchService {
     // Use metadata.title if available, otherwise extract from path
     const title = item.metadata?.['title'] || item.path.split('/').pop() || 'Untitled';
     
-    // Create the search result
+    // Create the search result with fullPath
     const result: SearchResult = {
       path: item.path,
+      fullPath: item.fullPath || item.path, // Include fullPath if available
       title: title,
       preview: item.metadata?.['description'] || '',
       score: 0,

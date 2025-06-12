@@ -2,8 +2,7 @@ import { Inject, Injectable, OnDestroy } from '@angular/core';
 import { interval, Subscription, timer } from 'rxjs';
 import { switchMap, tap } from 'rxjs/operators';
 import { SearchService } from './search.service';
-import { AppConfig } from '../../config/app.config';
-import { APP_CONFIG } from '../../config/config.provider';
+import { AppConfig, APP_CONFIG } from '../config/app.config';
 
 @Injectable({
   providedIn: 'root'

@@ -249,24 +249,41 @@ export class SearchComponent implements OnInit, OnDestroy {
     }
   }
 
-  selectResult(result: SearchResult): void {
+  selectResult(result: any): void {
     console.log('Navigating to result:', result);
-    if (!result || !result.path) {
+    
+    // Use fullPath if available, otherwise fall back to path
+    const resultPath = result.fullPath || result.path;
+    
+    if (!result || !resultPath) {
       console.error('No result or path provided for navigation');
       return;
     }
     
     try {
-      // Ensure the path is properly formatted for navigation
-      let targetPath = result.path.trim();
+      // Get base paths from config or use defaults
+      const contentBasePath = this.appConfig?.content?.basePath || 'content';
+      const docsBasePath = this.appConfig?.routing?.docsBasePath || 'docs';
       
-      // Remove any leading/trailing slashes and normalize the path
-      targetPath = targetPath.replace(/^\/+|\/+$/g, '');
+      // Start with the result path and normalize it
+      let targetPath = resultPath.trim()
+        // Remove any leading/trailing slashes
+        .replace(/^\/+|\/+$/g, '');
       
-      // Prepend the base path for documentation content
-      targetPath = `/docs/content/${targetPath}`;
+      // Remove content base path if already included in the path
+      if (targetPath.startsWith(`${contentBasePath}/`)) {
+        targetPath = targetPath.substring(contentBasePath.length).replace(/^\/+/, '');
+      }
+      
+      // Construct the full path with proper segments
+      targetPath = `/${docsBasePath}/${targetPath}`
+        // Normalize any remaining double slashes (except after protocol)
+        .replace(/([^:]\/)\/+/g, '$1')
+        // Remove trailing slash
+        .replace(/\/+$/, '');
       
       console.log('Formatted path for navigation:', targetPath);
+      console.log('Using base paths - content:', contentBasePath, 'docs:', docsBasePath);
       
       // Add to recent searches
       this.searchService.addToRecentSearches(result.title);
