@@ -94,8 +94,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!items) return [];
     
     const navItems = items.map(item => {
-      // Use the fullPath from the content item if available, otherwise use path
-      const cleanPath = item.fullPath || item.path || '';
+      // Use the path which now includes the extension for files
+      const cleanPath = item.path || '';
       
       return {
         ...item,

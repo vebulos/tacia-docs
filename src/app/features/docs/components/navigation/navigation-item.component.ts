@@ -114,17 +114,17 @@ export class NavigationItemComponent implements OnDestroy {
    * Get the navigation link with state for a navigation item
    */
   getNavigationLink(item: NavigationItem): { link: string[], state: any } {
-    // Use the full path with extension if available
-    const fullPath = item.fullPath || item.path || '';
+    // Use the path which now includes the extension for files
+    const itemPath = item.path || '';
     
     // Build the base URL
-    const baseUrl = PathUtils.buildDocsUrl(fullPath);
+    const baseUrl = PathUtils.buildDocsUrl(itemPath);
     
     // Return the link and navigation state
     return {
       link: baseUrl,
       state: {
-        fullPath: fullPath // Pass the full path with extension
+        path: itemPath // Pass the full path with extension
       }
     };
   }

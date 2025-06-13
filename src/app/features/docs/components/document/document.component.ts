@@ -65,21 +65,12 @@ export class DocumentComponent implements OnInit, OnDestroy {
         
         // Get the current navigation to access the resolved data
         const navigation = this.router.getCurrentNavigation();
-        const state = navigation?.extras.state as { fullPath?: string } | null;
+        const state = navigation?.extras.state as { path?: string } | null;
         
-        console.group('DocumentComponent - Navigation State');
-        console.log('Route URL segments:', this.route.snapshot.url);
-        console.log('Navigation state:', state);
-        console.log('Current navigation:', navigation);
-        
-        // If we have a full path with extension from the navigation state, use it
-        if (state?.fullPath) {
-          fullPath = state.fullPath;
-          console.log('Using full path from navigation state:', fullPath);
-        } else {
-          console.log('No fullPath in navigation state, using path segments:', fullPath);
+        // If we have a path from the navigation state, use it
+        if (state?.path) {
+          fullPath = state.path;
         }
-        console.groupEnd();
         
         // Clear previous headings when path changes
         if (this._currentPath !== fullPath) {

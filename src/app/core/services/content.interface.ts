@@ -6,11 +6,8 @@ export interface ContentItem {
   /** The name of the item */
   name: string;
   
-  /** The path of the item relative to its parent */
+  /** The full path of the item from the root, including extension for files */
   path: string;
-  
-  /** The full path of the item from the root */
-  fullPath?: string;
   
   /** Whether this item is a directory */
   isDirectory: boolean;

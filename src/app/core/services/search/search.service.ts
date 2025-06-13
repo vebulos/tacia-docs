@@ -8,8 +8,7 @@ import { ContentService } from '../content.service';
 import { SEARCH_CONFIG } from './search.config';
 
 export interface SearchResult {
-  path: string;
-  fullPath?: string; // Full path including parent directories
+  path: string; // Full path including parent directories and .md extension for files
   title: string;
   preview: string;
   score: number;
@@ -205,12 +204,11 @@ export class SearchService {
     // Use metadata.title if available, otherwise extract from path
     const title = item.metadata?.['title'] || item.path.split('/').pop() || 'Untitled';
     
-    // Create the search result with fullPath
-    const result: SearchResult = {
-      path: item.path,
-      fullPath: item.fullPath || item.path, // Include fullPath if available
-      title: title,
-      preview: item.metadata?.['description'] || '',
+    // Create the search result
+    const searchResult: SearchResult = {
+      path: item.path, // Path already includes the .md extension for files
+      title: item.metadata?.title || item.name,
+      preview: '',
       score: 0,
       matches: []
     };
@@ -226,28 +224,28 @@ export class SearchService {
               const textContent = content.replace(/^---[\s\S]*?---\s*/, '');
               
               // Update preview
-              result.preview = this.createPreview(textContent);
+              searchResult.preview = this.createPreview(textContent);
               
               // Extract headings to improve search
               const headingMatch = textContent.match(/^#\s+(.+)$/m);
               if (headingMatch) {
-                result.title = headingMatch[1].trim();
+                searchResult.title = headingMatch[1].trim();
               }
             }
-            return result;
+            return searchResult;
           }),
           catchError(err => {
             console.error(`[SearchService] Error processing ${item.path}:`, err);
-            return of(result); // Return base result on error
+            return of(searchResult); // Return base result on error
           })
         );
       } else {
         console.warn(`[SearchService] Content service does not support getContentByPath for ${item.path}`);
-        return of(result);
+        return of(searchResult);
       }
     }
     
-    return of(result);
+    return of(searchResult);
   }
 
   /**

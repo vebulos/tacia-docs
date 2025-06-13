@@ -252,8 +252,8 @@ export class SearchComponent implements OnInit, OnDestroy {
   selectResult(result: any): void {
     console.log('Navigating to result:', result);
     
-    // Use fullPath if available, otherwise fall back to path
-    const resultPath = result.fullPath || result.path;
+    // Use the path which now includes the extension for files
+    const resultPath = result.path;
     
     if (!result || !resultPath) {
       console.error('No result or path provided for navigation');

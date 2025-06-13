@@ -130,19 +130,23 @@ export class ContentService {
     }
 
     return items.map(item => {
-      // Use the item's path if available, otherwise use the name
+      const isDirectory = item.isDirectory ?? false;
       let path = item.path || item.name;
       
-      // If the path already contains the parent path, don't concatenate again
-      const fullPath = parentPath && !path.startsWith(parentPath) 
-        ? `${parentPath}/${path}`.replace(/\/+/g, '/') 
-        : path;
+      // For files, ensure the path includes the .md extension
+      if (!isDirectory && !path.endsWith('.md')) {
+        path = `${path}.md`;
+      }
       
+      // Build the full path
+      const fullPath = parentPath && !path.startsWith(parentPath) 
+        ? `${parentPath}/${path}`.replace(/\/+/g, '/')
+        : path;
+
       return {
         name: item.name,
-        path: path, // Keep the original path without parent prefix
-        fullPath: fullPath, // Full path including parent
-        isDirectory: item.isDirectory ?? false,
+        path: fullPath, // Full path including parent and extension for files
+        isDirectory: isDirectory,
         children: item.children ? this.transformStructure(item.children, fullPath) : undefined,
         metadata: item.metadata || {}
       };
