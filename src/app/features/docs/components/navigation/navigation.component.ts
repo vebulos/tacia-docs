@@ -1,6 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
+import { take } from 'rxjs/operators';
+import { NavigationStateService } from '../../services/navigation-state.service';
 import { PathUtils } from '@app/core/utils/path.utils';
 import { ContentService } from '../../../../core/services/content.service';
 import { ContentItem } from '../../../../core/services/content.interface';
@@ -24,11 +26,21 @@ export class NavigationComponent implements OnInit, OnDestroy {
   loading = true;
   error: string | null = null;
   activePath = '';
+  navItems: any[] = [];
+  private closeTimer: any = null;
 
   constructor(
     private contentService: ContentService,
-    private router: Router
-  ) {}
+    private router: Router,
+    private navigationState: NavigationStateService
+  ) {
+    // Listen for active category changes
+    this.navigationState.activeCategory$.subscribe(activePath => {
+      if (activePath) {
+        this.scheduleCloseOtherCategories(activePath);
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.loadRootContent();
@@ -46,6 +58,44 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     this.clearAllHoverTimers();
+    this.navigationState.setActiveCategory(null);
+    if (this.closeTimer) {
+      clearTimeout(this.closeTimer);
+    }
+  }
+
+
+
+  private scheduleCloseOtherCategories(activePath: string): void {
+    if (this.closeTimer) {
+      clearTimeout(this.closeTimer);
+    }
+    
+    this.closeTimer = setTimeout(() => {
+      this.closeItemsNotInPath(activePath);
+      this.closeTimer = null;
+    }, 1000); // 1 second delay
+  }
+
+  private closeItemsNotInPath(activePath: string): void {
+    const closeRecursive = (items: any[]) => {
+      if (!items) return;
+      
+      for (const item of items) {
+        if (item.isDirectory && item.isOpen) {
+          // Close if not the active item and not a parent of the active item
+          if (item.path !== activePath && !activePath.startsWith(item.path + '/')) {
+            item.isOpen = false;
+          }
+          // Recurse into children
+          if (item.children) {
+            closeRecursive(item.children);
+          }
+        }
+      }
+    };
+
+    closeRecursive(this.navItems);
   }
   
   private clearAllHoverTimers(): void {
@@ -97,23 +147,17 @@ console.log('++++++++++ Root content loaded successfully:', this.contentStructur
   private transformContentItems(items: ContentItem[]): NavigationItem[] {
     if (!items) return [];
     
-    const navItems = items.map(item => {
-      // Use the path which now includes the extension for files
-      const cleanPath = item.path || '';
-      
+    return items.map(item => {
+      const isDirectory = item.isDirectory;
       return {
         ...item,
-        path: cleanPath,
-        isOpen: false,
+        isOpen: false, // Will be set by the subscription
         isLoading: false,
         hasError: false,
         childrenLoaded: false,
-        children: item.isDirectory ? [] : undefined
+        children: isDirectory ? [] : undefined
       };
     });
-    
-    // Items are already sorted by the server (files first, then directories)
-    return navItems;
   }
 
   onItemHover(item: NavigationItem): void {

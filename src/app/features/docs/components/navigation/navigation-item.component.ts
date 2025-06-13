@@ -1,11 +1,12 @@
-import { Component, Input, OnDestroy } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ContentService } from '@app/core/services/content.service';
 import { ContentItem } from '@app/core/services/content.interface';
 import { animate, state, style, transition, trigger } from '@angular/animations';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, take } from 'rxjs';
 import { PathUtils } from '@app/core/utils/path.utils';
+import { NavigationStateService } from '../../services/navigation-state.service';
 
 // Extend the ContentItem with navigation-specific properties
 export interface NavigationItem extends ContentItem {
@@ -45,7 +46,7 @@ export interface NavigationItem extends ContentItem {
     ])
   ]
 })
-export class NavigationItemComponent implements OnDestroy {
+export class NavigationItemComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private hoverTimer: any = null;
   
@@ -54,22 +55,56 @@ export class NavigationItemComponent implements OnDestroy {
   @Input() activePath: string = '';
 
   constructor(
-    private contentService: ContentService
+    private contentService: ContentService,
+    private navigationState: NavigationStateService
   ) {}
+  
+  private closeTimer: any = null;
+
+  ngOnInit(): void {
+    // Load children for initially open item
+    if (this.item.isOpen && !this.item.childrenLoaded && !this.item.isLoading) {
+      this.loadChildren();
+    }
+  }
   
   toggleItem(event: Event, forceOpen: boolean | null = null): void {
     if (!this.item.isDirectory) return;
     
     event.stopPropagation();
     
-    // If forceOpen is not provided, toggle the current state
-    // If forceOpen is provided, set to that value
-    this.item.isOpen = forceOpen !== null ? forceOpen : !this.item.isOpen;
+    // Calculate the new open state
+    const willBeOpen = forceOpen !== null ? forceOpen : !this.item.isOpen;
     
-    // Load children when opening
-    if (this.item.isOpen && !this.item.childrenLoaded && !this.item.isLoading) {
-      this.loadChildren();
+    // Update the active category in the service
+    if (willBeOpen) {
+      this.navigationState.setActiveCategory(this.item.path);
+      
+      // Open the category immediately
+      if (!this.item.isOpen) {
+        this.item.isOpen = true;
+        if (!this.item.childrenLoaded && !this.item.isLoading) {
+          this.loadChildren();
+        }
+      }
+      
+      // Close other categories after a delay
+      this.scheduleCloseOtherCategories();
+    } else {
+      this.navigationState.setActiveCategory(null);
+      this.item.isOpen = false;
     }
+  }
+  
+  private scheduleCloseOtherCategories(): void {
+    if (this.closeTimer) {
+      clearTimeout(this.closeTimer);
+    }
+    
+    this.closeTimer = setTimeout(() => {
+      // This will be handled by the parent component
+      this.closeTimer = null;
+    }, 1000);
   }
   
   private loadChildren(): void {
@@ -141,6 +176,9 @@ export class NavigationItemComponent implements OnDestroy {
   ngOnDestroy(): void {
     if (this.hoverTimer) {
       clearTimeout(this.hoverTimer);
+    }
+    if (this.closeTimer) {
+      clearTimeout(this.closeTimer);
     }
     this.destroy$.next();
     this.destroy$.complete();
