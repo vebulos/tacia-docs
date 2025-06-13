@@ -1,7 +1,9 @@
 <ng-container *ngIf="item.isDirectory">
   <!-- Directory Item -->
   <div 
-    (click)="toggleItem($event)" 
+    (click)="toggleItem($event)"
+    (mouseenter)="onMouseEnter($event)"
+    (mouseleave)="onMouseLeave($event)"
     class="nav-item directory-item group"
     [class.font-medium]="level === 0"
     [class.text-gray-900]="level === 0"

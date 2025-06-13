@@ -47,6 +47,7 @@ export interface NavigationItem extends ContentItem {
 })
 export class NavigationItemComponent implements OnDestroy {
   private destroy$ = new Subject<void>();
+  private hoverTimer: any = null;
   
   @Input() item!: NavigationItem;
   @Input() level: number = 0;
@@ -56,12 +57,16 @@ export class NavigationItemComponent implements OnDestroy {
     private contentService: ContentService
   ) {}
   
-  toggleItem(event: Event): void {
-    event.stopPropagation();
+  toggleItem(event: Event, forceOpen: boolean | null = null): void {
     if (!this.item.isDirectory) return;
     
-    this.item.isOpen = !this.item.isOpen;
+    event.stopPropagation();
     
+    // If forceOpen is not provided, toggle the current state
+    // If forceOpen is provided, set to that value
+    this.item.isOpen = forceOpen !== null ? forceOpen : !this.item.isOpen;
+    
+    // Load children when opening
     if (this.item.isOpen && !this.item.childrenLoaded && !this.item.isLoading) {
       this.loadChildren();
     }
@@ -105,7 +110,38 @@ export class NavigationItemComponent implements OnDestroy {
     return this.activePath.startsWith(this.item.path);
   }
   
+  onMouseEnter(event: MouseEvent): void {
+    if (!this.item.isDirectory || this.item.isLoading) {
+      return;
+    }
+
+    // If already open, no need to do anything
+    if (this.item.isOpen) return;
+
+    // Clear any existing timer
+    if (this.hoverTimer) {
+      clearTimeout(this.hoverTimer);
+    }
+
+    // Set a new timer
+    this.hoverTimer = setTimeout(() => {
+      this.toggleItem(event, true); // Force open on hover
+      this.hoverTimer = null;
+    }, 300); // 300ms delay before loading on hover
+  }
+
+  onMouseLeave(event: MouseEvent): void {
+    // Clear the timer if mouse leaves before it triggers
+    if (this.hoverTimer) {
+      clearTimeout(this.hoverTimer);
+      this.hoverTimer = null;
+    }
+  }
+
   ngOnDestroy(): void {
+    if (this.hoverTimer) {
+      clearTimeout(this.hoverTimer);
+    }
     this.destroy$.next();
     this.destroy$.complete();
   }

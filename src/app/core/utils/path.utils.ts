@@ -87,19 +87,5 @@ export class PathUtils {
     return contentPath.replace(/\/+/g, '/');
   }
   
-  /**
-   * Sorts navigation items (folders first, then files)
-   */
-  static sortNavigationItems(items: any[]): any[] {
-    if (!items) return [];
-    
-    return [...items].sort((a, b) => {
-      // If both are folders or both are files, sort by name
-      if (a.isDirectory === b.isDirectory) {
-        return a.name.localeCompare(b.name);
-      }
-      // Sinon, les dossiers d'abord
-      return a.isDirectory ? -1 : 1;
-    });
-  }
+
 }

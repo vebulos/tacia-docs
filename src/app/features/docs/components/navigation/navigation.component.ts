@@ -72,6 +72,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
           }));
           
           this.contentStructure = this.transformContentItems(processedItems);
+          
 console.log('++++++++++ Root content loaded successfully:', this.contentStructure);
 
 
@@ -111,8 +112,8 @@ console.log('++++++++++ Root content loaded successfully:', this.contentStructur
       };
     });
     
-    // Sort items (directories first, then files)
-    return PathUtils.sortNavigationItems(navItems);
+    // Items are already sorted by the server (files first, then directories)
+    return navItems;
   }
 
   onItemHover(item: NavigationItem): void {
