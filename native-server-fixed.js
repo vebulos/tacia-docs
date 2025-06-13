@@ -180,21 +180,34 @@ function handleContentRequest(parsedUrl, res) {
             console.log('Listing directory:', fullPath);
             const entries = fs.readdirSync(fullPath, { withFileTypes: true });
             
-            const result = entries.map(entry => {
+            // Map entries with their metadata
+            const mappedEntries = entries.map(entry => {
                 const entryPath = path.join(requestedPath, entry.name).replace(/\\/g, '/');
                 const extname = path.extname(entry.name).toLowerCase();
                 const isMarkdown = extname === '.md';
+                const isDirectory = entry.isDirectory();
                 
                 return {
                     name: entry.name,
                     path: entryPath,
-                    isDirectory: entry.isDirectory(),
-                    type: entry.isDirectory() ? 'directory' : 'file',
+                    isDirectory: isDirectory,
+                    type: isDirectory ? 'directory' : 'file',
                     isMarkdown: isMarkdown
                 };
             });
+
+            // Sort entries: files first, then directories, both alphabetically by name
+            const sortedEntries = [...mappedEntries].sort((a, b) => {
+                // If one is a file and the other is a directory, sort files first
+                if (!a.isDirectory && b.isDirectory) return -1;
+                if (a.isDirectory && !b.isDirectory) return 1;
+                
+                // Otherwise, sort alphabetically by name
+                return a.name.localeCompare(b.name);
+            });
             
-            return sendResponse(res, 200, result);
+            
+            return sendResponse(res, 200, sortedEntries);
         }
         
         // If it's a file, serve it
