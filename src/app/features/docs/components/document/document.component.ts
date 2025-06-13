@@ -1,9 +1,10 @@
-import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject, SecurityContext } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router, ParamMap } from '@angular/router';
-import { MarkdownService, MarkdownFile } from '@app/core/services/markdown.service';
+import { MarkdownService } from '@app/core/services/markdown.service';
 import { Subscription, catchError, of, switchMap } from 'rxjs';
 import { CommonModule } from '@angular/common';
+import { PathUtils } from '@app/core/utils/path.utils';
 
 // Simple DOM parser to safely manipulate HTML
 const parseHtml = (html: string): Document => {
@@ -52,22 +53,40 @@ export class DocumentComponent implements OnInit, OnDestroy {
     
     this.subscription = this.route.paramMap.pipe(
       switchMap((params: ParamMap) => {
-        // Get the full path from the path parameter
-        const path = params.get('path') || '';
+        // Get all path segments and join them with slashes
+        const pathSegments = this.route.snapshot.url.map(segment => segment.path);
+        let fullPath = pathSegments.join('/');
         
-        if (!path) {
-          this.router.navigate(['/docs/content/getting-started/introduction']);
+        // Remove any duplicate segments that might be introduced by the router
+        // This can happen if the route is already included in the URL
+        const basePath = this.route.snapshot.url[0]?.path || '';
+        if (fullPath.startsWith(`${basePath}/`)) {
+          fullPath = fullPath.substring(basePath.length + 1);
+        }
+        
+        // Normalize the path
+        const normalizedPath = PathUtils.normalizePath(fullPath);
+        
+        if (PathUtils.isEmptyPath(normalizedPath)) {
+          // Use the DEFAULT_DOCS_PATH constant from PathUtils
+          this.router.navigate(PathUtils.buildDocsUrl(PathUtils.DEFAULT_DOCS_PATH));
           return of(null);
         }
         
         // Clear previous headings when path changes
-        if (this._currentPath !== path) {
+        if (this._currentPath !== normalizedPath) {
           this.headings = [];
-          this._currentPath = path;
+          this._currentPath = normalizedPath;
         }
         
-        // Pass the path to the markdown service
-        return this.markdownService.getMarkdownFile(path).pipe(
+        // Build the API path and ensure it has the .md extension
+        let apiPath = PathUtils.buildApiPath(normalizedPath);
+        if (!apiPath.endsWith('.md')) {
+          apiPath = `${apiPath}.md`;
+        }
+        
+        console.log('Loading markdown from API path:', apiPath);
+        return this.markdownService.getMarkdownFile(apiPath).pipe(
           catchError(err => {
             console.error('Error loading markdown:', err);
             this.error = 'Failed to load document. Please try again later.';

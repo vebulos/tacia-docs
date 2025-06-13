@@ -1,7 +1,36 @@
 import { Injectable } from '@angular/core';
-import * as localforage from 'localforage';
 import { from, Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
+
+// Déclaration du type pour localforage
+declare const localforage: {
+  createInstance(config: any): LocalForage;
+  INDEXEDDB: string;
+  WEBSQL: string;
+  LOCALSTORAGE: string;
+};
+
+interface LocalForage {
+  getItem<T>(key: string): Promise<T | null>;
+  setItem<T>(key: string, value: T): Promise<T>;
+  removeItem(key: string): Promise<void>;
+  clear(): Promise<void>;
+  length(): Promise<number>;
+  key(keyIndex: number): Promise<string>;
+  keys(): Promise<string[]>;
+  iterate<T, U>(
+    iteratee: (value: T, key: string, iterationNumber: number) => U,
+    callback?: (err: any, result: U) => void
+  ): Promise<U>;
+}
+
+// Type assertion pour le store
+interface LocalForageStore {
+  getItem<T>(key: string): Promise<T | null>;
+  setItem<T>(key: string, value: T): Promise<T>;
+  removeItem(key: string): Promise<void>;
+  clear(): Promise<void>;
+}
 
 interface CacheItem<T> {
   data: T;
@@ -12,7 +41,7 @@ interface CacheItem<T> {
   providedIn: 'root'
 })
 export class StorageService {
-  private store: LocalForage;
+  private store: LocalForageStore | null = null;
 
   constructor() {
     this.store = localforage.createInstance({
@@ -30,37 +59,38 @@ export class StorageService {
    * Get item from storage
    */
   get<T>(key: string): Observable<T | null> {
-    return from(this.store.getItem<CacheItem<T>>(key)).pipe(
-      map(item => {
+    if (!this.store) {
+      console.error('LocalForage store is not initialized');
+      return of(null);
+    }
+    return from(Promise.resolve(this.store.getItem<CacheItem<T>>(key))).pipe(
+      map((item: CacheItem<T> | null) => {
         if (!item) return null;
         if (item.expires && item.expires < Date.now()) {
-          this.remove(key).subscribe(); // Clean up expired item
+          this.remove(key).subscribe();
           return null;
         }
         return item.data;
       }),
-      catchError(error => {
-        console.error('Storage get error:', error);
-        return of(null);
-      })
+      catchError(() => of(null))
     );
   }
 
   /**
    * Set item in storage with TTL
    */
-  set<T>(key: string, value: T, ttl?: number): Observable<T> {
+  set<T>(key: string, value: T, ttl: number = 24 * 60 * 60 * 1000): Observable<T> {
+    if (!this.store) {
+      console.error('LocalForage store is not initialized');
+      return of(value);
+    }
     const item: CacheItem<T> = {
       data: value,
-      expires: ttl ? Date.now() + ttl : 0
+      expires: Date.now() + ttl
     };
-
-    return from(this.store.setItem<CacheItem<T>>(key, item)).pipe(
+    return from(Promise.resolve(this.store.setItem<CacheItem<T>>(key, item))).pipe(
       map(() => value),
-      catchError(error => {
-        console.error('Storage set error:', error);
-        throw error;
-      })
+      catchError(() => of(value))
     );
   }
 
@@ -68,10 +98,15 @@ export class StorageService {
    * Remove item from storage
    */
   remove(key: string): Observable<void> {
-    return from(this.store.removeItem(key)).pipe(
+    if (!this.store) {
+      console.error('LocalForage store is not initialized');
+      return of(undefined);
+    }
+    return from(Promise.resolve(this.store.removeItem(key))).pipe(
+      map(() => undefined),
       catchError(error => {
         console.error('Storage remove error:', error);
-        throw error;
+        return of(undefined);
       })
     );
   }
@@ -80,10 +115,15 @@ export class StorageService {
    * Clear all cached items
    */
   clear(): Observable<void> {
-    return from(this.store.clear()).pipe(
+    if (!this.store) {
+      console.error('LocalForage store is not initialized');
+      return of(undefined);
+    }
+    return from(Promise.resolve(this.store.clear())).pipe(
+      map(() => undefined),
       catchError(error => {
         console.error('Storage clear error:', error);
-        throw error;
+        return of(undefined);
       })
     );
   }

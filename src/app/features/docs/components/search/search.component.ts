@@ -1,11 +1,13 @@
-import { Component, ElementRef, HostListener, Inject, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, takeUntil, tap } from 'rxjs/operators';
 import { SearchService, SearchResult } from '../../../../core/services/search/search.service';
-// Configuration de la recherche locale (valeurs par défaut si la configuration n'est pas injectée)
+import { environment } from '../../../../../environments/environment';
+
+// Configuration de la recherche locale (valeurs par défaut si la configuration n'est pas définie dans environment)
 const DEFAULT_SEARCH_CONFIG = {
   initialResultsLimit: 10,
   maxResults: 20,
@@ -37,10 +39,8 @@ export class SearchComponent implements OnInit, OnDestroy {
   private searchService = inject(SearchService);
   private searchConfig: any;
 
-  constructor(
-    @Inject('APP_CONFIG') private appConfig: any
-  ) {
-    this.searchConfig = appConfig?.search || DEFAULT_SEARCH_CONFIG;
+  constructor() {
+    this.searchConfig = environment?.search || DEFAULT_SEARCH_CONFIG;
   }
 
   ngOnInit(): void {
@@ -262,8 +262,8 @@ export class SearchComponent implements OnInit, OnDestroy {
     
     try {
       // Get base paths from config or use defaults
-      const contentBasePath = this.appConfig?.content?.basePath || 'content';
-      const docsBasePath = this.appConfig?.routing?.docsBasePath || 'docs';
+      const contentBasePath = this.searchConfig?.contentBasePath || 'content';
+      const docsBasePath = this.searchConfig?.docsBasePath || 'docs';
       
       // Start with the result path and normalize it
       let targetPath = resultPath.trim()

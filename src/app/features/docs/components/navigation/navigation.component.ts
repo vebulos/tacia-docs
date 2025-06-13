@@ -1,20 +1,13 @@
-import { Component, Inject, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
-import { IContentService } from '../../../../core/services/content.interface';
+import { PathUtils } from '@app/core/utils/path.utils';
+import { ContentService } from '../../../../core/services/content.service';
 import { ContentItem } from '../../../../core/services/content.interface';
 import { map, filter, takeUntil } from 'rxjs/operators';
-import { NavigationItemComponent } from './navigation-item.component';
+import { NavigationItemComponent, NavigationItem } from './navigation-item.component';
 import { SearchComponent as DocsSearchComponent } from '../search/search.component';
 import { Subject } from 'rxjs';
-
-export interface NavigationItem extends ContentItem {
-  isOpen?: boolean;
-  isLoading?: boolean;
-  hasError?: boolean;
-  childrenLoaded?: boolean;
-  children?: NavigationItem[];
-}
 
 @Component({
   selector: 'app-navigation',
@@ -33,7 +26,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   activePath = '';
 
   constructor(
-    @Inject('IContentService') private contentService: IContentService,
+    private contentService: ContentService,
     private router: Router
   ) {}
 
@@ -66,30 +59,57 @@ export class NavigationComponent implements OnInit, OnDestroy {
     
     this.contentService.getContent('').subscribe({
       next: (items: ContentItem[]) => {
-        this.contentStructure = this.transformContentItems(items);
-        this.updateActiveStates();
-        this.loading = false;
+        if (!items || !Array.isArray(items)) {
+          console.warn('Received invalid root content items:', items);
+          items = [];
+        }
+        
+        try {
+          // Ensure paths are properly formatted
+          const processedItems = items.map(item => ({
+            ...item,
+            path: item.path ? item.path.replace(/^content\//, '') : item.path
+          }));
+          
+          this.contentStructure = this.transformContentItems(processedItems);
+          this.loading = false;
+          
+          // Update active states after loading
+          this.updateActiveStates();
+          
+          console.log('Root content loaded successfully:', this.contentStructure);
+        } catch (error) {
+          console.error('Error transforming root content items:', error);
+          this.handleChildLoadError({ path: '' } as NavigationItem, 'Failed to process content structure.');
+        }
       },
-      error: (err: Error) => {
-        console.error('Failed to load navigation:', err);
-        this.error = 'Failed to load navigation';
-        this.loading = false;
+      error: (error: Error) => {
+        console.error('Failed to load root content:', error);
+        this.handleChildLoadError({ path: '' } as NavigationItem, 'Failed to load documentation structure. Please try again later.');
       }
     });
   }
   
   private transformContentItems(items: ContentItem[]): NavigationItem[] {
-    return items.map(item => ({
-      ...item,
-      name: item.metadata?.title || item.name,
-      path: item.path?.startsWith('/') ? item.path.substring(1) : item.path || '',
-      children: item.children ? this.transformContentItems(item.children) : undefined,
-      isDirectory: item.isDirectory || (item.children?.length ?? 0) > 0,
-      isOpen: false,
-      isLoading: false,
-      hasError: false,
-      childrenLoaded: false
-    }));
+    if (!items) return [];
+    
+    const navItems = items.map(item => {
+      // Use the fullPath from the content item if available, otherwise use path
+      const cleanPath = item.fullPath || item.path || '';
+      
+      return {
+        ...item,
+        path: cleanPath,
+        isOpen: false,
+        isLoading: false,
+        hasError: false,
+        childrenLoaded: false,
+        children: item.isDirectory ? [] : undefined
+      };
+    });
+    
+    // Sort items (directories first, then files)
+    return PathUtils.sortNavigationItems(navItems);
   }
 
   onItemHover(item: NavigationItem): void {
@@ -119,37 +139,73 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private loadChildItems(parentItem: NavigationItem): void {
-    if (!parentItem.isDirectory || parentItem.isLoading || parentItem.childrenLoaded) {
+    if (!parentItem || !parentItem.isDirectory || parentItem.isLoading || parentItem.childrenLoaded) {
       return;
     }
 
     parentItem.isLoading = true;
     parentItem.hasError = false;
+    
+    // Ensure we have a valid path
+    const path = parentItem.path || '';
 
-    this.contentService.getContent(parentItem.path).subscribe({
+    this.contentService.getContent(path).subscribe({
       next: (items: ContentItem[]) => {
-        parentItem.children = this.transformContentItems(items);
-        parentItem.isLoading = false;
-        parentItem.childrenLoaded = true;
-        this.updateActiveStates();
+        if (!items || !Array.isArray(items)) {
+          console.warn(`Received invalid items for path ${path}:`, items);
+          items = [];
+        }
+        
+        try {
+          // Transform all items, but only include files in the children
+          // Directories will be loaded on demand when expanded
+          const transformedItems = this.transformContentItems(items);
+          parentItem.children = transformedItems;
+          parentItem.isLoading = false;
+          parentItem.childrenLoaded = true;
+          parentItem.isOpen = true; // Auto-expand after loading
+          
+          // Update the view
+          this.updateActiveStates();
+          
+          console.log(`Loaded ${items.length} items for path ${path}`);
+        } catch (error) {
+          console.error('Error transforming child items:', error);
+          this.handleChildLoadError(parentItem, error);
+        }
       },
       error: (error: Error) => {
-        console.error('Failed to load child items:', error);
-        parentItem.isLoading = false;
-        parentItem.hasError = true;
+        console.error(`Failed to load child items for path ${path}:`, error);
+        this.handleChildLoadError(parentItem, error);
       }
     });
   }
 
+  private handleChildLoadError(parentItem: NavigationItem, error: any): void {
+    parentItem.isLoading = false;
+    parentItem.hasError = true;
+    parentItem.children = []; // Ensure children is always an array
+    
+    // If this is the root item, set the error message
+    if (parentItem.path === '') {
+      this.error = typeof error === 'string' ? error : 'An error occurred while loading content.';
+      this.loading = false;
+    }
+  }
+
   toggleItem(event: Event, item: NavigationItem): void {
+    if (!item) return;
+    
     event.preventDefault();
     event.stopPropagation();
     
     if (item.isDirectory) {
-      if (!item.childrenLoaded) {
+      if (!item.childrenLoaded && !item.isLoading) {
         this.loadChildItems(item);
+      } else if (item.childrenLoaded) {
+        // Only toggle open/close if children are already loaded
+        item.isOpen = !item.isOpen;
       }
-      item.isOpen = !item.isOpen;
     }
   }
 
@@ -158,31 +214,43 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this.router.navigated) return;
     
     const url = this.router.url;
-    this.activePath = url.startsWith('/docs/content/') 
-      ? url.replace(/^\/docs\/content\//, '')
+    const docsBase = PathUtils.DOCS_BASE_PATH;
+    this.activePath = url.startsWith(`${docsBase}/`) 
+      ? PathUtils.normalizePath(url.substring(docsBase.length + 1))
       : '';
       
     this.setActiveStates(this.contentStructure, this.activePath);
   }
 
   private setActiveStates(items: NavigationItem[], currentPath: string): boolean {
-    let hasActiveChild = false;
-    
-    for (const item of items) {
-      if (item.children) {
-        const childHasActive = this.setActiveStates(item.children, currentPath);
-        if (childHasActive) {
+    if (!items || !Array.isArray(items)) {
+      return false;
+    }
+
+    return items.some(item => {
+      if (!item) return false;
+      
+      let isActive = false;
+      
+      // Check if any child is active
+      if (item.children && item.children.length > 0) {
+        const childIsActive = this.setActiveStates(item.children, currentPath);
+        if (childIsActive) {
           item.isOpen = true;
-          hasActiveChild = true;
+          isActive = true;
         }
       }
       
-      if (!hasActiveChild && item.path && currentPath.startsWith(item.path)) {
-        hasActiveChild = true;
+      // Check if current item is active
+      if (!isActive && item.path) {
+        // Make sure we're matching the full segment to avoid partial matches
+        const itemPath = item.path.endsWith('/') ? item.path : `${item.path}/`;
+        isActive = currentPath === item.path || 
+                  currentPath.startsWith(itemPath);
       }
-    }
-    
-    return hasActiveChild;
+      
+      return isActive;
+    });
   }
 
   trackByFn(index: number, item: NavigationItem): string {

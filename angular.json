@@ -37,27 +37,27 @@
                                                                                                      "src/styles.css"
                                                                                                  ],
                                                                                       "scripts":  [
-
+                                       "node_modules/localforage/dist/localforage.min.js"
                                                                                                   ]
                                                                                   },
                                                                       "configurations":  {
                                                                                              "production":  {
                                                                                                                 "fileReplacements": [
                                                   {
-                                                    "replace": "src/app/core/config/environments/environment.ts",
-                                                    "with": "src/app/core/config/environments/environment.prod.ts"
+                                                    "replace": "src/environments/environment.ts",
+                                                    "with": "src/environments/environment.prod.ts"
                                                   }
                                                 ],
                                                                                                                 "budgets":  [
                                                                                                                                 {
                                                                                                                                     "type":  "initial",
-                                                                                                                                    "maximumWarning":  "500kb",
-                                                                                                                                    "maximumError":  "1mb"
+                                                                                                                                    "maximumWarning":  "4mb",
+                                                                                                                                    "maximumError":  "5mb"
                                                                                                                                 },
                                                                                                                                 {
                                                                                                                                     "type":  "anyComponentStyle",
-                                                                                                                                    "maximumWarning":  "2kb",
-                                                                                                                                    "maximumError":  "4kb"
+                                                                                                                                    "maximumWarning":  "6kb",
+                                                                                                                                    "maximumError":  "10kb"
                                                                                                                                 }
                                                                                                                             ],
                                                                                                                 "outputHashing":  "all"
@@ -72,6 +72,9 @@
                                                                   },
                                                         "serve":  {
                                                                       "builder":  "@angular-devkit/build-angular:dev-server",
+                                                                      "options": {
+                                                                        "proxyConfig": "proxy.conf.json"
+                                                                      },
                                                                       "configurations":  {
                                                                                              "production":  {
                                                                                                                 "buildTarget":  "frontend:build:production"

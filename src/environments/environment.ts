@@ -1,11 +1,11 @@
-import { EnvironmentConfig } from '../app/core/config/app.config';
+import { EnvironmentConfig, defaultConfig } from './environment.types';
 
 /**
  * Development environment configuration
  */
 export const environment: EnvironmentConfig = {
   production: false,
-  apiUrl: 'http://localhost:4200/api',
+  apiUrl: '/api',
   search: {
     maxResults: 50,
     maxRecentSearches: 10,
@@ -18,5 +18,13 @@ export const environment: EnvironmentConfig = {
       initialDelay: 10000, // 10 seconds
       indexOnStartup: true
     }
+  },
+  content: {
+    ...defaultConfig.content,
+    basePath: '/assets/content'
+  },
+  docs: {
+    basePath: '/docs',
+    defaultPath: 'getting-started/introduction'
   }
 };

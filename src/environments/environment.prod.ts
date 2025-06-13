@@ -1,9 +1,29 @@
-export const environment = {
+import { EnvironmentConfig, defaultConfig } from './environment.types';
+
+/**
+ * Production environment configuration
+ */
+export const environment: EnvironmentConfig = {
   production: true,
   apiUrl: 'https://votre-api-production.com/api',
   search: {
     maxResults: 50,
-    maxRecentSearches: 10
+    maxRecentSearches: 10,
+    debounceTime: 300,
+    contentBasePath: '/assets/content',
+    contextLines: 1,
+    index: {
+      enabled: true,
+      interval: 300000, // 5 minutes
+      initialDelay: 10000, // 10 seconds
+      indexOnStartup: true
+    }
   },
-  // Configuration spécifique à l'environnement de production
+  content: {
+    ...defaultConfig.content,
+    cacheTtl: 5 * 60 * 1000, // 5 minutes
+    hoverDelay: 300,
+    maxRetries: 3,
+    retryDelay: 1000
+  }
 };

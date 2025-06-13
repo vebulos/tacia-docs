@@ -2,27 +2,9 @@ import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
-import { routes } from './app.routes';
-import { CONTENT_SERVICE_PROVIDER } from './core/services/content.provider';
+import { ContentService } from './core/services/content.service';
 import { SearchService } from './core/services/search/search.service';
-
-// Configuration
-// Configuration
-import { environment } from '../environments/environment';
-import { defaultConfig } from './core/config/app.config';
-
-// Créer un fournisseur pour la configuration de l'application
-function provideAppConfig() {
-  return [
-    { 
-      provide: 'APP_CONFIG', 
-      useValue: {
-        ...defaultConfig,
-        environment
-      } 
-    }
-  ];
-}
+import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -30,9 +12,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(withInterceptorsFromDi()),
     provideAnimations(),
-    CONTENT_SERVICE_PROVIDER,
-    SearchService,
-    // Fournir la configuration de l'application
-    ...provideAppConfig()
+    ContentService,
+    SearchService
   ]
 };

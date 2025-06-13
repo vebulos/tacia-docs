@@ -1,110 +1,172 @@
-import { Inject, Injectable, InjectionToken } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { map, shareReplay, catchError } from 'rxjs/operators';
-import { IContentService, ContentItem } from './content.interface';
+import { Observable, of, throwError, timer } from 'rxjs';
+import { catchError, map, retryWhen, shareReplay, switchMap, tap } from 'rxjs/operators';
+import { StorageService } from './storage.service';
+import { environment } from '../../../environments/environment';
+import { ContentItem } from './content.interface';
 
-export const CONTENT_SERVICE = new InjectionToken<IContentService>('ContentService');
+export interface CacheItem<T> {
+  data: T;
+  expires: number;
+}
 
-@Injectable()
-export class ContentService implements IContentService {
-  private contentCache: Observable<ContentItem[]> | null = null;
+@Injectable({
+  providedIn: 'root'
+})
+export class ContentService {
+  private readonly cacheKey = (path: string) => `content_${path || 'root'}`;
+  private loadingStates = new Map<string, Observable<ContentItem[]>>();
+  private config: any;
 
-  constructor(private http: HttpClient) {}
-
-  getContentStructure(): Observable<ContentItem[]> {
-    if (this.contentCache) {
-      return this.contentCache;
-    }
-
-    const structurePath = '/assets/content/structure.json';
-    
-    this.contentCache = this.http.get<any[]>(structurePath).pipe(
-      map(items => this.transformStructure(items)),
-      shareReplay(1),
-      catchError(() => of([]))
-    );
-    
-    return this.contentCache;
+  constructor(
+    private http: HttpClient,
+    private storage: StorageService
+  ) {
+    this.config = environment?.content || {};
+    console.log('[ContentService] Initialized with config:', this.config);
   }
-  
+
+  /**
+   * Get content for a specific path
+   */
   getContent(path: string = ''): Observable<ContentItem[]> {
-    // For now, we'll use the full structure and filter by path
-    // In a real implementation, this would be an API call to get children of a specific path
-    return this.getContentStructure().pipe(
-      map(items => this.findItemsByPath(items, path))
+    const cacheKey = this.cacheKey(path);
+    
+    // If we're already loading this path, return the existing observable
+    if (this.loadingStates.has(cacheKey)) {
+      return this.loadingStates.get(cacheKey)!;
+    }
+
+    // Check if we have a cached version
+    const cached$ = this.storage.get<CacheItem<ContentItem[]>>(cacheKey).pipe(
+      map(cachedData => {
+        if (cachedData) {
+          const now = Date.now();
+          const isExpired = now > cachedData.expires;
+          if (!isExpired) {
+            return cachedData.data;
+          }
+        }
+        return null;
+      }),
+      catchError(() => of(null))
+    );
+    
+    // Create the request observable that will be used if cache is not available
+    const request$ = cached$.pipe(
+      switchMap(cachedData => {
+        // Return cached data if available and not expired
+        if (cachedData) {
+          return of(cachedData);
+        }
+        
+        // Otherwise fetch from source
+        return this.fetchContent(path).pipe(
+          // Cache the result
+          tap(items => {
+            const expires = Date.now() + (this.config.cacheTtl || 300000);
+            this.storage.set(cacheKey, { data: items, expires }).subscribe();
+          })
+        );
+      }),
+      // Handle errors
+      catchError(error => {
+        console.error('Error loading content:', error);
+        return throwError(() => error);
+      }),
+      // Clean up
+      tap({
+        finalize: () => this.loadingStates.delete(cacheKey)
+      }),
+      // Share the observable to avoid duplicate requests
+      shareReplay(1)
+    );
+
+    this.loadingStates.set(cacheKey, request$);
+    return request$;
+  }
+
+  /**
+   * Preload content for a path
+   */
+  preloadContent(path: string = ''): void {
+    const cacheKey = this.cacheKey(path);
+    if (!this.loadingStates.has(cacheKey)) {
+      this.getContent(path).subscribe();
+    }
+  }
+
+  /**
+   * Clear cache for a specific path or all paths
+   */
+  clearCache(path?: string): Observable<void> {
+    if (path) {
+      return this.storage.remove(this.cacheKey(path));
+    }
+    return this.storage.clear();
+  }
+
+  private fetchContent(path: string): Observable<ContentItem[]> {
+    return this.http.get<ContentItem[]>('/api/content', { params: { path } }).pipe(
+      map(items => this.transformStructure(items, path)),
+      // Retry logic
+      retryWhen(errors => errors.pipe(
+        switchMap((error, count) => {
+          const retryAttempts = this.config.maxRetries || 3;
+          const retryDelay = this.config.retryDelay || 1000;
+          if (count >= retryAttempts - 1) {
+            return throwError(() => error);
+          }
+          return timer(retryDelay);
+        })
+      ))
     );
   }
-  
-  private findItemsByPath(items: ContentItem[], targetPath: string): ContentItem[] {
-    if (!targetPath) {
-      return items;
-    }
-    
-    const pathSegments = targetPath.split('/').filter(segment => segment);
-    let currentItems = items;
-    
-    for (const segment of pathSegments) {
-      const found = currentItems.find(item => item.name === segment);
-      if (!found || !found.children) {
-        return [];
-      }
-      currentItems = found.children;
-    }
-    
-    return currentItems;
-  }
-  
-  private transformStructure(items: any[], parentPath = ''): ContentItem[] {
+
+  private transformStructure(items: any[], parentPath: string = ''): ContentItem[] {
     if (!Array.isArray(items)) {
       return [];
     }
-    
+
     return items.map(item => {
-      // Use the item's path if it exists, otherwise use the item name
-      let itemPath = item.path || item.name;
+      // Use the item's path if available, otherwise use the name
+      let path = item.path || item.name;
       
-      // Remove any segments from itemPath that are already in parentPath to avoid duplication
-      if (parentPath && itemPath.startsWith(parentPath)) {
-        itemPath = itemPath.substring(parentPath.length).replace(/^\//, '');
-      }
+      // If the path already contains the parent path, don't concatenate again
+      const fullPath = parentPath && !path.startsWith(parentPath) 
+        ? `${parentPath}/${path}`.replace(/\/+/g, '/') 
+        : path;
       
-      // Build the full path by combining parentPath and itemPath
-      const fullPath = parentPath 
-        ? (itemPath ? `${parentPath}/${itemPath}` : parentPath)
-        : itemPath;
-     
-      // Create the transformed item
-      const transformedItem: any = {
+      return {
         name: item.name,
-        path: itemPath, // Store relative path
-        fullPath: fullPath, // Store full path
+        path: path, // Keep the original path without parent prefix
+        fullPath: fullPath, // Full path including parent
         isDirectory: item.isDirectory ?? false,
         children: item.children ? this.transformStructure(item.children, fullPath) : undefined,
         metadata: item.metadata || {}
       };
-
-      // Preserve filePath if it exists
-      if (item.filePath) {
-        transformedItem.filePath = item.filePath;
-      }
-      
-      return transformedItem;
     });
   }
 
   /**
-   * Get all content items that have a filePath property
-   * @returns Observable of ContentItem[] containing only items with filePath
+   * Get the complete content structure
+   */
+  getContentStructure(): Observable<ContentItem[]> {
+    return this.getContent('');
+  }
+
+  /**
+   * Get content items with file paths
    */
   getContentWithFilePaths(): Observable<ContentItem[]> {
-    return this.getContentStructure().pipe(
+    return this.getContent('').pipe(
       map(items => {
         const itemsWithFilePaths: ContentItem[] = [];
         
         const collectItemsWithFilePath = (items: ContentItem[]) => {
           items.forEach(item => {
-            if ('filePath' in item) {
+            if (item.path) {
               itemsWithFilePaths.push(item);
             }
             if (item.children) {

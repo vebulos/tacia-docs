@@ -3,7 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, of, forkJoin, firstValueFrom, throwError } from 'rxjs';
 import { map, catchError, switchMap, tap, finalize } from 'rxjs/operators';
 import { MarkdownService } from '../markdown.service';
-import { IContentService, ContentItem } from '../content.interface';
+import { ContentItem } from '../content.interface';
+import { ContentService } from '../content.service';
 import { SEARCH_CONFIG } from './search.config';
 
 export interface SearchResult {
@@ -46,7 +47,7 @@ export class SearchService {
   constructor(
     private http: HttpClient,
     private markdownService: MarkdownService,
-    @Inject('IContentService') private contentService: IContentService
+    private contentService: ContentService
   ) {
     this.config = {
       maxResults: SEARCH_CONFIG.maxResults,

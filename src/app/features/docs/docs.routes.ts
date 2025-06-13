@@ -25,25 +25,15 @@ export function contentPathMatcher(
 export const DOCS_ROUTES: Routes = [
   {
     path: '',
-    redirectTo: 'content/getting-started/introduction',
+    redirectTo: 'getting-started/introduction',
     pathMatch: 'full'
   },
   {
-    path: 'content',
-    children: [
-      {
-        path: '',
-        redirectTo: 'getting-started/introduction',
-        pathMatch: 'full'
-      },
-      {
-        matcher: contentPathMatcher,
-        loadComponent: () => import('./components/document/document.component').then(m => m.DocumentComponent)
-      }
-    ]
+    matcher: contentPathMatcher,
+    loadComponent: () => import('./components/document/document.component').then(m => m.DocumentComponent)
   },
   {
     path: '**',
-    redirectTo: 'content/getting-started/introduction'
+    redirectTo: 'getting-started/introduction'
   }
 ];

@@ -8,8 +8,8 @@ import { DocsComponent } from './docs.component';
 import { NavigationComponent } from './components/navigation/navigation.component';
 import { DocumentComponent } from './components/document/document.component';
 import { ContentService } from '../../core/services/content.service';
-import { LazyContentService } from '../../core/services/lazy-content.service';
 import { StorageService } from '../../core/services/storage.service';
+import { MarkdownService } from '../../core/services/markdown.service';
 
 @NgModule({
   declarations: [
@@ -23,9 +23,9 @@ import { StorageService } from '../../core/services/storage.service';
     RouterModule.forChild(DOCS_ROUTES)
   ],
   providers: [
-    // Use LazyContentService as the primary content service
-    { provide: ContentService, useClass: LazyContentService },
-    StorageService
+    ContentService,
+    StorageService,
+    MarkdownService
   ]
 })
 export class DocsModule { }

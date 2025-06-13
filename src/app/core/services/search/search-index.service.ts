@@ -1,8 +1,22 @@
-import { Inject, Injectable, OnDestroy } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { interval, Subscription, timer } from 'rxjs';
 import { switchMap, tap } from 'rxjs/operators';
 import { SearchService } from './search.service';
-import { AppConfig, APP_CONFIG } from '../config/app.config';
+import { environment } from '../../../environments/environment';
+
+interface SearchIndexConfig {
+  enabled: boolean;
+  interval: number;
+  initialDelay: number;
+  indexOnStartup: boolean;
+}
+
+const DEFAULT_INDEX_CONFIG: SearchIndexConfig = {
+  enabled: true,
+  interval: 300000, // 5 minutes
+  initialDelay: 10000, // 10 seconds
+  indexOnStartup: true
+};
 
 @Injectable({
   providedIn: 'root'
@@ -10,13 +24,18 @@ import { AppConfig, APP_CONFIG } from '../config/app.config';
 export class SearchIndexService implements OnDestroy {
   private indexSubscription?: Subscription;
   private lastIndexTime: Date | null = null;
-  private readonly config: AppConfig['search']['index'];
+  private readonly config: SearchIndexConfig;
 
-  constructor(
-    private searchService: SearchService,
-    @Inject(APP_CONFIG) private appConfig: AppConfig
-  ) {
-    this.config = appConfig.search.index;
+  constructor(private searchService: SearchService) {
+    this.config = environment?.search?.index ? {
+      enabled: environment.search.index.enabled ?? DEFAULT_INDEX_CONFIG.enabled,
+      interval: environment.search.index.interval ?? DEFAULT_INDEX_CONFIG.interval,
+      initialDelay: environment.search.index.initialDelay ?? DEFAULT_INDEX_CONFIG.initialDelay,
+      indexOnStartup: environment.search.index.indexOnStartup ?? DEFAULT_INDEX_CONFIG.indexOnStartup
+    } : DEFAULT_INDEX_CONFIG;
+    
+    console.log('[SearchIndex] Configuration chargée:', this.config);
+    
     if (this.config.enabled) {
       this.initializeIndexing();
     }

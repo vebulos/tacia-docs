@@ -1,33 +1,71 @@
-<div class="space-y-4">
+<div class="space-y-4 h-full flex flex-col">
   <!-- Search Component -->
   <div class="px-3">
     <app-docs-search></app-docs-search>
   </div>
   
   <!-- Loading State -->
-  <div *ngIf="loading" class="p-4 text-center">
-    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-    <p class="mt-2 text-sm text-gray-500">Loading navigation...</p>
+  <div *ngIf="loading" class="flex-1 flex flex-col items-center justify-center p-8 text-center">
+    <div class="animate-spin rounded-full h-10 w-10 border-2 border-blue-500 border-t-transparent mx-auto"></div>
+    <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">Loading documentation structure...</p>
   </div>
 
   <!-- Error State -->
-  <div *ngIf="error" class="p-4 bg-red-50 dark:bg-red-900/20 rounded-md">
-    <p class="text-red-600 dark:text-red-400 text-sm">{{ error }}</p>
-    <button 
-      (click)="loadRootContent()"
-      class="mt-2 px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-md"
-    >
-      Retry
-    </button>
+  <div *ngIf="error && !loading" class="p-4 bg-red-50 dark:bg-red-900/20 rounded-md m-4">
+    <div class="flex items-start">
+      <svg class="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+      </svg>
+      <div class="ml-3">
+        <h3 class="text-sm font-medium text-red-800 dark:text-red-200">Failed to load navigation</h3>
+        <div class="mt-2 text-sm text-red-700 dark:text-red-300">
+          <p>{{ error }}</p>
+        </div>
+        <div class="mt-4">
+          <button 
+            (click)="loadRootContent()"
+            class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            <svg class="-ml-0.5 mr-2 h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39 5.5 5.5 0 01-5.2 3.8 5.5 5.5 0 01-5.2-3.8.75.75 0 10-1.45.388A7 7 0 0010 18a7 7 0 005.424-11.41l1.358-1.349a.75.75 0 10-1.06-1.06l-1.358 1.35a7 7 0 00-1.72 3.18.75.75 0 10 1.452.384 5.5 5.5 0 012.094-2.45l.006-.004.017-.024a5.5 5.5 0 01.54-.41l.01-.006z" clip-rule="evenodd" />
+            </svg>
+            Try Again
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Navigation Items -->
-  <div *ngIf="!loading && !error" class="space-y-1">
-    <app-navigation-item 
-      *ngFor="let item of contentStructure; trackBy: trackByFn"
-      [item]="item"
-      [level]="0"
-      [activePath]="activePath"
-    ></app-navigation-item>
+  <div *ngIf="!loading && !error" class="flex-1 overflow-y-auto">
+    <div class="space-y-1 px-2">
+      <app-navigation-item 
+        *ngFor="let item of contentStructure; trackBy: trackByFn"
+        [item]="item"
+        [level]="0"
+        [activePath]="activePath"
+        (click)="$event.stopPropagation()"
+      ></app-navigation-item>
+    </div>
+    
+    <!-- Empty State -->
+    <div *ngIf="contentStructure.length === 0" class="p-8 text-center text-gray-500 dark:text-gray-400">
+      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.3 24.3 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591l4.091 4.101a2.25 2.25 0 01-.659 1.591v.003a2.25 2.25 0 01-1.5.655H5.25a2.25 2.25 0 01-1.5-.655v-.003a2.25 2.25 0 01-.659-1.591L3 10.5m14.25-7.5v5.714a2.25 2.25 0 01-.659 1.591L15 12.5M3 10.5h18m-9.75 7.5h.008v.008H11.25v-.008z" />
+      </svg>
+      <h3 class="mt-2 text-sm font-medium">No content found</h3>
+      <p class="mt-1 text-sm">The documentation appears to be empty.</p>
+      <div class="mt-6">
+        <button 
+          (click)="loadRootContent()"
+          class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          <svg class="-ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39 5.5 5.5 0 01-5.2 3.8 5.5 5.5 0 01-5.2-3.8.75.75 0 10-1.45.388A7 7 0 0010 18a7 7 0 005.424-11.41l1.358-1.349a.75.75 0 10-1.06-1.06l-1.358 1.35a7 7 0 00-1.72 3.18.75.75 0 101.452.384 5.5 5.5 0 012.094-2.45l.006-.004.017-.024a5.5 5.5 0 01.54-.41l.01-.006z" clip-rule="evenodd" />
+          </svg>
+          Refresh
+        </button>
+      </div>
+    </div>
   </div>
 </div>
