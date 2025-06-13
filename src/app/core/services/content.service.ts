@@ -29,11 +29,13 @@ export class ContentService {
 
   /**
    * Get content for a specific path
+   * @param path The content path to retrieve (defaults to root)
+   * @returns Observable of ContentItem array
    */
   getContent(path: string = ''): Observable<ContentItem[]> {
     const cacheKey = this.cacheKey(path);
     
-    // If we're already loading this path, return the existing observable
+    // Return existing observable if this path is already being loaded
     if (this.loadingStates.has(cacheKey)) {
       return this.loadingStates.get(cacheKey)!;
     }
@@ -53,7 +55,7 @@ export class ContentService {
       catchError(() => of(null))
     );
     
-    // Create the request observable that will be used if cache is not available
+    // Create the request observable when cache is not available
     const request$ = cached$.pipe(
       switchMap(cachedData => {
         // Return cached data if available and not expired
@@ -61,28 +63,29 @@ export class ContentService {
           return of(cachedData);
         }
         
-        // Otherwise fetch from source
+        // Fetch from source when no valid cache exists
         return this.fetchContent(path).pipe(
-          // Cache the result
+          // Cache the result with expiration
           tap(items => {
             const expires = Date.now() + (this.config.cacheTtl || 300000);
             this.storage.set(cacheKey, { data: items, expires }).subscribe();
           })
         );
       }),
-      // Handle errors
+      // Handle any errors during content loading
       catchError(error => {
         console.error('Error loading content:', error);
         return throwError(() => error);
       }),
-      // Clean up
+      // Clean up loading state when complete or on error
       tap({
         finalize: () => this.loadingStates.delete(cacheKey)
       }),
-      // Share the observable to avoid duplicate requests
+      // Share the observable to prevent duplicate requests
       shareReplay(1)
     );
 
+    // Store the observable to track loading state
     this.loadingStates.set(cacheKey, request$);
     return request$;
   }
@@ -99,6 +102,8 @@ export class ContentService {
 
   /**
    * Clear cache for a specific path or all paths
+   * @param path Optional path to clear (clears all paths if not provided)
+   * @returns Observable that completes when cache is cleared
    */
   clearCache(path?: string): Observable<void> {
     if (path) {
@@ -107,10 +112,15 @@ export class ContentService {
     return this.storage.clear();
   }
 
+  /**
+   * Fetch content from the API for a given path
+   * @param path The content path to fetch
+   * @returns Observable of ContentItem array
+   */
   private fetchContent(path: string): Observable<ContentItem[]> {
     return this.http.get<ContentItem[]>('/api/content', { params: { path } }).pipe(
       map(items => this.transformStructure(items, path)),
-      // Retry logic
+      // Retry logic for failed requests
       retryWhen(errors => errors.pipe(
         switchMap((error, count) => {
           const retryAttempts = this.config.maxRetries || 3;
@@ -124,6 +134,12 @@ export class ContentService {
     );
   }
 
+  /**
+   * Transform raw content items into the standardized ContentItem structure
+   * @param items Raw content items to transform
+   * @param parentPath Parent path for building full paths
+   * @returns Array of transformed ContentItem objects
+   */
   private transformStructure(items: any[], parentPath: string = ''): ContentItem[] {
     if (!Array.isArray(items)) {
       return [];
@@ -133,19 +149,19 @@ export class ContentService {
       const isDirectory = item.isDirectory ?? false;
       let path = item.path || item.name;
       
-      // For files, ensure the path includes the .md extension
+      // Ensure files have .md extension
       if (!isDirectory && !path.endsWith('.md')) {
         path = `${path}.md`;
       }
       
-      // Build the full path
+      // Construct full path with proper formatting
       const fullPath = parentPath && !path.startsWith(parentPath) 
         ? `${parentPath}/${path}`.replace(/\/+/g, '/')
         : path;
 
       return {
         name: item.name,
-        path: fullPath, // Full path including parent and extension for files
+        path: fullPath, // Complete path including parent and file extension
         isDirectory: isDirectory,
         children: item.children ? this.transformStructure(item.children, fullPath) : undefined,
         metadata: item.metadata || {}
@@ -154,20 +170,23 @@ export class ContentService {
   }
 
   /**
-   * Get the complete content structure
+   * Get the complete content structure starting from root
+   * @returns Observable of the complete content structure
    */
   getContentStructure(): Observable<ContentItem[]> {
     return this.getContent('');
   }
 
   /**
-   * Get content items with file paths
+   * Get a flat list of all content items that have file paths
+   * @returns Observable of ContentItem array with file paths
    */
   getContentWithFilePaths(): Observable<ContentItem[]> {
     return this.getContent('').pipe(
       map(items => {
         const itemsWithFilePaths: ContentItem[] = [];
         
+        // Recursively collect all items with file paths
         const collectItemsWithFilePath = (items: ContentItem[]) => {
           items.forEach(item => {
             if (item.path) {
@@ -179,6 +198,7 @@ export class ContentService {
           });
         };
         
+        // Start collection from root items
         collectItemsWithFilePath(items);
         return itemsWithFilePaths;
       })

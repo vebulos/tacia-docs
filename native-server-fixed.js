@@ -60,32 +60,32 @@ const server = http.createServer((req, res) => {
     
     // Root API route
     if (parsedUrl.pathname === '/api' || parsedUrl.pathname === '/api/') {
-        console.log('Requête sur la racine de l\'API');
+        console.log('API root request');
         return sendResponse(res, 200, {
-            name: 'API de contenu Markdown',
+            name: 'Markdown Content API',
             version: '1.0.0',
             endpoints: [
-                'GET /api/content?path= - Récupère le contenu d\'un fichier Markdown',
-                'GET /api/content/ - Récupère le contenu d\'un fichier Markdown (via chemin URL)'
+                'GET /api/content?path= - Get Markdown file content',
+                'GET /api/content/ - Get Markdown file content (via URL path)'
             ]
         });
     }
     
     // For all other requests, return 404
-    console.log('Endpoint non trouvé:', parsedUrl.pathname);
+    console.log('Endpoint not found:', parsedUrl.pathname);
     sendResponse(res, 404, { 
         error: 'Not Found',
-        message: 'Endpoint non trouvé. Essayez /api/content?path='
+        message: 'Endpoint not found.'
     });
 });
 
 // Function to handle content requests
 function handleContentRequest(parsedUrl, res) {
     try {
-        console.log('=== NOUVELLE REQUÊTE CONTENT ===');
-        console.log('URL complète:', parsedUrl.href);
-        console.log('Chemin demandé (pathname):', parsedUrl.pathname);
-        console.log('Paramètres de requête:', parsedUrl.query);
+        console.log('=== NEW CONTENT REQUEST ===');
+        console.log('Full URL:', parsedUrl.href);
+        console.log('Requested path (pathname):', parsedUrl.pathname);
+        console.log('Query parameters:', parsedUrl.query);
         
         // Get path from query parameter or URL path
         let requestedPath = parsedUrl.query.path || '';
@@ -95,7 +95,7 @@ function handleContentRequest(parsedUrl, res) {
             requestedPath = parsedUrl.pathname.replace('/api/content/', '');
         }
         
-        console.log('Chemin demandé après traitement:', requestedPath || '(racine)');
+        console.log('Processed requested path:', requestedPath || '(root)');
         
         // Basic path normalization
         let safePath = path.normalize(requestedPath)
@@ -116,19 +116,19 @@ function handleContentRequest(parsedUrl, res) {
         safePath = filteredParts.join(path.sep);
             
         const fullPath = path.join(CONTENT_DIR, safePath);
-        console.log('Chemin complet sur le disque:', fullPath);
+        console.log('Full disk path:', fullPath);
         
         // Security check - prevent directory traversal
         if (!fullPath.startsWith(CONTENT_DIR)) {
-            console.error('Tentative d\'accès non autorisé en dehors du répertoire de contenu');
-            return sendResponse(res, 400, { error: 'Chemin invalide' });
+            console.error('Unauthorized access attempt outside content directory');
+            return sendResponse(res, 400, { error: 'Invalid path' });
         }
         
         // Check if path exists
         if (!fs.existsSync(fullPath)) {
-            console.error('Chemin introuvable:', fullPath);
+            console.error('Path not found:', fullPath);
             return sendResponse(res, 404, { 
-                error: 'Ressource non trouvée',
+                error: 'Resource not found',
                 path: requestedPath,
                 fullPath: fullPath
             });
@@ -138,7 +138,7 @@ function handleContentRequest(parsedUrl, res) {
         
         // If it's a directory, list its contents
         if (stat.isDirectory()) {
-            console.log('Listage du répertoire:', fullPath);
+            console.log('Listing directory:', fullPath);
             const entries = fs.readdirSync(fullPath, { withFileTypes: true });
             
             const result = entries.map(entry => {
@@ -159,7 +159,7 @@ function handleContentRequest(parsedUrl, res) {
         }
         
         // If it's a file, serve it
-        console.log('Tentative de lecture du fichier:', fullPath);
+        console.log('Attempting to read file:', fullPath);
         const ext = path.extname(fullPath).toLowerCase();
         const contentType = MIME_TYPES[ext] || 'application/octet-stream';
         
@@ -175,9 +175,9 @@ function handleContentRequest(parsedUrl, res) {
                     isMarkdown: true
                 });
             } catch (error) {
-                console.error('Erreur de lecture du fichier Markdown:', error);
+                console.error('Error reading Markdown file:', error);
                 return sendResponse(res, 500, { 
-                    error: 'Erreur de lecture du fichier',
+                    error: 'File read error',
                     details: error.message 
                 });
             }
@@ -187,9 +187,9 @@ function handleContentRequest(parsedUrl, res) {
         return serveFile(fullPath, contentType, res);
         
     } catch (error) {
-        console.error('Erreur dans handleContentRequest:', error);
+        console.error('Error in handleContentRequest:', error);
         return sendResponse(res, 500, { 
-            error: 'Erreur interne du serveur',
+            error: 'Internal server error',
             details: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
@@ -204,13 +204,13 @@ function serveFile(filePath, contentType, res) {
                 res.writeHead(404, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ 
                     error: 'Not Found',
-                    message: `Le fichier ${path.basename(filePath)} n'existe pas.`
+                    message: `File ${path.basename(filePath)} does not exist.`
                 }));
             } else {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ 
                     error: 'Server Error',
-                    message: 'Erreur lors de la lecture du fichier.'
+                    message: 'Error reading file.'
                 }));
             }
         } else {
@@ -230,7 +230,6 @@ function sendResponse(res, statusCode, data) {
 
 // Start the server
 server.listen(PORT, () => {
-    console.log(`=== API Server is running ===`);
     console.log(`URL: http://localhost:${PORT}`);
     console.log(`Content directory: ${CONTENT_DIR}`);
     console.log('\nAvailable endpoints:');
@@ -239,6 +238,7 @@ server.listen(PORT, () => {
     console.log('  1. ng serve --port=4200');
     console.log('  2. node native-server-fixed.js --port=4201');
     console.log('  3. Configure proxy in proxy.conf.json');
+    console.log(`\n=== API Server is running ===`);
 });
 
 // Handle errors
@@ -249,5 +249,5 @@ server.on('error', (error) => {
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
-    process.exit(1); // Quitte le processus en cas d'erreur non gérée
+    process.exit(1); // Exit process on unhandled error
 });
