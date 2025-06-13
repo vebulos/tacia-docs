@@ -27,7 +27,7 @@ export interface EnvironmentConfig {
   };
 }
 
-// Configuration par défaut pour les valeurs optionnelles
+// Default configuration for optional values
 export const defaultConfig: Partial<EnvironmentConfig> = {
   content: {
     cacheTtl: 5 * 60 * 1000, // 5 minutes

@@ -2,7 +2,7 @@ import { Injectable, OnDestroy } from '@angular/core';
 import { interval, Subscription, timer } from 'rxjs';
 import { switchMap, tap } from 'rxjs/operators';
 import { SearchService } from './search.service';
-import { environment } from '../../../environments/environment';
+import { environment } from '../../../../environments/environment';
 
 interface SearchIndexConfig {
   enabled: boolean;
@@ -34,7 +34,7 @@ export class SearchIndexService implements OnDestroy {
       indexOnStartup: environment.search.index.indexOnStartup ?? DEFAULT_INDEX_CONFIG.indexOnStartup
     } : DEFAULT_INDEX_CONFIG;
     
-    console.log('[SearchIndex] Configuration chargée:', this.config);
+    console.log('[SearchIndex] Configuration loaded:', this.config);
     
     if (this.config.enabled) {
       this.initializeIndexing();
@@ -42,37 +42,37 @@ export class SearchIndexService implements OnDestroy {
   }
 
   private initializeIndexing(): void {
-    console.log('[SearchIndex] Initialisation du service d\'indexation');
+    console.log('[SearchIndex] Initializing index service');
     
     if (this.config.indexOnStartup) {
-      // Première indexation après le délai initial
+      // First indexing after initial delay
       timer(this.config.initialDelay).subscribe(() => {
-        console.log('[SearchIndex] Démarrage de l\'indexation initiale');
+        console.log('[SearchIndex] Starting initial indexing');
         this.triggerIndexing();
       });
     }
 
-    // Planifier les indexations périodiques
+    // Schedule periodic indexing
     this.indexSubscription = interval(this.config.interval)
       .pipe(
-        tap(() => console.log('[SearchIndex] Début de l\'indexation planifiée')),
+        tap(() => console.log('[SearchIndex] Starting scheduled indexing')),
         switchMap(() => this.triggerIndexing())
       )
       .subscribe({
-        next: () => console.log('[SearchIndex] Indexation planifiée terminée'),
-        error: err => console.error('[SearchIndex] Erreur lors de l\'indexation planifiée:', err)
+        next: () => console.log('[SearchIndex] Scheduled indexing completed'),
+        error: err => console.error('[SearchIndex] Error during scheduled indexing:', err)
       });
   }
 
-  // Déclencher manuellement une indexation
+  // Manually trigger indexing
   async triggerIndexing(): Promise<void> {
-    console.log('[SearchIndex] Déclenchement manuel de l\'indexation');
+    console.log('[SearchIndex] Manual indexing triggered');
     try {
       await this.searchService.rebuildIndex();
       this.lastIndexTime = new Date();
-      console.log('[SearchIndex] Indexation terminée avec succès');
+      console.log('[SearchIndex] Indexing completed successfully');
     } catch (error) {
-      console.error('[SearchIndex] Erreur lors de l\'indexation:', error);
+      console.error('[SearchIndex] Error during indexing:', error);
       throw error;
     }
   }

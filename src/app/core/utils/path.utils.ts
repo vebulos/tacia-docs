@@ -1,85 +1,85 @@
 import { environment } from '../../../environments/environment';
 
 /**
- * Utilitaire pour gérer les chemins de manière centralisée
+ * Utility for managing paths in a centralized way
  */
 export class PathUtils {
-  // Chemin par défaut pour la documentation (sans le préfixe /docs)
+  // Default path for documentation (without the /docs prefix)
   static get DEFAULT_DOCS_PATH(): string {
     return environment.docs?.defaultPath || 'getting-started/introduction';
   }
   
-  // Chemin de base pour le contenu
+  // Base path for content
   static get CONTENT_BASE_PATH(): string {
     return environment.content?.basePath || environment.search?.contentBasePath || '/assets/content';
   }
   
-  // Chemin de base pour l'API
+  // Base path for API
   static get API_BASE_PATH(): string {
     return environment.apiUrl || '/api';
   }
   
-  // Chemin de base pour la documentation
+  // Base path for documentation
   static get DOCS_BASE_PATH(): string {
     return environment.docs?.basePath || '/docs';
   }
   
   /**
-   * Nettoie et normalise un chemin
+   * Cleans and normalizes a path
    */
   static normalizePath(path: string): string {
     if (!path) return '';
-    // Supprimer les slashes de début et de fin
-    // et remplacer les séquences de slashes par un seul slash
+    // Remove leading and trailing slashes
+    // and replace multiple slashes with a single slash
     return path
       .replace(/^\/+|\/+$/g, '')
       .replace(/\/+/g, '/');
   }
   
   /**
-   * Supprime l'extension d'un fichier
+   * Removes the file extension from a path
    */
   static removeFileExtension(path: string): string {
     return path.replace(/\.[^/.]+$/, '');
   }
   
   /**
-   * Vérifie si un chemin est vide ou non défini
+   * Checks if a path is empty or undefined
    */
   static isEmptyPath(path: string | null | undefined): boolean {
     return !path || path.trim() === '';
   }
   
   /**
-   * Construit une URL pour la documentation
+   * Builds a URL for documentation
    */
   static buildDocsUrl(path: string = ''): string[] {
-    // Si le chemin est vide, retourner le chemin de base de la documentation
+    // If the path is empty, return the base documentation path
     if (!path) return [this.DOCS_BASE_PATH];
     
-    // Normaliser le chemin et supprimer l'extension
+    // Normalize the path and remove the extension
     const normalizedPath = this.normalizePath(path);
     const pathWithoutExt = this.removeFileExtension(normalizedPath);
     
-    // Si le chemin est vide après normalisation, retourner le chemin de base
+    // If the path is empty after normalization, return the base path
     if (!pathWithoutExt) return [this.DOCS_BASE_PATH];
     
-    // Sinon, retourner le chemin complet
+    // Otherwise, return the full path
     return [this.DOCS_BASE_PATH, ...pathWithoutExt.split('/')];
   }
   
   /**
-   * Construit un chemin d'API pour le contenu
-   * @param path Le chemin relatif du contenu
+   * Builds an API path for content
+   * @param path The relative path of the content
    */
   static buildApiPath(path: string): string {
-    // Retourner le chemin tel quel, sans modification
+    // Return the path as-is, without modification
     console.log('[PathUtils] Building API path for:', path);
     return path;
   }
   
   /**
-   * Construit un chemin d'accès au contenu statique
+   * Builds a static content access path
    */
   static buildContentPath(path: string): string {
     const normalizedPath = this.normalizePath(path);
@@ -88,13 +88,13 @@ export class PathUtils {
   }
   
   /**
-   * Trie les éléments de navigation (dossiers d'abord, puis fichiers)
+   * Sorts navigation items (folders first, then files)
    */
   static sortNavigationItems(items: any[]): any[] {
     if (!items) return [];
     
     return [...items].sort((a, b) => {
-      // Si les deux sont des dossiers ou des fichiers, on trie par nom
+      // If both are folders or both are files, sort by name
       if (a.isDirectory === b.isDirectory) {
         return a.name.localeCompare(b.name);
       }

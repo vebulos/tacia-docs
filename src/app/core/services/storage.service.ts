@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { from, Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 
-// Déclaration du type pour localforage
+// Type declaration for localforage
 declare const localforage: {
   createInstance(config: any): LocalForage;
   INDEXEDDB: string;

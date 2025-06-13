@@ -1,34 +1,34 @@
 /**
- * Configuration pour la recherche
+ * Search configuration
  */
 export interface SearchConfig<T> {
-  // Propriétés à rechercher
+  // Properties to search in
   keys: Array<keyof T | { name: keyof T; weight: number }>;
-  // Seuil de correspondance (0.0 - 1.0)
+  // Match threshold (0.0 - 1.0)
   threshold?: number;
-  // Activer la recherche sensible à la casse
+  // Enable case-sensitive search
   isCaseSensitive?: boolean;
-  // Nombre maximum de résultats
+  // Maximum number of results
   limit?: number;
-  // Activer la recherche floue
+  // Enable fuzzy search
   useExtendedSearch?: boolean;
 }
 
 /**
- * Résultat de recherche
+ * Search result
  */
 export interface SearchResult<T> {
-  // L'élément correspondant
+  // The matching item
   item: T;
-  // Score de correspondance (0 = parfait, 1 = aucune correspondance)
+  // Match score (0 = perfect, 1 = no match)
   score?: number;
-  // Détails des correspondances
+  // Match details
   matches?: Array<{
     indices: [number, number][];
     key?: string;
     refIndex?: number;
     value?: string;
   }>;
-  // Identifiant unique de l'élément (optionnel)
+  // Unique identifier of the item (optional)
   id?: string | number;
 }

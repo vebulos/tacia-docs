@@ -33,11 +33,11 @@ export class MarkdownService {
   private cache = new Map<string, Observable<MarkdownFile>>();
   private apiUrl = '/api/content';
   
-  // Chemin de base pour le contenu
+  // Base path for content files
   private contentBasePath: string;
 
   constructor(private http: HttpClient) {
-    // Configuration du chemin de base
+    // Configure the base content path
     const contentPath = environment.search?.contentBasePath || 'assets/content';
     this.contentBasePath = contentPath.replace(/^\/+|\/+$/g, '');
     console.log('[MarkdownService] Initialized with content path:', this.contentBasePath);

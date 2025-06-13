@@ -7,7 +7,7 @@ import { debounceTime, distinctUntilChanged, filter, takeUntil, tap } from 'rxjs
 import { SearchService, SearchResult } from '../../../../core/services/search/search.service';
 import { environment } from '../../../../../environments/environment';
 
-// Configuration de la recherche locale (valeurs par défaut si la configuration n'est pas définie dans environment)
+// Local search configuration (default values if not defined in environment)
 const DEFAULT_SEARCH_CONFIG = {
   initialResultsLimit: 10,
   maxResults: 20,
