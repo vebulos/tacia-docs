@@ -35,6 +35,45 @@ if (!fs.existsSync(CONTENT_DIR)) {
     process.exit(1);
 }
 
+// Function to extract front matter from markdown content
+function extractFrontMatter(content) {
+    const frontMatter = {};
+    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
+    
+    if (frontMatterMatch) {
+        const yamlContent = frontMatterMatch[1];
+        const markdownContent = frontMatterMatch[2];
+        
+        // Simple YAML parsing (basic key: value)
+        yamlContent.split('\n').forEach(line => {
+            if (line.includes(':')) {
+                const [key, ...valueParts] = line.split(':');
+                const value = valueParts.join(':').trim();
+                
+                // Handle array values (simple case)
+                if (value.startsWith('[') && value.endsWith(']')) {
+                    frontMatter[key.trim()] = value
+                        .slice(1, -1)
+                        .split(',')
+                        .map(item => item.trim().replace(/^['"]|['"]$/g, ''));
+                } else {
+                    frontMatter[key.trim()] = value.replace(/^['"]|['"]$/g, '');
+                }
+            }
+        });
+        
+        return {
+            metadata: frontMatter,
+            content: markdownContent
+        };
+    }
+    
+    return {
+        metadata: {},
+        content
+    };
+}
+
 // MIME types for content files
 const MIME_TYPES = {
     '.md': 'text/markdown',
@@ -167,12 +206,23 @@ function handleContentRequest(parsedUrl, res) {
         if (ext === '.md') {
             try {
                 const content = fs.readFileSync(fullPath, 'utf8');
+                const { metadata, content: markdownContent } = extractFrontMatter(content);
+                
+                // Use the title from metadata if available, otherwise use the filename without extension
+                const title = metadata.title || path.basename(requestedPath, '.md')
+                    .replace(/[-_]/g, ' ') // Replace underscores and hyphens with spaces
+                    .replace(/\b\w/g, l => l.toUpperCase()); // Capitalize first letter of each word
+                
                 return sendResponse(res, 200, {
                     path: requestedPath,
                     name: path.basename(requestedPath),
-                    content: content,
+                    content: markdownContent || content,
                     type: 'file',
-                    isMarkdown: true
+                    isMarkdown: true,
+                    metadata: {
+                        title,
+                        ...metadata
+                    }
                 });
             } catch (error) {
                 console.error('Error reading Markdown file:', error);

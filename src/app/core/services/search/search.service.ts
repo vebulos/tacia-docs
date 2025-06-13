@@ -5,7 +5,7 @@ import { map, catchError, switchMap, tap, finalize } from 'rxjs/operators';
 import { MarkdownService } from '../markdown.service';
 import { ContentItem } from '../content.interface';
 import { ContentService } from '../content.service';
-import { SEARCH_CONFIG } from './search.config';
+import { environment } from '../../../../environments/environment';
 
 export interface SearchResult {
   path: string; // Full path including parent directories and .md extension for files
@@ -33,11 +33,6 @@ export class SearchService {
   private searchIndex: SearchResult[] = [];
   private indexReady = false;
   
-  private readonly config: {
-    maxResults: number;
-    maxRecentSearches: number;
-  };
-
   // Public observables
   searchResults$ = this.searchResults.asObservable();
   isLoading$ = this.isLoading.asObservable();
@@ -48,10 +43,6 @@ export class SearchService {
     private markdownService: MarkdownService,
     private contentService: ContentService
   ) {
-    this.config = {
-      maxResults: SEARCH_CONFIG.maxResults,
-      maxRecentSearches: SEARCH_CONFIG.maxRecentSearches
-    };
     console.log('[SearchService] Constructor called');
     this.loadRecentSearches();
     this.initializeSearchIndex().subscribe();
@@ -313,8 +304,8 @@ export class SearchService {
     this.recentSearches.unshift(query);
     
     // Limit number of entries
-    if (this.recentSearches.length > (this.config?.maxRecentSearches || 10)) {
-      this.recentSearches = this.recentSearches.slice(0, this.config?.maxRecentSearches || 10);
+    if (this.recentSearches.length > (environment.search?.maxRecentSearches || 10)) {
+      this.recentSearches = this.recentSearches.slice(0, environment.search?.maxRecentSearches || 10);
     }
     
     // Save
@@ -370,7 +361,7 @@ export class SearchService {
     });
     
     // Limit results
-    const limitedResults = results.slice(0, this.config?.maxResults || 50);
+    const limitedResults = results.slice(0, environment.search?.maxResults || 50);
     
     this.isLoading.next(false);
     this.searchResults.next(limitedResults);

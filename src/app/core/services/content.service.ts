@@ -159,13 +159,35 @@ export class ContentService {
         ? `${parentPath}/${path}`.replace(/\/+/g, '/')
         : path;
 
-      return {
+      // Create the item with all properties
+      const transformedItem: ContentItem = {
         name: item.name,
         path: fullPath, // Complete path including parent and file extension
         isDirectory: isDirectory,
         children: item.children ? this.transformStructure(item.children, fullPath) : undefined,
         metadata: item.metadata || {}
       };
+
+      // If we have a title in metadata, use it as the display name
+      if (item.metadata?.title) {
+        transformedItem.name = item.metadata.title;
+      } else if (!isDirectory) {
+        // For files without a title, generate a nice display name from the filename
+        // Extract the base name from the path (handles both / and \ separators)
+        const pathParts = fullPath.split(/[\\/]/);
+        let baseName = pathParts[pathParts.length - 1];
+        
+        // Remove .md extension if present
+        if (baseName.endsWith('.md')) {
+          baseName = baseName.slice(0, -3);
+        }
+        
+        transformedItem.name = baseName
+          .replace(/[-_]/g, ' ') // Replace underscores and hyphens with spaces
+          .replace(/\b\w/g, (l: string) => l.toUpperCase()); // Capitalize first letter of each word
+      }
+      
+      return transformedItem;
     });
   }
 
