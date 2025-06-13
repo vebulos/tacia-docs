@@ -111,21 +111,29 @@ export class NavigationItemComponent implements OnDestroy {
   }
 
   /**
-   * Build the router link for a navigation item
+   * Get the navigation link with state for a navigation item
+   */
+  getNavigationLink(item: NavigationItem): { link: string[], state: any } {
+    // Use the full path with extension if available
+    const fullPath = item.fullPath || item.path || '';
+    
+    // Build the base URL
+    const baseUrl = PathUtils.buildDocsUrl(fullPath);
+    
+    // Return the link and navigation state
+    return {
+      link: baseUrl,
+      state: {
+        fullPath: fullPath // Pass the full path with extension
+      }
+    };
+  }
+  
+  /**
+   * @deprecated Use getNavigationLink instead
    */
   buildDocsLink(item: NavigationItem): string[] {
-    // Si fullPath est défini, on l'utilise directement car il contient déjà le chemin complet
-    // Sinon, on utilise path
-    let path = item.fullPath || item.path || '';
-    
-    // Nettoyer le chemin si nécessaire
-    const contentBase = PathUtils.CONTENT_BASE_PATH;
-    if (path.startsWith(contentBase)) {
-      path = path.substring(contentBase.length);
-    } else if (path.startsWith('content/')) {
-      path = path.substring('content/'.length);
-    }
-    
-    return PathUtils.buildDocsUrl(path);
+    // For backward compatibility
+    return this.getNavigationLink(item).link;
   }
 }

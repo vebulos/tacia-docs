@@ -55,13 +55,31 @@ export class DocumentComponent implements OnInit, OnDestroy {
       switchMap((params: ParamMap) => {
         // Get all path segments and join them with slashes
         const pathSegments = this.route.snapshot.url.map(segment => segment.path);
-        const fullPath = pathSegments.join('/');
+        let fullPath = pathSegments.join('/');
         
         if (!fullPath) {
           // Use the default path if no path is provided
           this.router.navigate(PathUtils.buildDocsUrl(PathUtils.DEFAULT_DOCS_PATH));
           return of(null);
         }
+        
+        // Get the current navigation to access the resolved data
+        const navigation = this.router.getCurrentNavigation();
+        const state = navigation?.extras.state as { fullPath?: string } | null;
+        
+        console.group('DocumentComponent - Navigation State');
+        console.log('Route URL segments:', this.route.snapshot.url);
+        console.log('Navigation state:', state);
+        console.log('Current navigation:', navigation);
+        
+        // If we have a full path with extension from the navigation state, use it
+        if (state?.fullPath) {
+          fullPath = state.fullPath;
+          console.log('Using full path from navigation state:', fullPath);
+        } else {
+          console.log('No fullPath in navigation state, using path segments:', fullPath);
+        }
+        console.groupEnd();
         
         // Clear previous headings when path changes
         if (this._currentPath !== fullPath) {

@@ -101,7 +101,7 @@ function handleContentRequest(parsedUrl, res) {
         let safePath = path.normalize(requestedPath)
             .replace(/^[\\/]+/, '') // Remove leading slashes
             .replace(/\/\.\.?\//g, '/') // Remove any ./ or ../
-            .replace(/[\\/]+/g, path.sep); // Normalize path separators
+            .replace(/[\\/]+/g, '/'); // Always use forward slashes for consistency
             
         // Remove any remaining .. segments for security
         const parts = safePath.split(path.sep);
@@ -235,7 +235,6 @@ server.listen(PORT, () => {
     console.log(`Content directory: ${CONTENT_DIR}`);
     console.log('\nAvailable endpoints:');
     console.log(`  GET  /api/content/*    - Get Markdown content`);
-    console.log(`  GET  /api/directory/*  - List directory contents`);
     console.log('\nUsage with ng serve:');
     console.log('  1. ng serve --port=4200');
     console.log('  2. node native-server-fixed.js --port=4201');
