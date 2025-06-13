@@ -55,38 +55,22 @@ export class DocumentComponent implements OnInit, OnDestroy {
       switchMap((params: ParamMap) => {
         // Get all path segments and join them with slashes
         const pathSegments = this.route.snapshot.url.map(segment => segment.path);
-        let fullPath = pathSegments.join('/');
+        const fullPath = pathSegments.join('/');
         
-        // Remove any duplicate segments that might be introduced by the router
-        // This can happen if the route is already included in the URL
-        const basePath = this.route.snapshot.url[0]?.path || '';
-        if (fullPath.startsWith(`${basePath}/`)) {
-          fullPath = fullPath.substring(basePath.length + 1);
-        }
-        
-        // Normalize the path
-        const normalizedPath = PathUtils.normalizePath(fullPath);
-        
-        if (PathUtils.isEmptyPath(normalizedPath)) {
-          // Use the DEFAULT_DOCS_PATH constant from PathUtils
+        if (!fullPath) {
+          // Use the default path if no path is provided
           this.router.navigate(PathUtils.buildDocsUrl(PathUtils.DEFAULT_DOCS_PATH));
           return of(null);
         }
         
         // Clear previous headings when path changes
-        if (this._currentPath !== normalizedPath) {
+        if (this._currentPath !== fullPath) {
           this.headings = [];
-          this._currentPath = normalizedPath;
+          this._currentPath = fullPath;
         }
         
-        // Build the API path and ensure it has the .md extension
-        let apiPath = PathUtils.buildApiPath(normalizedPath);
-        if (!apiPath.endsWith('.md')) {
-          apiPath = `${apiPath}.md`;
-        }
-        
-        console.log('Loading markdown from API path:', apiPath);
-        return this.markdownService.getMarkdownFile(apiPath).pipe(
+        console.log('Loading markdown from path:', fullPath);
+        return this.markdownService.getMarkdownFile(fullPath).pipe(
           catchError(err => {
             console.error('Error loading markdown:', err);
             this.error = 'Failed to load document. Please try again later.';

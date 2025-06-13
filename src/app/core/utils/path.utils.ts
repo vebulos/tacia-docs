@@ -70,15 +70,12 @@ export class PathUtils {
   
   /**
    * Construit un chemin d'API pour le contenu
-   * @param path Le chemin relatif du contenu (sans préfixe /content/)
+   * @param path Le chemin relatif du contenu
    */
   static buildApiPath(path: string): string {
-    const normalizedPath = this.normalizePath(path);
-    // Supprimer le préfixe content/ s'il existe déjà pour éviter la duplication
-    const cleanPath = normalizedPath.startsWith('content/') 
-      ? normalizedPath.substring('content/'.length)
-      : normalizedPath;
-    return `${this.API_BASE_PATH}/content/${cleanPath}`.replace(/\/+/g, '/');
+    // Retourner le chemin tel quel, sans modification
+    console.log('[PathUtils] Building API path for:', path);
+    return path;
   }
   
   /**

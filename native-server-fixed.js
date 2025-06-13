@@ -98,11 +98,22 @@ function handleContentRequest(parsedUrl, res) {
         console.log('Chemin demandé après traitement:', requestedPath || '(racine)');
         
         // Basic path normalization
-        const safePath = path.normalize(requestedPath)
-            .replace(/^(\/|\\)+/, '') // Remove leading slashes
-            .replace(/\.\.\//g, '') // Remove any ../
-            .replace(/\.\\/g, '') // Remove any .\
-            .replace(/\/\//g, '/'); // Replace double slashes
+        let safePath = path.normalize(requestedPath)
+            .replace(/^[\\/]+/, '') // Remove leading slashes
+            .replace(/\/\.\.?\//g, '/') // Remove any ./ or ../
+            .replace(/[\\/]+/g, path.sep); // Normalize path separators
+            
+        // Remove any remaining .. segments for security
+        const parts = safePath.split(path.sep);
+        const filteredParts = [];
+        for (const part of parts) {
+            if (part === '..') {
+                filteredParts.pop();
+            } else if (part && part !== '.') {
+                filteredParts.push(part);
+            }
+        }
+        safePath = filteredParts.join(path.sep);
             
         const fullPath = path.join(CONTENT_DIR, safePath);
         console.log('Chemin complet sur le disque:', fullPath);

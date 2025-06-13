@@ -61,27 +61,15 @@ export class MarkdownService {
   }
   
   private loadMarkdownFile(apiPath: string): Observable<string> {
-    // Remove any leading slashes and the /api prefix if present
-    const cleanPath = apiPath
-      .replace(/^\/+|\/+$/g, '')  // Remove leading/trailing slashes
-      .replace(/^api\//, '')      // Remove api/ prefix if present
-      .replace(/\/+/g, '/');      // Replace multiple slashes with a single one
-    
-    // Construct the API URL
-    const url = `/api/${cleanPath}`;
-    
-    console.log(`[MarkdownService] Loading markdown via API: ${url}`);
+    // Utiliser le chemin tel quel, sans nettoyage
+    const url = `/api/content/${apiPath}`;
+    console.log('[MarkdownService] Loading markdown from:', url);
     
     return this.http.get(url, { responseType: 'text' }).pipe(
       tap(() => console.log(`Successfully loaded markdown from API: ${url}`)),
       catchError(error => {
         console.error(`Error loading markdown from API: ${url}`, error);
-        console.error('Error details:', {
-          status: error.status,
-          message: error.message,
-          url: error.url
-        });
-        return throwError(() => new Error(`Failed to load markdown file from API: ${cleanPath}`));
+        return throwError(() => new Error(`Failed to load markdown file from API: ${apiPath}`));
       })
     );
   }
