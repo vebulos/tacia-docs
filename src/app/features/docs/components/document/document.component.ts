@@ -120,29 +120,43 @@ export class DocumentComponent implements OnInit, OnDestroy {
   }
   
   private processContent(file: MarkdownFile, fullPath: string): void {
-    // Create a temporary div to manipulate the HTML
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = file.html;
-    
-    // Add IDs to all heading elements
-    file.headings.forEach(heading => {
-      const headings = Array.from(tempDiv.querySelectorAll(`h${heading.level}`));
-      const targetHeading = headings.find(h => 
-        h.textContent?.trim() === heading.text.trim()
-      ) as HTMLElement | undefined;
+    // Use requestAnimationFrame for better performance
+    requestAnimationFrame(() => {
+      // Create a temporary div to manipulate the HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = file.html;
       
-      if (targetHeading) {
-        targetHeading.id = heading.id;
-      }
+      // Create a map to track processed headings for optimization
+      const headingMap = new Map<string, number>();
+      
+      // Process each heading
+      file.headings.forEach(heading => {
+        const headingKey = `${heading.level}-${heading.text.trim()}`;
+        const occurrence = (headingMap.get(headingKey) || 0) + 1;
+        headingMap.set(headingKey, occurrence);
+        
+        // Only select headings that don't have an ID yet
+        const selector = `h${heading.level}:not([id])`;
+        const headings = Array.from(tempDiv.querySelectorAll(selector));
+        
+        // Find the first matching heading that doesn't have an ID
+        const target = headings.find(h => 
+          h.textContent?.trim() === heading.text.trim()
+        ) as HTMLElement | undefined;
+        
+        if (target) {
+          target.id = heading.id;
+        }
+      });
+      
+      // Process links after the content is loaded
+      const processedHtml = this.processHtmlLinks(tempDiv.innerHTML, fullPath);
+      
+      // Update the content with processed HTML in a single operation
+      this.content = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
+      this.headings = [...file.headings]; // Create a new array reference
+      this.headingsChange.emit(this.headings);
     });
-    
-    // Process links after the content is loaded
-    const processedHtml = this.processHtmlLinks(tempDiv.innerHTML, fullPath);
-    
-    // Update the content with processed HTML
-    this.content = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
-    this.headings = file.headings;
-    this.headingsChange.emit(this.headings);
   }
   
   private loadRelatedDocuments(documentPath: string): void {
