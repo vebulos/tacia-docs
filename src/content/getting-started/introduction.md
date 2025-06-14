@@ -1,3 +1,9 @@
+---
+title: Introduction Tuto
+tags: [setup, intdoduction]
+difficulty: beginner
+---
+
 # Getting Started with MXC
 
 Welcome to the MXC documentation! This guide will help you get started with the MXC platform.

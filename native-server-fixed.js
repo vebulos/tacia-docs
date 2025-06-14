@@ -74,6 +74,9 @@ function extractFrontMatter(content) {
     };
 }
 
+// Cache for document metadata to improve performance
+const documentCache = new Map();
+
 // MIME types for content files
 const MIME_TYPES = {
     '.md': 'text/markdown',
@@ -97,6 +100,12 @@ const server = http.createServer((req, res) => {
         return handleContentRequest(parsedUrl, res);
     }
     
+    // API route for related documents
+    if (parsedUrl.pathname === '/api/related') {
+        console.log('Processing related documents request');
+        return handleRelatedRequest(parsedUrl, res);
+    }
+    
     // Root API route
     if (parsedUrl.pathname === '/api' || parsedUrl.pathname === '/api/') {
         console.log('API root request');
@@ -114,7 +123,11 @@ const server = http.createServer((req, res) => {
     console.log('Endpoint not found:', parsedUrl.pathname);
     sendResponse(res, 404, { 
         error: 'Not Found',
-        message: 'Endpoint not found.'
+        message: 'Endpoint not found.',
+        availableEndpoints: [
+            'GET /api/content?path= - Get content',
+            'GET /api/related?path=&limit=5 - Get related documents'
+        ]
     });
 });
 
@@ -286,9 +299,153 @@ function serveFile(filePath, contentType, res) {
     });
 }
 
+// Function to handle related documents request
+function handleRelatedRequest(parsedUrl, res) {
+    try {
+        const { path: docPath, limit = 5 } = parsedUrl.query;
+        
+        if (!docPath) {
+            return sendResponse(res, 400, { 
+                error: 'Bad Request',
+                message: 'Path parameter is required' 
+            });
+        }
+        
+        // Decode the document path
+        const decodedPath = decodeURIComponent(docPath);
+        
+        // Get the document to find related content for
+        const fullPath = path.join(CONTENT_DIR, decodedPath);
+        
+        // Security check
+        if (!fullPath.startsWith(CONTENT_DIR)) {
+            return sendResponse(res, 400, { error: 'Invalid path' });
+        }
+        
+        if (!fs.existsSync(fullPath)) {
+            return sendResponse(res, 404, { error: 'Document not found' });
+        }
+        
+        // Get source document metadata
+        let sourceContent;
+        try {
+            sourceContent = fs.readFileSync(fullPath, 'utf8');
+        } catch (error) {
+            console.error(`Error reading file ${fullPath}:`, error);
+            return sendResponse(res, 404, { 
+                error: 'Document not found',
+                details: `Unable to read file: ${fullPath}`
+            });
+        }
+
+        const { metadata: sourceMetadata = {} } = extractFrontMatter(sourceContent);
+        const sourceTags = new Set(
+            ((sourceMetadata && sourceMetadata.tags) || []).map(t => String(t).toLowerCase())
+        );
+        
+        if (sourceTags.size === 0) {
+            return sendResponse(res, 200, { related: [] });
+        }
+        
+        // Find all markdown files
+        const allFiles = [];
+        function scanDirectory(dir) {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            
+            for (const entry of entries) {
+                const fullPath = path.join(dir, entry.name);
+                
+                if (entry.isDirectory()) {
+                    scanDirectory(fullPath);
+                } else if (entry.isFile() && path.extname(entry.name).toLowerCase() === '.md') {
+                    allFiles.push(fullPath);
+                }
+            }
+        }
+        
+        scanDirectory(CONTENT_DIR);
+        
+        // Process files to find related content
+        const related = [];
+        
+        for (const filePath of allFiles) {
+            // Skip the source file
+            if (path.normalize(filePath) === path.normalize(fullPath)) {
+                continue;
+            }
+            
+            let metadata;
+            
+            // Try to get from cache first
+            if (documentCache.has(filePath)) {
+                metadata = documentCache.get(filePath);
+            } else {
+                try {
+                    const content = fs.readFileSync(filePath, 'utf8');
+                    const result = extractFrontMatter(content);
+                    metadata = result.metadata || {};
+                    
+                    // Cache the metadata
+                    documentCache.set(filePath, metadata);
+                } catch (error) {
+                    console.error(`Error reading file ${filePath}:`, error);
+                    continue;
+                }
+            }
+            
+            const targetTags = new Set(
+                ((metadata.tags || [])).map(t => t.toLowerCase())
+            );
+            
+            // Find common tags
+            const commonTags = [...sourceTags].filter(tag => targetTags.has(tag));
+            
+            if (commonTags.length > 0) {
+                const relativePath = path.relative(CONTENT_DIR, filePath).replace(/\\/g, '/');
+                
+                related.push({
+                    path: relativePath,
+                    title: metadata.title || path.basename(filePath, '.md'),
+                    commonTags,
+                    commonTagsCount: commonTags.length
+                });
+            }
+        }
+        
+        // Sort by number of common tags (descending) and limit results
+        const sortedRelated = related
+            .sort((a, b) => b.commonTagsCount - a.commonTagsCount)
+            .slice(0, parseInt(limit, 10));
+        
+        return sendResponse(res, 200, { related: sortedRelated });
+        
+    } catch (error) {
+        console.error('Error in handleRelatedRequest:', error);
+        return sendResponse(res, 500, { 
+            error: 'Internal server error',
+            details: error.message 
+        });
+    }
+}
+
+// Function to send JSON responses
 function sendResponse(res, statusCode, data) {
-    res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(data), 'utf-8');
+    try {
+        const responseData = JSON.stringify(data);
+        res.writeHead(statusCode, { 
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(responseData),
+            'Connection': 'close'
+        });
+        res.end(responseData);
+    } catch (error) {
+        console.error('Error sending response:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            error: 'Internal Server Error',
+            message: 'Failed to process response'
+        }));
+    }
 }
 
 // Start the server

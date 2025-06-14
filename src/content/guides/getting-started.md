@@ -1,7 +1,6 @@
 ---
 title: Getting Started with Our Framework
-categories: [guides]
-tags: [tutorial, beginner]
+tags: [tutorial, beginner, setup]
 difficulty: beginner
 ---
 

@@ -1,8 +1,9 @@
 import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { ActivatedRoute, Router, ParamMap } from '@angular/router';
-import { MarkdownService } from '@app/core/services/markdown.service';
-import { Subscription, catchError, of, switchMap } from 'rxjs';
+import { ActivatedRoute, Router, RouterLink, RouterModule, ParamMap } from '@angular/router';
+import { MarkdownService, MarkdownFile } from '@app/core/services/markdown.service';
+import { RelatedDocumentsService, type RelatedDocument } from '@app/core/services/related-documents.service';
+import { Subscription, catchError, of, switchMap, Observable } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { PathUtils } from '@app/core/utils/path.utils';
 
@@ -18,7 +19,7 @@ const serializeDocument = (doc: Document): string => {
 
 @Component({
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   selector: 'app-document',
   templateUrl: './document.component.html',
   styleUrls: ['./document.component.css']
@@ -32,6 +33,10 @@ export class DocumentComponent implements OnInit, OnDestroy {
   content: SafeHtml | null = null;
   loading = true;
   error: string | null = null;
+  relatedDocuments: RelatedDocument[] = [];
+  showRelatedDocuments = false;
+  loadingRelated = false;
+  relatedDocumentsError: string | null = null;
 
   private elementRef = inject(ElementRef);
 
@@ -39,6 +44,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private markdownService: MarkdownService,
+    private relatedDocumentsService: RelatedDocumentsService,
     private sanitizer: DomSanitizer
   ) {}
 
@@ -79,68 +85,99 @@ export class DocumentComponent implements OnInit, OnDestroy {
         }
         
         console.log('Loading markdown from path:', fullPath);
+        this.loading = true;
+        this.error = null;
+        
+        // Load document content
         return this.markdownService.getMarkdownFile(fullPath).pipe(
           catchError(err => {
             console.error('Error loading markdown:', err);
             this.error = 'Failed to load document. Please try again later.';
             this.loading = false;
             return of(null);
+          }),
+          switchMap(file => {
+            if (file) {
+              this.processContent(file, fullPath);
+              // Load related documents after content is processed
+              this.loadRelatedDocuments(fullPath);
+            }
+            return of(file);
           })
         );
       })
-    ).subscribe(file => {
-      if (file) {
-        // Create a temporary div to manipulate the HTML
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = file.html;
-        
-        // Add IDs to all heading elements
-        file.headings.forEach(heading => {
-          // Find the heading by its text content
-          const headings = Array.from(tempDiv.querySelectorAll(`h${heading.level}`));
-          const targetHeading = headings.find(h => 
-            h.textContent?.trim() === heading.text.trim()
-          );
-          
-          // If we found the heading, add the ID
-          if (targetHeading && !targetHeading.id) {
-            targetHeading.id = heading.id;
-          }
-        });
-        
-        // Process fragment links in the HTML
-        const processedHtml = this.processHtmlLinks(tempDiv.innerHTML, this._currentPath || '');
-        
-        // Mark the HTML as safe to render
-        this.content = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
-        
-        // Always update headings, even if empty
-        this.headings = file.headings || [];
-        console.log('Loaded markdown with headings:', this.headings);
-        
-        // Emit the headings
-        this.headingsChange.emit(this.headings);
-        
-        // Also dispatch a custom event
-        const event = new CustomEvent('headingsUpdate', { 
-          detail: this.headings,
-          bubbles: true,
-          cancelable: true
-        });
-        console.log('Dispatching custom event:', event);
-        const dispatched = this.elementRef.nativeElement.dispatchEvent(event);
-        console.log('Event dispatched successfully:', dispatched);
+    ).subscribe({
+      next: (file) => {
+        this.loading = false;
+      },
+      error: (err) => {
+        console.error('Error in document subscription:', err);
+        this.error = 'An error occurred while loading the document.';
+        this.loading = false;
       }
-      this.loading = false;
     });
   }
   
-  // Helper function to escape special regex characters
-  private escapeRegExp(string: string): string {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  private processContent(file: MarkdownFile, fullPath: string): void {
+    // Create a temporary div to manipulate the HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = file.html;
+    
+    // Add IDs to all heading elements
+    file.headings.forEach(heading => {
+      const headings = Array.from(tempDiv.querySelectorAll(`h${heading.level}`));
+      const targetHeading = headings.find(h => 
+        h.textContent?.trim() === heading.text.trim()
+      ) as HTMLElement | undefined;
+      
+      if (targetHeading) {
+        targetHeading.id = heading.id;
+      }
+    });
+    
+    // Process links after the content is loaded
+    const processedHtml = this.processHtmlLinks(tempDiv.innerHTML, fullPath);
+    
+    // Update the content with processed HTML
+    this.content = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
+    this.headings = file.headings;
+    this.headingsChange.emit(this.headings);
   }
-
-  // Removed loadMarkdown method as its logic is now in ngOnInit
+  
+  private loadRelatedDocuments(documentPath: string): void {
+    if (!documentPath) return;
+    
+    this.loadingRelated = true;
+    this.relatedDocumentsError = null;
+    
+    this.relatedDocumentsService.getRelatedDocuments(documentPath, 5)
+      .pipe(
+        catchError(error => {
+          console.error('Error loading related documents:', error);
+          this.relatedDocumentsError = 'Failed to load related documents';
+          return of({ related: [] });
+        })
+      )
+      .subscribe({
+        next: (response) => {
+          this.relatedDocuments = response.related;
+          this.showRelatedDocuments = this.relatedDocuments.length > 0;
+          this.loadingRelated = false;
+        },
+        error: (err) => {
+          console.error('Error in related documents subscription:', err);
+          this.relatedDocumentsError = 'An error occurred while loading related documents.';
+          this.loadingRelated = false;
+        }
+      });
+  }
+  
+  // Make PathUtils available in the template
+  buildDocsUrl = PathUtils.buildDocsUrl;
+  
+  public toggleRelatedDocuments(): void {
+    this.showRelatedDocuments = !this.showRelatedDocuments;
+  }
 
   // Handle fragment links in the URL when component loads
   private handleFragmentNavigation() {
