@@ -31,9 +31,18 @@ export class DocsComponent implements OnInit, AfterViewInit, OnDestroy {
   currentPath: string = '';
   relatedDocuments: any[] = [];
   buildDocsUrl = (path: string) => {
-    // Remove .md extension if present
-    const cleanPath = path.endsWith('.md') ? path.slice(0, -3) : path;
-    return ['/docs', cleanPath];
+    try {
+      // Remove .md extension if present
+      let cleanPath = path.endsWith('.md') ? path.slice(0, -3) : path;
+      // Decode any encoded characters in the path
+      cleanPath = decodeURIComponent(cleanPath);
+      // Split into segments to ensure proper URL handling
+      const segments = cleanPath.split('/').filter(segment => segment.trim() !== '');
+      return ['/docs', ...segments];
+    } catch (e) {
+      console.error('Error building docs URL:', e);
+      return ['/docs', 'error'];
+    }
   };
   
   private documentComponent: DocumentComponent | null = null;
