@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface RelatedDocument {
   path: string;
@@ -13,13 +14,13 @@ export interface RelatedDocument {
   providedIn: 'root'
 })
 export class RelatedDocumentsService {
-  private readonly baseUrl = '/api';
+  private readonly baseUrl = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
 
   getRelatedDocuments(documentPath: string, limit: number = 5): Observable<{ related: RelatedDocument[] }> {
-    // Encode the path to handle special characters and spaces
-    const encodedPath = encodeURIComponent(documentPath);
+    // Encode the path but keep the forward slashes
+    const encodedPath = documentPath.split('/').map(encodeURIComponent).join('/');
     return this.http.get<{ related: RelatedDocument[] }>(
       `${this.baseUrl}/related`,
       { 

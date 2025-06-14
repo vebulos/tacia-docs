@@ -55,17 +55,17 @@ export class PathUtils {
    */
   static buildDocsUrl(path: string = ''): string[] {
     // If the path is empty, return the base documentation path
-    if (!path) return [this.DOCS_BASE_PATH];
+    if (!path) return [PathUtils.DOCS_BASE_PATH];
     
     // Normalize the path and remove the extension
-    const normalizedPath = this.normalizePath(path);
-    const pathWithoutExt = this.removeFileExtension(normalizedPath);
+    const normalizedPath = PathUtils.normalizePath(path);
+    const pathWithoutExt = PathUtils.removeFileExtension(normalizedPath);
     
     // If the path is empty after normalization, return the base path
-    if (!pathWithoutExt) return [this.DOCS_BASE_PATH];
+    if (!pathWithoutExt) return [PathUtils.DOCS_BASE_PATH];
     
     // Otherwise, return the full path
-    return [this.DOCS_BASE_PATH, ...pathWithoutExt.split('/')];
+    return [PathUtils.DOCS_BASE_PATH, ...pathWithoutExt.split('/')];
   }
   
   /**

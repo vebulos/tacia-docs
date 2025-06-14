@@ -150,7 +150,9 @@ export class DocumentComponent implements OnInit, OnDestroy {
     this.loadingRelated = true;
     this.relatedDocumentsError = null;
     
-    this.relatedDocumentsService.getRelatedDocuments(documentPath, 5)
+    // Ensure the path has .md extension for the API request
+    const pathWithExtension = documentPath.endsWith('.md') ? documentPath : `${documentPath}.md`;
+    this.relatedDocumentsService.getRelatedDocuments(pathWithExtension, 5)
       .pipe(
         catchError(error => {
           console.error('Error loading related documents:', error);

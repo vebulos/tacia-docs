@@ -88,8 +88,26 @@ const MIME_TYPES = {
     '.svg': 'image/svg+xml'
 };
 
+// Create the HTTP server with CORS support
 const server = http.createServer((req, res) => {
     console.log(`${req.method} ${req.url}`);
+    
+    // Handle preflight (OPTIONS) requests
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204, {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '86400',
+            'Content-Length': '0'
+        });
+        return res.end();
+    }
+    
+    // Add CORS headers to all responses
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     
     // Parse URL
     const parsedUrl = url.parse(req.url, true);
@@ -101,8 +119,8 @@ const server = http.createServer((req, res) => {
     }
     
     // API route for related documents
-    if (parsedUrl.pathname === '/api/related') {
-        console.log('Processing related documents request');
+    if (parsedUrl.pathname === '/api/related' && req.method === 'GET') {
+        console.log('Processing related documents request:', parsedUrl.pathname);
         return handleRelatedRequest(parsedUrl, res);
     }
     
@@ -432,15 +450,25 @@ function handleRelatedRequest(parsedUrl, res) {
 function sendResponse(res, statusCode, data) {
     try {
         const responseData = JSON.stringify(data);
-        res.writeHead(statusCode, { 
+        const headers = {
             'Content-Type': 'application/json',
             'Content-Length': Buffer.byteLength(responseData),
-            'Connection': 'close'
-        });
+            'Connection': 'close',
+            // CORS headers
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '86400' // 24 hours
+        };
+        
+        res.writeHead(statusCode, headers);
         res.end(responseData);
     } catch (error) {
         console.error('Error sending response:', error);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.writeHead(500, { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        });
         res.end(JSON.stringify({
             error: 'Internal Server Error',
             message: 'Failed to process response'
