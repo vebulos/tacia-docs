@@ -26,12 +26,20 @@ export interface MarkdownFile {
   headings: Array<{ text: string; level: number; id: string }>;
 }
 
+interface CachedItem {
+  data: Observable<MarkdownFile>;
+  lastAccessed: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class MarkdownService {
-  private cache = new Map<string, Observable<MarkdownFile>>();
+  private cache = new Map<string, CachedItem>();
   private apiUrl = '/api/content';
+  private maxCacheSize = 50; // Nombre maximum d'éléments en cache
+  private cacheHits = 0;
+  private cacheMisses = 0;
   
   // Base path for content files
   private contentBasePath: string;
@@ -70,9 +78,16 @@ export class MarkdownService {
     const normalizedPath = apiPath.endsWith('.md') ? apiPath : `${apiPath}.md`;
     
     // Check cache first
-    if (this.cache.has(normalizedPath)) {
-      return this.cache.get(normalizedPath)!;
+    const cached = this.cache.get(normalizedPath);
+    if (cached) {
+      // Mettre à jour le dernier accès
+      cached.lastAccessed = Date.now();
+      this.cacheHits++;
+      console.log(`[MarkdownService] Cache hit (${this.cacheHits} hits, ${this.cacheMisses} misses)`);
+      return cached.data;
     }
+    this.cacheMisses++;
+    console.log(`[MarkdownService] Cache miss (${this.cacheHits} hits, ${this.cacheMisses} misses)`);
 
     console.log(`[MarkdownService] Loading markdown file: ${normalizedPath}`);
     
@@ -94,7 +109,7 @@ export class MarkdownService {
     );
     
     // Cache the request
-    this.cache.set(apiPath, request$);
+    this.addToCache(apiPath, request$);
     
     return request$;
   }
@@ -176,17 +191,23 @@ export class MarkdownService {
   
   /**
    * Clears the markdown cache
+   * @param path Optional path to clear a specific entry
    */
   clearCache(path?: string): void {
     if (path) {
       this.cache.delete(path);
+      console.log(`[MarkdownService] Cleared cache for path: ${path}`);
     } else {
       this.cache.clear();
+      this.cacheHits = 0;
+      this.cacheMisses = 0;
+      console.log('[MarkdownService] Cache cleared');
     }
   }
   
   /**
    * Gets a cached markdown file or loads it if not in cache
+   * @deprecated Use getMarkdownFile directly
    */
   getCachedOrLoad(path: string): Observable<MarkdownFile> {
     return this.getMarkdownFile(path);
@@ -194,10 +215,55 @@ export class MarkdownService {
   
   /**
    * Preloads a markdown file into the cache
+   * @param path Path to the markdown file to preload
    */
   preloadMarkdown(path: string): Observable<void> {
     return this.getMarkdownFile(path).pipe(
-      map(() => {}) // Convert to Observable<void>
+      map(() => undefined) // Convert to Observable<void>
     );
+  }
+
+  /**
+   * Add an item to the cache, removing the least recently used items if needed
+   */
+  private addToCache(key: string, data: Observable<MarkdownFile>): void {
+    // Clean up cache if it's too big
+    if (this.cache.size >= this.maxCacheSize) {
+      // Convert to array, sort by last accessed time, and remove the oldest 20%
+      const entries = Array.from(this.cache.entries())
+        .sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
+      
+      const itemsToRemove = Math.max(1, Math.floor(this.maxCacheSize * 0.2)); // Remove 20% or at least 1
+      
+      for (let i = 0; i < itemsToRemove; i++) {
+        if (entries[i]) {
+          this.cache.delete(entries[i][0]);
+        }
+      }
+      
+      console.log(`[MarkdownService] Cache cleaned, removed ${itemsToRemove} old items`);
+    }
+    
+    this.cache.set(key, {
+      data,
+      lastAccessed: Date.now()
+    });
+  }
+
+
+
+  /**
+   * Get cache statistics
+   */
+  public getCacheStats(): { size: number; hits: number; misses: number; hitRate: string } {
+    const total = this.cacheHits + this.cacheMisses;
+    const hitRate = total > 0 ? (this.cacheHits / total * 100).toFixed(2) : '0.00';
+    
+    return {
+      size: this.cache.size,
+      hits: this.cacheHits,
+      misses: this.cacheMisses,
+      hitRate: `${hitRate}%`
+    };
   }
 }
