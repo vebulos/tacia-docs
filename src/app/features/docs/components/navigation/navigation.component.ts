@@ -279,8 +279,18 @@ console.log('++++++++++ Root content loaded successfully:', this.contentStructur
       if (!item) return false;
       
       let isActive = false;
+      const itemPath = item.path || '';
       
-      // Check if any child is active
+      // Vérifier si cet item est dans le chemin actif
+      const isInPath = currentPath === itemPath || 
+                      (itemPath && currentPath.startsWith(itemPath + '/'));
+      
+      // Si c'est un dossier dans le chemin, charger ses enfants
+      if (isInPath && item.isDirectory && !item.childrenLoaded && !item.isLoading) {
+        this.loadChildItems(item);
+      }
+      
+      // Vérifier si un enfant est actif
       if (item.children && item.children.length > 0) {
         const childIsActive = this.setActiveStates(item.children, currentPath);
         if (childIsActive) {
@@ -289,12 +299,10 @@ console.log('++++++++++ Root content loaded successfully:', this.contentStructur
         }
       }
       
-      // Check if current item is active
-      if (!isActive && item.path) {
-        // Make sure we're matching the full segment to avoid partial matches
-        const itemPath = item.path.endsWith('/') ? item.path : `${item.path}/`;
-        isActive = currentPath === item.path || 
-                  currentPath.startsWith(itemPath);
+      // Vérifier si l'item actuel est actif
+      if (!isActive && itemPath) {
+        isActive = currentPath === itemPath || 
+                  (itemPath ? currentPath.startsWith(itemPath + '/') : false);
       }
       
       return isActive;
