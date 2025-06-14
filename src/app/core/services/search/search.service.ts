@@ -116,39 +116,75 @@ export class SearchService {
   private indexContent(items: ContentItem[]): Observable<void> {
     console.log('[SearchService] Indexing content...');
     
-    // Flatten the hierarchical structure
-    const flatItems = this.flattenContentItems(items);
-    
-    // Filter items that have a file path
-    const itemsWithPaths = flatItems.filter(item => item.path);
-    
-    if (itemsWithPaths.length === 0) {
-      console.warn('[SearchService] No items with paths found to index');
-      return of(undefined);
+    // First, load all content recursively
+    return this.loadAllContentRecursively(items).pipe(
+      switchMap(allItems => {
+        // Flatten the hierarchical structure
+        const flatItems = this.flattenContentItems(allItems);
+        
+        // Filter items that have a file path and are not directories
+        const itemsToIndex = flatItems.filter(item => 
+          item.path && !item.isDirectory && item.path.endsWith('.md')
+        );
+        
+        if (itemsToIndex.length === 0) {
+          console.warn('[SearchService] No valid markdown files found to index');
+          return of(undefined);
+        }
+        
+        console.log(`[SearchService] Indexing ${itemsToIndex.length} markdown files`);
+        
+        // Create an array of observables to index each file
+        const indexOperations = itemsToIndex.map(item => 
+          this.indexMarkdownFile(item).pipe(
+            catchError(err => {
+              console.error(`[SearchService] Error indexing ${item.path}:`, err);
+              return of(null);
+            })
+          )
+        );
+        
+        // Execute all indexing operations in parallel
+        return forkJoin(indexOperations).pipe(
+          tap(results => {
+            // Filter out null results (errors)
+            const validResults = results.filter((r): r is SearchResult => r !== null);
+            this.searchIndex = validResults;
+            console.log(`[SearchService] Successfully indexed ${validResults.length} files`);
+          }),
+          map(() => {}) // Convert to Observable<void>
+        );
+      })
+    );
+  }
+  
+  /**
+   * Recursively load all content items
+   * @param items Root items to start loading from
+   */
+  private loadAllContentRecursively(items: ContentItem[]): Observable<ContentItem[]> {
+    if (!items || items.length === 0) {
+      return of([]);
     }
     
-    console.log(`[SearchService] Indexing ${itemsWithPaths.length} items with paths`);
+    // For each directory, load its children and process them recursively
+    const loadOperations = items.map(item => {
+      if (item.isDirectory) {
+        return this.contentService.getContent(item.path).pipe(
+          switchMap(children => 
+            this.loadAllContentRecursively(children).pipe(
+              map(processedChildren => ({
+                ...item,
+                children: processedChildren
+              }))
+            )
+          )
+        );
+      }
+      return of(item);
+    });
     
-    // Create an array of observables to index each file
-    const indexOperations = itemsWithPaths.map(item => 
-      this.indexMarkdownFile(item).pipe(
-        catchError(err => {
-          console.error(`[SearchService] Error indexing ${item.path}:`, err);
-          return of(null);
-        })
-      )
-    );
-    
-    // Execute all indexing operations in parallel
-    return forkJoin(indexOperations).pipe(
-      tap(results => {
-        // Filter out null results (errors)
-        const validResults = results.filter((r): r is SearchResult => r !== null);
-        this.searchIndex = validResults;
-        console.log(`[SearchService] Successfully indexed ${validResults.length} files`);
-      }),
-      map(() => {}) // Convert to Observable<void>
-    );
+    return forkJoin(loadOperations);
   }
 
   /**
@@ -190,50 +226,40 @@ export class SearchService {
       return throwError(() => new Error('Invalid item or missing path for indexing'));
     }
 
-    console.log(`[SearchService] Indexing markdown file: ${item.path}`);
-    
     // Use metadata.title if available, otherwise extract from path
-    const title = item.metadata?.['title'] || item.path.split('/').pop() || 'Untitled';
+    const title = item.metadata?.['title'] || item.name || item.path.split('/').pop() || 'Untitled';
     
-    // Create the search result
+    // Create the search result with basic information
     const searchResult: SearchResult = {
       path: item.path, // Path already includes the .md extension for files
-      title: item.metadata?.title || item.name,
-      preview: '',
+      title: title,
+      preview: item.metadata?.['description'] || '',
       score: 0,
       matches: []
     };
 
-    // If it's a Markdown file, we can extract more information
+    // For Markdown files, we can try to extract more information
     if (item.path.endsWith('.md')) {
-      // Check if content service has getContentByPath method
-      if ('getContentByPath' in this.contentService) {
-        return (this.contentService as any).getContentByPath(item.path).pipe(
-          map((content: string) => {
-            if (typeof content === 'string') {
-              // Extract text content (without frontmatter)
-              const textContent = content.replace(/^---[\s\S]*?---\s*/, '');
-              
-              // Update preview
-              searchResult.preview = this.createPreview(textContent);
-              
-              // Extract headings to improve search
-              const headingMatch = textContent.match(/^#\s+(.+)$/m);
-              if (headingMatch) {
-                searchResult.title = headingMatch[1].trim();
-              }
-            }
-            return searchResult;
-          }),
-          catchError(err => {
-            console.error(`[SearchService] Error processing ${item.path}:`, err);
-            return of(searchResult); // Return base result on error
-          })
-        );
-      } else {
-        console.warn(`[SearchService] Content service does not support getContentByPath for ${item.path}`);
-        return of(searchResult);
+      // Since we don't have direct file content access, we'll use the metadata
+      // and any other available information for search
+      if (item.metadata) {
+        // Try to create a preview from the description or other metadata
+        if (item.metadata['description']) {
+          searchResult.preview = this.createPreview(item.metadata['description']);
+        }
+        
+        // If we have a summary in metadata, use it as preview
+        if (item.metadata['summary']) {
+          searchResult.preview = this.createPreview(item.metadata['summary']);
+        }
       }
+      
+      // If we still don't have a preview, use a generic one
+      if (!searchResult.preview) {
+        searchResult.preview = `Documentation page for ${title}`;
+      }
+      
+      return of(searchResult);
     }
     
     return of(searchResult);

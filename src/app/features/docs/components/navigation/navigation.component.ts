@@ -123,9 +123,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
           
           this.contentStructure = this.transformContentItems(processedItems);
           
-console.log('++++++++++ Root content loaded successfully:', this.contentStructure);
-
-
           this.loading = false;
           
           // Update active states after loading
