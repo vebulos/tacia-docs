@@ -3,7 +3,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink, RouterModule, ParamMap } from '@angular/router';
 import { MarkdownService, MarkdownFile } from '@app/core/services/markdown.service';
 import { RelatedDocumentsService, type RelatedDocument } from '@app/core/services/related-documents.service';
-import { Subscription, catchError, of, switchMap, Observable } from 'rxjs';
+import { Subscription, catchError, of, switchMap, Observable, forkJoin } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { PathUtils } from '@app/core/utils/path.utils';
 
@@ -89,19 +89,23 @@ export class DocumentComponent implements OnInit, OnDestroy {
         this.loading = true;
         this.error = null;
         
-        // Load document content
-        return this.markdownService.getMarkdownFile(fullPath).pipe(
-          catchError(err => {
-            console.error('Error loading markdown:', err);
-            this.error = 'Failed to load document. Please try again later.';
-            this.loading = false;
-            return of(null);
-          }),
-          switchMap(file => {
+        // Start loading related documents in parallel
+        const relatedDocs$ = this.loadRelatedDocuments(fullPath);
+        
+        // Load document content and related documents in parallel
+        return forkJoin([
+          this.markdownService.getMarkdownFile(fullPath).pipe(
+            catchError(err => {
+              console.error('Error loading markdown:', err);
+              this.error = 'Failed to load document. Please try again later.';
+              return of(null);
+            })
+          ),
+          relatedDocs$.pipe(catchError(() => of(null)))
+        ]).pipe(
+          switchMap(([file]) => {
             if (file) {
               this.processContent(file, fullPath);
-              // Load related documents after content is processed
-              this.loadRelatedDocuments(fullPath);
             }
             return of(file);
           })
@@ -159,10 +163,10 @@ export class DocumentComponent implements OnInit, OnDestroy {
     });
   }
   
-  private loadRelatedDocuments(documentPath: string): void {
+  private loadRelatedDocuments(documentPath: string): Observable<{ related: RelatedDocument[] }> {
     if (!documentPath) {
       console.log('No document path provided for related documents');
-      return;
+      return of({ related: [] });
     }
     
     console.log('Loading related documents for path:', documentPath);
@@ -171,28 +175,28 @@ export class DocumentComponent implements OnInit, OnDestroy {
     
     // Ensure the path has .md extension for the API request
     const pathWithExtension = documentPath.endsWith('.md') ? documentPath : `${documentPath}.md`;
-    this.relatedDocumentsService.getRelatedDocuments(pathWithExtension, 5)
-      .pipe(
-        catchError(error => {
-          console.error('Error loading related documents:', error);
-          this.relatedDocumentsError = 'Failed to load related documents';
-          return of({ related: [] });
-        })
-      )
-      .subscribe({
+    
+    return this.relatedDocumentsService.getRelatedDocuments(pathWithExtension, 5).pipe(
+      tap({
         next: (response) => {
           this.relatedDocuments = response.related;
           this.showRelatedDocuments = this.relatedDocuments.length > 0;
           this.loadingRelated = false;
-          // Émettre les documents liés au composant parent
           this.relatedDocumentsChange.emit(this.relatedDocuments);
         },
-        error: (err) => {
-          console.error('Error in related documents subscription:', err);
-          this.relatedDocumentsError = 'An error occurred while loading related documents.';
+        error: (error) => {
+          console.error('Error loading related documents:', error);
+          this.relatedDocumentsError = 'Failed to load related documents';
           this.loadingRelated = false;
         }
-      });
+      }),
+      catchError(error => {
+        console.error('Error in related documents stream:', error);
+        this.relatedDocumentsError = 'An error occurred while loading related documents.';
+        this.loadingRelated = false;
+        return of({ related: [] });
+      })
+    );
   }
   
   // Make PathUtils available in the template
