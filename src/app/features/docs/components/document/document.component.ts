@@ -3,6 +3,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink, RouterModule, ParamMap } from '@angular/router';
 import { MarkdownService, MarkdownFile } from '@app/core/services/markdown.service';
 import { RelatedDocumentsService, type RelatedDocument } from '@app/core/services/related-documents.service';
+import { tap } from 'rxjs/operators';
 import { Subscription, catchError, of, switchMap, Observable, forkJoin } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { PathUtils } from '@app/core/utils/path.utils';
@@ -36,6 +37,9 @@ export class DocumentComponent implements OnInit, OnDestroy {
   error: string | null = null;
   relatedDocuments: RelatedDocument[] = [];
   showRelatedDocuments = false;
+  
+  // Fragment click handler reference for cleanup
+  private fragmentClickHandler: ((event: MouseEvent) => void) | null = null;
   loadingRelated = false;
   relatedDocumentsError: string | null = null;
 
@@ -178,7 +182,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
     
     return this.relatedDocumentsService.getRelatedDocuments(pathWithExtension, 5).pipe(
       tap({
-        next: (response) => {
+        next: (response: { related: RelatedDocument[] }) => {
           this.relatedDocuments = response.related;
           this.showRelatedDocuments = this.relatedDocuments.length > 0;
           this.loadingRelated = false;
@@ -202,6 +206,50 @@ export class DocumentComponent implements OnInit, OnDestroy {
   // Make PathUtils available in the template
   buildDocsUrl = PathUtils.buildDocsUrl;
   
+  // Cache for createId function
+  private readonly idCache = new Map<string, string>();
+  private readonly umlautMap: {[key: string]: string} = {
+    'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 'ss',
+    'Ä': 'A', 'Ö': 'O', 'Ü': 'U',
+    'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'å': 'a',
+    'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+    'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
+    'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ø': 'o',
+    'ù': 'u', 'ú': 'u', 'û': 'u',
+    'ý': 'y', 'ÿ': 'y',
+    'ñ': 'n', 'ç': 'c', 'æ': 'ae', 'œ': 'oe'
+  };
+  private readonly umlautRegex = new RegExp(`[${Object.keys(this.umlautMap).join('')}]`, 'g');
+  private readonly specialCharsRegex = /[^\w\s-]/g;
+  private readonly spacesRegex = /\s+/g;
+  private readonly multiHyphenRegex = /-+/g;
+  private readonly trimHyphenRegex = /^-+|-+$/g;
+  private readonly doubleSlashRegex = /\/\//g;
+
+  private createId(text: string): string {
+    const cacheKey = text.trim().toLowerCase();
+    
+    // Return cached ID if available
+    if (this.idCache.has(cacheKey)) {
+      return this.idCache.get(cacheKey)!;
+    }
+    
+    // Process the text to create an ID
+    const id = cacheKey
+      .replace(this.umlautRegex, match => this.umlautMap[match] || match)
+      .replace(this.specialCharsRegex, '')
+      .replace(this.spacesRegex, '-')
+      .replace(this.multiHyphenRegex, '-')
+      .replace(this.trimHyphenRegex, '');
+    
+    // Cache the result
+    if (id) {
+      this.idCache.set(cacheKey, id);
+    }
+    
+    return id;
+  }
+  
   public toggleRelatedDocuments(): void {
     this.showRelatedDocuments = !this.showRelatedDocuments;
   }
@@ -210,7 +258,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
   private handleFragmentNavigation() {
     // Wait for the content to be rendered
     setTimeout(() => {
-      const fragment = this.router.parseUrl(this.router.url).fragment;
+      const fragment = this.router.parseUrl(this.router.url)['fragment'];
       if (fragment) {
         // Try exact match first
         let element = document.getElementById(fragment);
@@ -274,108 +322,82 @@ export class DocumentComponent implements OnInit, OnDestroy {
 
   private processHtmlLinks(html: string, currentPath: string): string {
     try {
-      const doc = parseHtml(`<div>${html}</div>`);
+      // Use DocumentFragment for better performance with DOM operations
+      const fragment = document.createDocumentFragment();
+      const container = document.createElement('div');
+      fragment.appendChild(container);
       
-      // Function to create a URL-friendly ID from text (matching the TOC generation)
-      const createId = (text: string): string => {
-        // Replace umlauts with their non-umlaut equivalents first
-        const umlautMap: {[key: string]: string} = {
-          'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 'ss',
-          'Ä': 'A', 'Ö': 'O', 'Ü': 'U',
-          'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'å': 'a',
-          'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
-          'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
-          'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ø': 'o',
-          'ù': 'u', 'ú': 'u', 'û': 'u',
-          'ý': 'y', 'ÿ': 'y',
-          'ñ': 'n', 'ç': 'c', 'æ': 'ae', 'œ': 'oe'
-        };
-        
-        return text.trim()
-          .toLowerCase()
-          .replace(/[äöüßáàâãåéèêëíìîïóòôõøúùûýÿñçæœ]/g, match => umlautMap[match] || match)
-          .replace(/[^\w\s-]/g, '')  // Remove any remaining special chars
-          .replace(/\s+/g, '-')      // Replace spaces with -
-          .replace(/-+/g, '-')       // Replace multiple - with single -
-          .replace(/^-+|-+$/g, '');  // Remove leading/trailing -
-      };
-
-      // Ensure all headings have IDs that match their fragment links
-      const headings = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
-      headings.forEach(heading => {
+      // Set HTML content
+      container.innerHTML = html;
+      
+      // Process headings first
+      const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      const headingCache = new Map<string, number>();
+      
+      for (let i = 0; i < headings.length; i++) {
+        const heading = headings[i];
         if (!heading.id) {
           const text = heading.textContent || '';
-          const id = createId(text);
+          let id = this.createId(text);
+          
+          // Handle duplicate IDs
           if (id) {
+            const count = (headingCache.get(id) || 0) + 1;
+            headingCache.set(id, count);
+            
+            if (count > 1) {
+              id = `${id}-${count}`;
+            }
+            
             heading.id = id;
           }
         }
-      });
+      }
       
-      // Process all links
-      const links = doc.querySelectorAll('a[href]');
-      links.forEach(link => {
+      // Process links
+      const links = container.querySelectorAll('a[href]');
+      const basePath = currentPath.split('/').slice(0, -1).filter(Boolean).join('/');
+      const currentPathWithoutHash = this.router.url.split('#')[0];
+      
+      for (let i = 0; i < links.length; i++) {
+        const link = links[i] as HTMLAnchorElement;
         const href = link.getAttribute('href');
         
+        if (!href) continue;
+        
         // Handle relative URLs
-        if (href && !href.startsWith('http') && !href.startsWith('#')) {
-          // For relative URLs, ensure they're properly formatted with literal slashes
-          const basePath = currentPath.split('/').slice(0, -1).join('/');
-          const newHref = `/${basePath ? basePath + '/' : ''}${href}`.replace(/\/\//g, '/');
-          
-          // Use setAttributeNS to prevent Angular from URL-encoding the slashes
-          link.removeAttribute('href');
+        if (!href.startsWith('http') && !href.startsWith('#')) {
+          const newHref = `/${basePath ? basePath + '/' : ''}${href}`.replace(this.doubleSlashRegex, '/');
           link.setAttribute('href', newHref);
         }
         // Handle fragment links
-        else if (href && href.startsWith('#')) {
+        else if (href.startsWith('#')) {
           const fragment = href.substring(1);
-          if (fragment) {
-            // Create an ID that matches the TOC generation (without umlauts)
-            const normalizedId = createId(fragment);
-            
-            // If the fragment contains URL-encoded characters, try to decode it first
-            let decodedFragment = fragment;
-            try {
-              decodedFragment = decodeURIComponent(fragment);
-            } catch (e) {
-              // If decoding fails, use the original fragment
-              console.warn('Failed to decode fragment:', fragment);
-            }
-            
-            // Create a clean ID from the decoded fragment
-            const cleanId = createId(decodedFragment);
-            
-            // Update the href to use the clean ID
-            const currentPath = this.router.url.split('#')[0];
-            link.setAttribute('href', `${currentPath}#${cleanId}`);
-            
-            // Add click handler for smooth scrolling
-            link.addEventListener('click', (event) => {
-              event.preventDefault();
-              
-              // Navigate using the clean ID
-              this.router.navigate([], {
-                fragment: cleanId,
-                replaceUrl: true
-              }).then(() => {
-                // Try multiple ways to find the target element
-                const element = document.getElementById(cleanId) || 
-                               document.getElementById(fragment) ||
-                               document.getElementById(decodedFragment) ||
-                               document.getElementById(encodeURIComponent(decodedFragment)) ||
-                               document.getElementById(decodeURIComponent(fragment));
-                
-                if (element) {
-                  element.scrollIntoView({ behavior: 'smooth' });
-                }
-              });
-            });
+          if (!fragment) continue;
+          
+          // Process fragment
+          let decodedFragment = fragment;
+          try {
+            decodedFragment = decodeURIComponent(fragment);
+          } catch (e) {
+            console.warn('Failed to decode fragment:', fragment);
           }
+          
+          const cleanId = this.createId(decodedFragment);
+          link.setAttribute('href', `${currentPathWithoutHash}#${cleanId}`);
+          
+          // Use event delegation instead of adding individual handlers
+          link.dataset['fragment'] = cleanId;
         }
-      });
+      }
       
-      return doc.body.innerHTML;
+      // Use event delegation for fragment navigation
+      if (!this.fragmentClickHandler) {
+        this.fragmentClickHandler = this.handleFragmentClick.bind(this);
+        container.addEventListener('click', this.fragmentClickHandler as EventListener);
+      }
+      
+      return container.innerHTML;
     } catch (error) {
       console.error('Error processing HTML links:', error);
       return html; // Return original HTML if processing fails
@@ -386,6 +408,38 @@ export class DocumentComponent implements OnInit, OnDestroy {
     if (this.subscription) {
       this.subscription.unsubscribe();
       this.subscription = null;
+    }
+    
+    // Cleanup event listener
+    if (this.fragmentClickHandler) {
+      this.elementRef.nativeElement.removeEventListener('click', this.fragmentClickHandler as EventListener);
+      this.fragmentClickHandler = null;
+    }
+  }
+  
+  private handleFragmentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    const link = target.closest('a[data-fragment]') as HTMLAnchorElement;
+    
+    if (link) {
+      event.preventDefault();
+      const fragment = link.getAttribute('data-fragment');
+      
+      if (fragment) {
+        this.router.navigate([], {
+          fragment,
+          replaceUrl: true
+        }).then(() => {
+          // Try multiple ways to find the target element
+          const element = document.getElementById(fragment) ||
+                         document.getElementById(encodeURIComponent(fragment)) ||
+                         document.getElementById(decodeURIComponent(fragment));
+          
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+          }
+        });
+      }
     }
   }
 
