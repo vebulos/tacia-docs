@@ -321,20 +321,42 @@ export class SearchService {
    * @param query Search term to add
    */
   public addToRecentSearches(query: string): void {
-    if (!query.trim()) return;
+    const newTerm = query.trim();
+    if (!newTerm) return;
     
-    // Remove duplicates
-    this.recentSearches = this.recentSearches.filter(q => q !== query);
+    const newTermLower = newTerm.toLowerCase();
     
-    // Add to beginning
-    this.recentSearches.unshift(query);
+    // Check if a longer term already exists
+    const longerTermExists = this.recentSearches.some(
+      term => term.toLowerCase() !== newTermLower && 
+             term.toLowerCase().startsWith(newTermLower)
+    );
+    
+    if (longerTermExists) {
+      // Do nothing if a longer term already exists
+      return;
+    }
+    
+    // Check and remove shorter terms that are prefixes of the new term
+    this.recentSearches = this.recentSearches.filter(
+      term => !newTermLower.startsWith(term.toLowerCase()) || term.toLowerCase() === newTermLower
+    );
+    
+    // Remove duplicates (case-insensitive)
+    this.recentSearches = this.recentSearches.filter(
+      (term, index, self) => self.findIndex(t => t.toLowerCase() === term.toLowerCase()) === index
+    );
+    
+    // Add the new term at the beginning
+    this.recentSearches = this.recentSearches.filter(term => term.toLowerCase() !== newTermLower);
+    this.recentSearches.unshift(newTerm);
     
     // Limit number of entries
     if (this.recentSearches.length > (environment.search?.maxRecentSearches || 10)) {
       this.recentSearches = this.recentSearches.slice(0, environment.search?.maxRecentSearches || 10);
     }
     
-    // Save
+    // Save to storage
     this.saveRecentSearches();
   }
 
