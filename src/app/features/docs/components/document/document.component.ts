@@ -307,15 +307,29 @@ export class DocumentComponent implements OnInit, OnDestroy {
     const link = target.closest('a[href^="#"]') as HTMLAnchorElement;
     
     if (link) {
-      // Let the browser handle the fragment navigation
-      // We'll handle the scrolling in handleFragmentNavigation
       const fragment = link.getAttribute('href');
       if (fragment) {
-        // Update URL without page reload
-        history.pushState(null, '', fragment);
-        // Trigger fragment handling
-        this.handleFragmentNavigation();
         event.preventDefault();
+        
+        // Check if it's the same fragment to avoid unnecessary navigation
+        if (window.location.hash !== fragment) {
+          // Use router.navigate for consistent navigation handling
+          this.router.navigate([], { 
+            fragment: fragment.substring(1),
+            replaceUrl: true,
+            skipLocationChange: false
+          }).then(() => {
+            // Let handleFragmentNavigation handle the scrolling
+            this.handleFragmentNavigation();
+          });
+        } else {
+          // Same fragment, just scroll to it
+          const elementId = fragment.substring(1);
+          const element = document.getElementById(elementId);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+          }
+        }
       }
     }
   }
