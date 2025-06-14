@@ -94,12 +94,15 @@ const server = http.createServer((req, res) => {
     
     // Handle preflight (OPTIONS) requests
     if (req.method === 'OPTIONS') {
+        const origin = req.headers.origin || '*';
         res.writeHead(204, {
-            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Origin': origin,
             'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Headers': 'Content-Type, Accept',
+            'Access-Control-Allow-Credentials': 'true',
             'Access-Control-Max-Age': '86400',
-            'Content-Length': '0'
+            'Content-Length': '0',
+            'Vary': 'Origin'
         });
         return res.end();
     }
@@ -121,7 +124,7 @@ const server = http.createServer((req, res) => {
     // API route for related documents
     if (parsedUrl.pathname === '/api/related' && req.method === 'GET') {
         console.log('Processing related documents request:', parsedUrl.pathname);
-        return handleRelatedRequest(parsedUrl, res);
+        return handleRelatedRequest(parsedUrl, res, req);
     }
     
     // Root API route
@@ -318,7 +321,7 @@ function serveFile(filePath, contentType, res) {
 }
 
 // Function to handle related documents request
-function handleRelatedRequest(parsedUrl, res) {
+function handleRelatedRequest(parsedUrl, res, req) {
     try {
         const { path: docPath, limit = 5 } = parsedUrl.query;
         
@@ -326,7 +329,7 @@ function handleRelatedRequest(parsedUrl, res) {
             return sendResponse(res, 400, { 
                 error: 'Bad Request',
                 message: 'Path parameter is required' 
-            });
+            }, req);
         }
         
         // Decode the document path
@@ -341,7 +344,7 @@ function handleRelatedRequest(parsedUrl, res) {
         }
         
         if (!fs.existsSync(fullPath)) {
-            return sendResponse(res, 404, { error: 'Document not found' });
+            return sendResponse(res, 404, { error: 'Document not found' }, req);
         }
         
         // Get source document metadata
@@ -353,7 +356,7 @@ function handleRelatedRequest(parsedUrl, res) {
             return sendResponse(res, 404, { 
                 error: 'Document not found',
                 details: `Unable to read file: ${fullPath}`
-            });
+            }, req);
         }
 
         const { metadata: sourceMetadata = {} } = extractFrontMatter(sourceContent);
@@ -362,7 +365,7 @@ function handleRelatedRequest(parsedUrl, res) {
         );
         
         if (sourceTags.size === 0) {
-            return sendResponse(res, 200, { related: [] });
+            return sendResponse(res, 200, { related: [] }, req);
         }
         
         // Find all markdown files
@@ -435,30 +438,35 @@ function handleRelatedRequest(parsedUrl, res) {
             .sort((a, b) => b.commonTagsCount - a.commonTagsCount)
             .slice(0, parseInt(limit, 10));
         
-        return sendResponse(res, 200, { related: sortedRelated });
+        return sendResponse(res, 200, { related: sortedRelated }, req);
         
     } catch (error) {
         console.error('Error in handleRelatedRequest:', error);
         return sendResponse(res, 500, { 
             error: 'Internal server error',
             details: error.message 
-        });
+        }, req);
     }
 }
 
 // Function to send JSON responses
-function sendResponse(res, statusCode, data) {
+function sendResponse(res, statusCode, data, req = { headers: {} }) {
     try {
         const responseData = JSON.stringify(data);
+        const origin = req && req.headers && req.headers.origin ? 
+            req.headers.origin : 'http://localhost:4200';
+        
         const headers = {
             'Content-Type': 'application/json',
             'Content-Length': Buffer.byteLength(responseData),
             'Connection': 'close',
             // CORS headers
-            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Origin': origin,
             'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-            'Access-Control-Max-Age': '86400' // 24 hours
+            'Access-Control-Allow-Headers': 'Content-Type, Accept',
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Max-Age': '86400', // 24 hours
+            'Vary': 'Origin'
         };
         
         res.writeHead(statusCode, headers);

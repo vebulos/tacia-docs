@@ -29,6 +29,12 @@ export class DocsComponent implements OnInit, AfterViewInit, OnDestroy {
   
   headings: Heading[] = [];
   currentPath: string = '';
+  relatedDocuments: any[] = [];
+  buildDocsUrl = (path: string) => {
+    // Remove .md extension if present
+    const cleanPath = path.endsWith('.md') ? path.slice(0, -3) : path;
+    return ['/docs', cleanPath];
+  };
   
   private documentComponent: DocumentComponent | null = null;
   private subscriptions: Subscription[] = [];
@@ -102,13 +108,27 @@ export class DocsComponent implements OnInit, AfterViewInit, OnDestroy {
     // Initial update
     this.updateHeadings(component.headings || []);
     
-    // Subscribe to future updates
+    // Subscribe to headings changes
     if (component.headingsChange) {
-      const sub = component.headingsChange.subscribe((headings: Heading[]) => {
+      const headingsSub = component.headingsChange.subscribe((headings: Heading[]) => {
         console.log('Received headings via subscription:', headings);
         this.updateHeadings(headings);
       });
-      this.subscriptions.push(sub);
+      this.subscriptions.push(headingsSub);
+    }
+    
+    // Subscribe to related documents changes
+    if (component.relatedDocumentsChange) {
+      console.log('Subscribing to related documents changes');
+      const relatedDocsSub = component.relatedDocumentsChange.subscribe((docs: any[]) => {
+        console.log('Received related documents via subscription:', docs);
+        console.log('Number of related documents received:', docs?.length || 0);
+        this.relatedDocuments = docs || [];
+        console.log('Updated relatedDocuments in DocsComponent:', this.relatedDocuments);
+      });
+      this.subscriptions.push(relatedDocsSub);
+    } else {
+      console.warn('component.relatedDocumentsChange is not defined');
     }
   }
   

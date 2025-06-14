@@ -44,10 +44,15 @@
       
       <div class="related-links">
         <h3 class="sidebar-heading">Related</h3>
-        <div class="space-y-3">
-          <a href="#" class="related-link">Getting Started</a>
-          <a href="#" class="related-link">API Reference</a>
-          <a href="#" class="related-link">Guides</a>
+        <div class="space-y-3" *ngIf="relatedDocuments && relatedDocuments.length > 0">
+          <a *ngFor="let doc of relatedDocuments" 
+             [routerLink]="buildDocsUrl(doc.path)" 
+             class="related-link">
+            {{ doc.title || doc.path }}
+          </a>
+        </div>
+        <div *ngIf="!relatedDocuments || relatedDocuments.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
+          No related documents found
         </div>
       </div>
     </div>

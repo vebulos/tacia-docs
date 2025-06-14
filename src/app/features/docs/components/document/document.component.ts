@@ -26,6 +26,7 @@ const serializeDocument = (doc: Document): string => {
 })
 export class DocumentComponent implements OnInit, OnDestroy {
   @Output() headingsChange = new EventEmitter<Array<{ text: string; level: number; id: string }>>();
+  @Output() relatedDocumentsChange = new EventEmitter<RelatedDocument[]>();
   public headings: Array<{ text: string; level: number; id: string }> = [];
   private _currentPath: string | null = null;
   private subscription: Subscription | null = null;
@@ -145,8 +146,12 @@ export class DocumentComponent implements OnInit, OnDestroy {
   }
   
   private loadRelatedDocuments(documentPath: string): void {
-    if (!documentPath) return;
+    if (!documentPath) {
+      console.log('No document path provided for related documents');
+      return;
+    }
     
+    console.log('Loading related documents for path:', documentPath);
     this.loadingRelated = true;
     this.relatedDocumentsError = null;
     
@@ -165,6 +170,8 @@ export class DocumentComponent implements OnInit, OnDestroy {
           this.relatedDocuments = response.related;
           this.showRelatedDocuments = this.relatedDocuments.length > 0;
           this.loadingRelated = false;
+          // Émettre les documents liés au composant parent
+          this.relatedDocumentsChange.emit(this.relatedDocuments);
         },
         error: (err) => {
           console.error('Error in related documents subscription:', err);
