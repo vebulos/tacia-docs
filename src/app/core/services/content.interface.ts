@@ -17,9 +17,13 @@ export interface ContentItem {
   
   /** Additional metadata about the item */
   metadata?: {
+    /** Display title (falls back to name without extension if not provided) */
     title?: string;
-    categories?: string[];
+    
+    /** List of tags for categorization and search */
     tags?: string[];
+    
+    /** Allow any additional metadata */
     [key: string]: any;
   };
 }
