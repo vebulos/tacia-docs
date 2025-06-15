@@ -164,18 +164,39 @@ export class SearchComponent implements OnInit, OnDestroy {
   }
 
   selectRecentSearch(term: string): void {
-    if (!term) return;
+    console.log('selectRecentSearch called with term:', term);
+    if (!term) {
+      console.log('No term provided, returning');
+      return;
+    }
     
-    // Set the search term and trigger search
-    this.searchControl.setValue(term);
-    this.searchService.search(term);
+    console.log('Setting up search for term:', term);
+    this.searchControl.setValue(term, { emitEvent: false });
+    this.searchResults = [];
+    this.isLoading = true;
+    this.showRecentSearches = false;
+    
+    console.log('Calling search service');
+    this.searchService.search(term).subscribe({
+      next: (results) => {
+        console.log('Search results received:', results);
+        this.searchResults = results || [];
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error in search', error);
+        this.error = 'An error occurred while searching';
+        this.isLoading = false;
+      }
+    });
     
     if (this.searchInput?.nativeElement) {
+      console.log('Focusing search input');
       this.searchInput.nativeElement.focus();
     }
     
     this.activeResultIndex = -1;
-    this.showRecentSearches = false;
+    console.log('selectRecentSearch completed');
   }
 
   clearRecentSearches(event: Event): void {
