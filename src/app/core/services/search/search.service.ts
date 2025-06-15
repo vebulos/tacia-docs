@@ -411,40 +411,59 @@ export class SearchService {
         const previewLower = item.preview.toLowerCase();
         const contentLower = item.content?.toLowerCase() || '';
         
-        // Calculate scores for each search term
-        const scores = queryTerms.map(term => {
+        // Track which terms are found and their individual scores
+        const termScores = queryTerms.map(term => {
           let score = 0;
+          let isFound = false;
           
-          // Exact match in title (highest priority)
-          if (titleLower === term) score += 100;
+          // Check if term appears in any field
+          const inTitle = titleLower.includes(term);
+          const inPath = pathLower.includes(term);
+          const inPreview = previewLower.includes(term);
+          const inContent = contentLower.includes(term);
           
-          // Term appears in title
-          if (titleLower.includes(term)) score += 10;
+          // Term must be present in at least one field to be considered found
+          isFound = inTitle || inPath || inPreview || inContent;
           
-          // Term appears in path
-          if (pathLower.includes(term)) score += 5;
-          
-          // Term appears in preview
-          if (previewLower.includes(term)) score += 3;
-          
-          // Term appears in content
-          if (contentLower.includes(term)) {
-            score += 1;
+          if (isFound) {
+            // Exact match in title (highest priority)
+            if (titleLower === term) score += 100;
             
-            // Additional points for multiple occurrences in content
-            const occurrences = (contentLower.match(new RegExp(term, 'g')) || []).length;
-            score += Math.min(occurrences, 5); // Cap at 5 additional points
+            // Term appears in title
+            if (inTitle) score += 10;
+            
+            // Term appears in path
+            if (inPath) score += 5;
+            
+            // Term appears in preview
+            if (inPreview) score += 3;
+            
+            // Term appears in content
+            if (inContent) {
+              score += 1;
+              // Additional points for multiple occurrences in content
+              const occurrences = (contentLower.match(new RegExp(term, 'g')) || []).length;
+              score += Math.min(occurrences, 5); // Cap at 5 additional points
+            }
           }
           
-          return score;
+          return { score, isFound };
         });
         
-        // Calculate total score (average of term scores)
-        const totalScore = scores.reduce((sum, score) => sum + score, 0) / queryTerms.length;
+        // Check if all terms were found
+        const allTermsFound = termScores.every(term => term.isFound);
         
-        // Generate preview with highlighted terms if there's a match
+        // If not all terms are present, exclude this item from results
+        if (!allTermsFound) {
+          return null;
+        }
+        
+        // Calculate total score (sum of all term scores)
+        const totalScore = termScores.reduce((sum, term) => sum + term.score, 0);
+        
+        // Generate preview with highlighted terms
         let preview = item.preview;
-        if (totalScore > 0 && item.content) {
+        if (item.content) {
           // Find the first occurrence of any search term in the content
           const firstMatch = queryTerms
             .map(term => ({
@@ -476,17 +495,15 @@ export class SearchService {
         return {
           ...item,
           score: totalScore,
-          preview: totalScore > 0 ? preview : item.preview,
-          matches: queryTerms
-            .filter(term => contentLower.includes(term))
-            .map(term => ({
-              line: 0, // Line numbers not available without parsing
-              content: term,
-              highlighted: `<mark>${term}</mark>`
-            }))
+          preview: preview,
+          matches: queryTerms.map(term => ({
+            line: 0, // Line numbers not available without parsing
+            content: term,
+            highlighted: `<mark>${term}</mark>`
+          }))
         };
       })
-      .filter(item => item.score > 0) // Only include items with matches
+      .filter((item): item is SearchResult => item !== null) // Filter out nulls and ensure type safety
       .sort((a, b) => {
         // Sort by score (descending)
         if (a.score !== b.score) return b.score - a.score;
