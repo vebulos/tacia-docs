@@ -119,6 +119,35 @@ export class SearchComponent implements OnInit, OnDestroy {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  /**
+   * Format a file path for display
+   * @param path The full path to format
+   * @returns Formatted path without .md extension and cleaned up
+   */
+  formatPath(path: string): string {
+    if (!path) return '';
+    
+    // Remove .md extension if present
+    let formattedPath = path.replace(/\.md$/, '');
+    
+    // Remove any leading numbers and hyphens used for ordering
+    formattedPath = formattedPath.replace(/^\d+[-_\s]*/, '');
+    
+    // Replace underscores and hyphens with spaces
+    formattedPath = formattedPath.replace(/[_\-]/g, ' ');
+    
+    // Capitalize first letter of each word
+    formattedPath = formattedPath.split('/')
+      .map(segment => 
+        segment.split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ')
+      )
+      .join(' / ');
+    
+    return formattedPath;
+  }
+
   onFocus(): void {
     this.isFocused = true;
     this.showRecentSearches = this.recentSearches.length > 0 && !this.searchControl.value;

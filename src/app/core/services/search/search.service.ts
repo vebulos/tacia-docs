@@ -7,11 +7,26 @@ import { ContentItem } from '../content.interface';
 import { ContentService } from '../content.service';
 import { environment } from '../../../../environments/environment';
 
+/**
+ * Represents a search result item with content and match information
+ */
 export interface SearchResult {
-  path: string; // Full path including parent directories and .md extension for files
+  /** Full path including parent directories and .md extension for files */
+  path: string;
+  
+  /** Display title of the document */
   title: string;
+  
+  /** Short preview text */
   preview: string;
+  
+  /** Relevance score for search results */
   score: number;
+  
+  /** Raw content of the document for full-text search */
+  content?: string;
+  
+  /** Array of matches with line numbers and highlighted content */
   matches: Array<{
     line: number;
     content: string;
@@ -218,7 +233,7 @@ export class SearchService {
   /**
    * Index a single Markdown file
    * @param item Content item representing the Markdown file
-   * @returns Observable of the indexing result
+   * @returns Observable of the indexing result with content
    */
   private indexMarkdownFile(item: ContentItem): Observable<SearchResult> {
     if (!item?.path) {
@@ -238,31 +253,35 @@ export class SearchService {
       matches: []
     };
 
-    // For Markdown files, we can try to extract more information
-    if (item.path.endsWith('.md')) {
-      // Since we don't have direct file content access, we'll use the metadata
-      // and any other available information for search
-      if (item.metadata) {
-        // Try to create a preview from the description or other metadata
-        if (item.metadata['description']) {
-          searchResult.preview = this.createPreview(item.metadata['description']);
-        }
-        
-        // If we have a summary in metadata, use it as preview
-        if (item.metadata['summary']) {
-          searchResult.preview = this.createPreview(item.metadata['summary']);
-        }
-      }
-      
-      // If we still don't have a preview, use a generic one
-      if (!searchResult.preview) {
-        searchResult.preview = `Documentation page for ${title}`;
-      }
-      
+    // Only process markdown files
+    if (!item.path.endsWith('.md')) {
       return of(searchResult);
     }
-    
-    return of(searchResult);
+
+    // Load the markdown file content
+    return this.markdownService.getMarkdownFile(item.path).pipe(
+      map(markdownFile => {
+        // Store the raw content for full-text search
+        searchResult.content = markdownFile.content;
+        
+        // If we don't have a preview from metadata, create one from content
+        if (!searchResult.preview) {
+          searchResult.preview = this.createPreview(markdownFile.content);
+        }
+        
+        return searchResult;
+      }),
+      catchError(error => {
+        console.error(`[SearchService] Error loading markdown file ${item.path}:`, error);
+        
+        // If we can't load the content, try to create a basic preview from metadata
+        if (!searchResult.preview) {
+          searchResult.preview = `Documentation page for ${title}`;
+        }
+        
+        return of(searchResult);
+      })
+    );
   }
 
   /**
@@ -361,9 +380,9 @@ export class SearchService {
   }
 
   /**
-   * Search the indexed content
-   * @param query Search term
-   * @returns Search results
+   * Search the indexed content with support for full-text search
+   * @param query Search term to look for in titles, paths, previews, and content
+   * @returns Observable of search results sorted by relevance
    */
   search(query: string): Observable<SearchResult[]> {
     if (!query || !query.trim()) {
@@ -376,37 +395,108 @@ export class SearchService {
     // Add to recent searches
     this.addToRecentSearches(query);
     
-    // Simple search implementation
-    const queryLower = query.toLowerCase();
-    const results = this.searchIndex.filter(item => 
-      item.title.toLowerCase().includes(queryLower) ||
-      item.path.toLowerCase().includes(queryLower) ||
-      item.preview.toLowerCase().includes(queryLower)
-    );
+    const queryLower = query.trim().toLowerCase();
+    const queryTerms = queryLower.split(/\s+/).filter(term => term.length > 0);
     
-    // Sort by relevance (simple implementation)
-    results.sort((a, b) => {
-      // Exact matches in title first
-      if (a.title.toLowerCase() === queryLower) return -1;
-      if (b.title.toLowerCase() === queryLower) return 1;
-      
-      // Then title matches
-      const aTitleMatch = a.title.toLowerCase().includes(queryLower);
-      const bTitleMatch = b.title.toLowerCase().includes(queryLower);
-      
-      if (aTitleMatch && !bTitleMatch) return -1;
-      if (!aTitleMatch && bTitleMatch) return 1;
-      
-      // Then path matches
-      const aPathMatch = a.path.toLowerCase().includes(queryLower);
-      const bPathMatch = b.path.toLowerCase().includes(queryLower);
-      
-      if (aPathMatch && !bPathMatch) return -1;
-      if (!aPathMatch && bPathMatch) return 1;
-      
-      // Finally sort by title
-      return a.title.localeCompare(b.title);
-    });
+    if (queryTerms.length === 0) {
+      this.isLoading.next(false);
+      return of([]);
+    }
+    
+    // Process each item in the search index
+    const results = this.searchIndex
+      .map(item => {
+        const titleLower = item.title.toLowerCase();
+        const pathLower = item.path.toLowerCase();
+        const previewLower = item.preview.toLowerCase();
+        const contentLower = item.content?.toLowerCase() || '';
+        
+        // Calculate scores for each search term
+        const scores = queryTerms.map(term => {
+          let score = 0;
+          
+          // Exact match in title (highest priority)
+          if (titleLower === term) score += 100;
+          
+          // Term appears in title
+          if (titleLower.includes(term)) score += 10;
+          
+          // Term appears in path
+          if (pathLower.includes(term)) score += 5;
+          
+          // Term appears in preview
+          if (previewLower.includes(term)) score += 3;
+          
+          // Term appears in content
+          if (contentLower.includes(term)) {
+            score += 1;
+            
+            // Additional points for multiple occurrences in content
+            const occurrences = (contentLower.match(new RegExp(term, 'g')) || []).length;
+            score += Math.min(occurrences, 5); // Cap at 5 additional points
+          }
+          
+          return score;
+        });
+        
+        // Calculate total score (average of term scores)
+        const totalScore = scores.reduce((sum, score) => sum + score, 0) / queryTerms.length;
+        
+        // Generate preview with highlighted terms if there's a match
+        let preview = item.preview;
+        if (totalScore > 0 && item.content) {
+          // Find the first occurrence of any search term in the content
+          const firstMatch = queryTerms
+            .map(term => ({
+              term,
+              index: contentLower.indexOf(term)
+            }))
+            .filter(match => match.index >= 0)
+            .sort((a, b) => a.index - b.index)[0];
+          
+          if (firstMatch) {
+            const start = Math.max(0, firstMatch.index - 50);
+            const end = Math.min(contentLower.length, firstMatch.index + firstMatch.term.length + 100);
+            let snippet = item.content.substring(start, end);
+            
+            // Add ellipsis if we're not at the start/end
+            if (start > 0) snippet = `...${snippet}`;
+            if (end < item.content.length) snippet = `${snippet}...`;
+            
+            // Highlight search terms in the snippet
+            queryTerms.forEach(term => {
+              const regex = new RegExp(`(${this.escapeRegExp(term)})`, 'gi');
+              snippet = snippet.replace(regex, '<mark>$1</mark>');
+            });
+            
+            preview = snippet;
+          }
+        }
+        
+        return {
+          ...item,
+          score: totalScore,
+          preview: totalScore > 0 ? preview : item.preview,
+          matches: queryTerms
+            .filter(term => contentLower.includes(term))
+            .map(term => ({
+              line: 0, // Line numbers not available without parsing
+              content: term,
+              highlighted: `<mark>${term}</mark>`
+            }))
+        };
+      })
+      .filter(item => item.score > 0) // Only include items with matches
+      .sort((a, b) => {
+        // Sort by score (descending)
+        if (a.score !== b.score) return b.score - a.score;
+        
+        // If scores are equal, prefer shorter paths (more specific matches)
+        if (a.path.length !== b.path.length) return a.path.length - b.path.length;
+        
+        // Finally, sort alphabetically by title
+        return a.title.localeCompare(b.title);
+      });
     
     // Limit results
     const limitedResults = results.slice(0, environment.search?.maxResults || 50);
