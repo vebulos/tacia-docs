@@ -1,17 +1,20 @@
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, of, throwError } from 'rxjs';
-import { map, catchError, tap, shareReplay } from 'rxjs/operators';
+import { Observable, of, throwError, Subject } from 'rxjs';
+import { map, catchError, tap, shareReplay, takeUntil } from 'rxjs/operators';
 import { marked } from 'marked';
 
 // Import highlight.js for syntax highlighting
-import hljs from 'highlight.js';
-
-// Import highlight.js styles
-import 'highlight.js/styles/github.css';
+import hljs from 'highlight.js/lib/core';
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import json from 'highlight.js/lib/languages/json';
+import xml from 'highlight.js/lib/languages/xml';
+import bash from 'highlight.js/lib/languages/bash';
 
 // Import environment
 import { environment } from '../../../environments/environment';
+import { LruCache } from '../utils/lru-cache';
 
 export interface MarkdownFile {
   content: string;
@@ -26,32 +29,38 @@ export interface MarkdownFile {
   headings: Array<{ text: string; level: number; id: string }>;
 }
 
-interface CachedItem {
-  data: Observable<MarkdownFile>;
-  lastAccessed: number;
-}
-
 @Injectable({
   providedIn: 'root'
 })
-export class MarkdownService {
-  private cache = new Map<string, CachedItem>();
-  private apiUrl = '/api/content';
-  private maxCacheSize = 50; // Nombre maximum d'éléments en cache
+export class MarkdownService implements OnDestroy {
+  private readonly cache: LruCache<Observable<MarkdownFile>>;
+  private readonly apiUrl = '/api/content';
+  private readonly destroy$ = new Subject<void>();
+  private readonly contentBasePath: string;
+  private readonly markedOptions: any;
+
+  // Track cache statistics and configuration
   private cacheHits = 0;
   private cacheMisses = 0;
-  
-  // Base path for content files
-  private contentBasePath: string;
+  private readonly maxCacheSize = 50; // Maximum number of items in cache
 
   constructor(private http: HttpClient) {
     // Configure the base content path
     const contentPath = environment.search?.contentBasePath || 'assets/content';
     this.contentBasePath = contentPath.replace(/^\/+|\/+$/g, '');
-    console.log('[MarkdownService] Initialized with content path:', this.contentBasePath);
+    
+    // Initialize LRU cache with max 50 items and 5 minutes TTL by default
+    this.cache = new LruCache<Observable<MarkdownFile>>(50, 5 * 60 * 1000);
+    
+    // Register languages for syntax highlighting
+    hljs.registerLanguage('javascript', javascript);
+    hljs.registerLanguage('typescript', typescript);
+    hljs.registerLanguage('json', json);
+    hljs.registerLanguage('xml', xml);
+    hljs.registerLanguage('bash', bash);
     
     // Configure marked with highlight.js
-    const markedOptions: any = {
+    this.markedOptions = {
       highlight: (code: string, lang: string) => {
         const language = hljs.getLanguage(lang) ? lang : 'plaintext';
         try {
@@ -66,26 +75,29 @@ export class MarkdownService {
       silent: true // Don't throw on errors
     };
     
-    marked.setOptions(markedOptions);
+    marked.setOptions(this.markedOptions);
+    
+    console.log('[MarkdownService] Initialized with LRU cache and optimized syntax highlighting');
   }
   
   /**
    * Loads a markdown file from the API
    * @param apiPath The path to the markdown file relative to the content directory
    */
-  getMarkdownFile(apiPath: string): Observable<MarkdownFile> {
+  getMarkdownFile(apiPath: string, forceRefresh = false): Observable<MarkdownFile> {
     // Normalize the path and add .md extension if not present
     const normalizedPath = apiPath.endsWith('.md') ? apiPath : `${apiPath}.md`;
     
-    // Check cache first
-    const cached = this.cache.get(normalizedPath);
-    if (cached) {
-      // Mettre à jour le dernier accès
-      cached.lastAccessed = Date.now();
-      this.cacheHits++;
-      console.log(`[MarkdownService] Cache hit (${this.cacheHits} hits, ${this.cacheMisses} misses)`);
-      return cached.data;
+    // Check cache first if not forcing refresh
+    if (!forceRefresh) {
+      const cached = this.cache.get(normalizedPath);
+      if (cached) {
+        this.cacheHits++;
+        console.log(`[MarkdownService] Cache hit (${this.cacheHits} hits, ${this.cacheMisses} misses)`);
+        return cached;
+      }
     }
+    
     this.cacheMisses++;
     console.log(`[MarkdownService] Cache miss (${this.cacheHits} hits, ${this.cacheMisses} misses)`);
 
@@ -102,16 +114,27 @@ export class MarkdownService {
         return this.parseMarkdown(response.content, response.path);
       }),
       catchError((error: HttpErrorResponse) => {
-        console.error(`[MarkdownService] Error loading markdown from ${url}:`, error);
-        return throwError(() => new Error(`Failed to load markdown from ${apiPath}. Status: ${error.status} ${error.statusText}`));
+        console.error(`[MarkdownService] Error loading markdown from ${url}:`, error.status, error.statusText);
+        return throwError(() => new Error(`Failed to load markdown: ${error.status} ${error.statusText}`));
       }),
-      shareReplay(1) // Cache the result for subsequent subscribers
+      tap({
+        next: (result) => {
+          // Cache the successful response
+          this.cache.set(normalizedPath, of(result));
+        },
+        error: (error) => {
+          console.error('[MarkdownService] Error processing markdown:', error);
+          // Optionally cache error responses for a short time
+          this.cache.set(normalizedPath, throwError(() => error), 30 * 1000); // Cache errors for 30s
+        }
+      }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
     
-    // Cache the request
-    this.addToCache(apiPath, request$);
+    // Cache the observable
+    this.cache.set(normalizedPath, request$);
     
-    return request$;
+    return request$.pipe(takeUntil(this.destroy$));
   }
   
   /**
@@ -224,30 +247,33 @@ export class MarkdownService {
   }
 
   /**
+   * Clean up old cache entries when cache size exceeds the limit
+   */
+  private cleanupOldCacheEntries(): void {
+    // The LRU cache handles its own cleanup, but we can add additional logic here if needed
+    console.log(`[MarkdownService] Current cache size: ${this.cache.size}`);
+    
+    // If we're still over the limit, clear the entire cache
+    if (this.cache.size >= this.maxCacheSize) {
+      console.log(`[MarkdownService] Cache size (${this.cache.size}) exceeds max (${this.maxCacheSize}), clearing cache`);
+      this.clearCache();
+    }
+  }
+
+  /**
    * Add an item to the cache, removing the least recently used items if needed
+   */
+  /**
+   * Add an item to the cache
    */
   private addToCache(key: string, data: Observable<MarkdownFile>): void {
     // Clean up cache if it's too big
     if (this.cache.size >= this.maxCacheSize) {
-      // Convert to array, sort by last accessed time, and remove the oldest 20%
-      const entries = Array.from(this.cache.entries())
-        .sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
-      
-      const itemsToRemove = Math.max(1, Math.floor(this.maxCacheSize * 0.2)); // Remove 20% or at least 1
-      
-      for (let i = 0; i < itemsToRemove; i++) {
-        if (entries[i]) {
-          this.cache.delete(entries[i][0]);
-        }
-      }
-      
-      console.log(`[MarkdownService] Cache cleaned, removed ${itemsToRemove} old items`);
+      this.cleanupOldCacheEntries();
     }
     
-    this.cache.set(key, {
-      data,
-      lastAccessed: Date.now()
-    });
+    // Add to cache
+    this.cache.set(key, data);
   }
 
 
@@ -265,5 +291,15 @@ export class MarkdownService {
       misses: this.cacheMisses,
       hitRate: `${hitRate}%`
     };
+  }
+
+  /**
+   * Clean up resources when the service is destroyed
+   */
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    this.clearCache();
+    console.log('[MarkdownService] Destroyed and cache cleared');
   }
 }
