@@ -168,6 +168,15 @@ function handleContentRequest(parsedUrl, res) {
             requestedPath = parsedUrl.pathname.replace('/api/content/', '');
         }
         
+        // Decode the URL-encoded characters (e.g., %20 -> space)
+        try {
+            requestedPath = decodeURIComponent(requestedPath);
+            console.log('Decoded requested path:', requestedPath);
+        } catch (e) {
+            console.error('Error decoding URL:', e);
+            return sendResponse(res, 400, { error: 'Invalid URL encoding' });
+        }
+        
         console.log('Processed requested path:', requestedPath || '(root)');
         
         // Basic path normalization
