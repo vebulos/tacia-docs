@@ -118,7 +118,11 @@ export class ContentService {
    * @returns Observable of ContentItem array
    */
   private fetchContent(path: string): Observable<ContentItem[]> {
-    return this.http.get<ContentItem[]>('/api/content', { params: { path } }).pipe(
+    // Encode the path to handle spaces and special characters
+    const encodedPath = encodeURIComponent(path);
+    
+    // Use the encoded path in the request
+    return this.http.get<ContentItem[]>(`/api/content?path=${encodedPath}`).pipe(
       map(items => this.transformStructure(items, path)),
       // Retry logic for failed requests
       retryWhen(errors => errors.pipe(

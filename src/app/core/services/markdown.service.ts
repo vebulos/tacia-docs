@@ -103,11 +103,17 @@ export class MarkdownService implements OnDestroy {
 
     console.log(`[MarkdownService] Loading markdown file: ${normalizedPath}`);
     
-    // Create the API URL
-    const url = `${this.apiUrl}/${normalizedPath}`.replace(/\/+/g, '/');
+    // Create the API URL by encoding each path segment
+    const pathSegments = normalizedPath.split('/').map(segment => encodeURIComponent(segment));
+    const encodedPath = pathSegments.join('/');
+    const url = `${this.apiUrl}/${encodedPath}`.replace(/\/+/g, '/');
+    
+    console.log(`[MarkdownService] Requesting markdown from: ${url}`);
     
     // Make the HTTP request
-    const request$ = this.http.get<{content: string, path: string}>(url).pipe(
+    const request$ = this.http.get<{content: string, path: string}>(url, { 
+      headers: { 'Cache-Control': 'no-cache' } 
+    }).pipe(
       tap(() => console.log(`[MarkdownService] Successfully loaded markdown from: ${url}`)),
       map(response => {
         // Use the content and path from the response

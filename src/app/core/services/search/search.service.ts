@@ -285,9 +285,15 @@ export class SearchService {
       return of(searchResult);
     }
 
+    // Clean and format the path
+    const cleanPath = item.path.startsWith('/') ? item.path.substring(1) : item.path;
+    
+    console.log(`[SearchService] Loading markdown file: ${cleanPath}`);
+    
     // Load the markdown file content
-    return this.markdownService.getMarkdownFile(item.path).pipe(
+    return this.markdownService.getMarkdownFile(cleanPath).pipe(
       map(markdownFile => {
+        console.log(`[SearchService] Successfully loaded markdown file: ${cleanPath}`);
         // Store the raw content for full-text search
         searchResult.content = markdownFile.content;
         
