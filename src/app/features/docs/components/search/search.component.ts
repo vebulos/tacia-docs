@@ -192,55 +192,62 @@ export class SearchComponent implements OnInit, OnDestroy {
     this.destroy$.subscribe(() => window.clearTimeout(blurTimeout));
   }
 
-  selectRecentSearch(term: string, event?: MouseEvent): void {
+  selectRecentSearch(term: string, event?: Event): void {
     // Prevent default to avoid any potential issues with the click event
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
     
-    console.log('selectRecentSearch called with term:', term);
     if (!term) {
-      console.log('No term provided, returning');
       return;
     }
     
-    console.log('Setting up search for term:', term);
-    
-    // Set the search value without triggering events to avoid conflicts
+    // Batch state updates to minimize re-renders
     this.searchControl.setValue(term, { emitEvent: false });
     
-    // Keep the recent searches visible during search
-    this.showRecentSearches = true;
+    // Set initial state in a single update
     this.searchResults = [];
     this.isLoading = true;
-    
-    console.log('Calling search service');
-    this.searchService.search(term).subscribe({
-      next: (results) => {
-        console.log('Search results received:', results);
-        this.searchResults = results || [];
-        this.isLoading = false;
-        this.showRecentSearches = this.searchResults.length === 0;
-        
-        // Set focus back to input after a small delay
-        setTimeout(() => {
-          if (this.searchInput?.nativeElement) {
-            console.log('Focusing search input after results');
-            this.searchInput.nativeElement.focus();
-          }
-        }, 100);
-      },
-      error: (error) => {
-        console.error('Error in search', error);
-        this.error = 'An error occurred while searching';
-        this.isLoading = false;
-        this.showRecentSearches = true;
-      }
-    });
-    
+    this.showRecentSearches = true; // Keep recent searches visible during search
     this.activeResultIndex = -1;
-    console.log('selectRecentSearch completed');
+    
+    // Use a flag to track if we should keep recent searches visible
+    let shouldKeepRecentSearches = false;
+    
+    // Use a small delay to ensure the UI has time to update
+    setTimeout(() => {
+      this.searchService.search(term).subscribe({
+        next: (results) => {
+          // Update results and loading state in a single batch
+          this.searchResults = results || [];
+          this.isLoading = false;
+          
+          // Only hide recent searches if we have results
+          if (this.searchResults.length > 0) {
+            // Small delay before hiding to prevent flicker
+            setTimeout(() => {
+              this.showRecentSearches = false;
+            }, 50);
+          } else {
+            this.showRecentSearches = true;
+          }
+          
+          // Set focus back to input after state is stable
+          requestAnimationFrame(() => {
+            if (this.searchInput?.nativeElement) {
+              this.searchInput.nativeElement.focus({ preventScroll: true });
+            }
+          });
+        },
+        error: (error) => {
+          console.error('Error in search', error);
+          this.error = 'An error occurred while searching';
+          this.isLoading = false;
+          this.showRecentSearches = true;
+        }
+      });
+    }, 0);
   }
 
   clearRecentSearches(event: Event): void {
