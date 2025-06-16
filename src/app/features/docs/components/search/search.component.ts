@@ -192,7 +192,13 @@ export class SearchComponent implements OnInit, OnDestroy {
     this.destroy$.subscribe(() => window.clearTimeout(blurTimeout));
   }
 
-  selectRecentSearch(term: string): void {
+  selectRecentSearch(term: string, event?: MouseEvent): void {
+    // Prevent default to avoid any potential issues with the click event
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     console.log('selectRecentSearch called with term:', term);
     if (!term) {
       console.log('No term provided, returning');
@@ -200,10 +206,14 @@ export class SearchComponent implements OnInit, OnDestroy {
     }
     
     console.log('Setting up search for term:', term);
+    
+    // Set the search value without triggering events to avoid conflicts
     this.searchControl.setValue(term, { emitEvent: false });
+    
+    // Keep the recent searches visible during search
+    this.showRecentSearches = true;
     this.searchResults = [];
     this.isLoading = true;
-    this.showRecentSearches = false;
     
     console.log('Calling search service');
     this.searchService.search(term).subscribe({
@@ -211,18 +221,23 @@ export class SearchComponent implements OnInit, OnDestroy {
         console.log('Search results received:', results);
         this.searchResults = results || [];
         this.isLoading = false;
+        this.showRecentSearches = this.searchResults.length === 0;
+        
+        // Set focus back to input after a small delay
+        setTimeout(() => {
+          if (this.searchInput?.nativeElement) {
+            console.log('Focusing search input after results');
+            this.searchInput.nativeElement.focus();
+          }
+        }, 100);
       },
       error: (error) => {
         console.error('Error in search', error);
         this.error = 'An error occurred while searching';
         this.isLoading = false;
+        this.showRecentSearches = true;
       }
     });
-    
-    if (this.searchInput?.nativeElement) {
-      console.log('Focusing search input');
-      this.searchInput.nativeElement.focus();
-    }
     
     this.activeResultIndex = -1;
     console.log('selectRecentSearch completed');
