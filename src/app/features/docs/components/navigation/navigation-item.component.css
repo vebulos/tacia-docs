@@ -54,6 +54,34 @@
   padding-left: calc(4 * var(--level-indent));
 }
 
+:host-context([level="4"]) .nav-item {
+  padding-left: calc(5 * var(--level-indent));
+}
+
+:host-context([level="5"]) .nav-item {
+  padding-left: calc(6 * var(--level-indent));
+}
+
+:host-context([level="6"]) .nav-item {
+  padding-left: calc(7 * var(--level-indent));
+}
+
+:host-context([level="7"]) .nav-item {
+  padding-left: calc(8 * var(--level-indent));
+}
+
+:host-context([level="8"]) .nav-item {
+  padding-left: calc(9 * var(--level-indent));
+}
+
+:host-context([level="9"]) .nav-item {
+  padding-left: calc(10 * var(--level-indent));
+}
+
+:host-context([level="10"]) .nav-item {
+  padding-left: calc(11 * var(--level-indent));
+}
+
 /* Nested items container */
 .nested-items {
   margin-left: 0;
