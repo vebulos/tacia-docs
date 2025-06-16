@@ -249,6 +249,9 @@ export class SearchComponent implements OnInit, OnDestroy {
     this.recentSearches = [];
   }
 
+  /**
+   * Clears the search input and results
+   */
   clearSearch(event?: Event): void {
     if (event) {
       event.preventDefault();
@@ -264,6 +267,31 @@ export class SearchComponent implements OnInit, OnDestroy {
     if (this.searchInput?.nativeElement) {
       this.searchInput.nativeElement.focus();
     }
+  }
+
+  /**
+   * Refreshes the search index
+   */
+  refreshIndex(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Show loading state
+    this.isLoading = true;
+    
+    // Call the search service to refresh the index
+    this.searchService.refreshIndex().subscribe({
+      next: () => {
+        this.isLoading = false;
+        // Optional: Show a success message or notification
+        console.log('Search index refreshed successfully');
+      },
+      error: (error) => {
+        this.isLoading = false;
+        console.error('Error refreshing search index:', error);
+        // Optional: Show an error message to the user
+      }
+    });
   }
 
   @HostListener('document:keydown', ['$event'])

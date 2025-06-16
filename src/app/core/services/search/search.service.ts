@@ -66,6 +66,10 @@ export class SearchService {
   /**
    * Rebuild the search index
    */
+  /**
+   * Rebuilds the search index and returns a Promise
+   * @deprecated Use refreshIndex() for Observable-based approach
+   */
   async rebuildIndex(): Promise<void> {
     console.log('[SearchService] Rebuilding index...');
     this.isLoading.next(true);
@@ -82,6 +86,29 @@ export class SearchService {
     } finally {
       this.isLoading.next(false);
     }
+  }
+
+  /**
+   * Refreshes the search index and returns an Observable
+   * @returns Observable that completes when the index is refreshed
+   */
+  refreshIndex(): Observable<void> {
+    console.log('[SearchService] Refreshing index...');
+    this.isLoading.next(true);
+    this.error.next(null);
+    
+    return this.initializeSearchIndex().pipe(
+      tap({
+        next: () => console.log('[SearchService] Index refreshed successfully'),
+        error: (err) => {
+          const errorMsg = err instanceof Error ? err.message : 'Unknown error while refreshing index';
+          console.error('[SearchService] Error refreshing index:', errorMsg);
+          this.error.next(`Error refreshing index: ${errorMsg}`);
+        }
+      }),
+      finalize(() => this.isLoading.next(false)),
+      map(() => {}) // Convert to Observable<void>
+    );
   }
 
   /**
