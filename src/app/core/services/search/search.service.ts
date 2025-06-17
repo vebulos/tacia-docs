@@ -1,11 +1,12 @@
 import { Inject, Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, of, forkJoin, firstValueFrom, throwError } from 'rxjs';
-import { map, catchError, switchMap, tap, finalize } from 'rxjs/operators';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { BehaviorSubject, Observable, of, forkJoin, firstValueFrom, throwError, from, concat } from 'rxjs';
+import { map, catchError, switchMap, tap, finalize, concatMap, delay, toArray } from 'rxjs/operators';
 import { MarkdownService } from '../markdown.service';
 import { ContentItem } from '../content.interface';
 import { ContentService } from '../content.service';
 import { environment } from '../../../../environments/environment';
+import { StorageService } from '../storage.service';
 
 /**
  * Represents a search result item with content and match information
@@ -38,15 +39,27 @@ export interface SearchResult {
   providedIn: 'root'
 })
 export class SearchService {
+  // Storage keys
   private readonly recentSearchesKey = 'recentSearches';
+  private readonly searchIndexKey = 'searchIndex';
+  private readonly indexTimestampKey = 'searchIndexTimestamp';
+  
+  // Subjects for reactive state
   private recentSearches: string[] = [];
   private searchResults = new BehaviorSubject<SearchResult[]>([]);
   private isLoading = new BehaviorSubject<boolean>(false);
   private error = new BehaviorSubject<string | null>(null);
   
+  // Search index and state
   private contentCache: ContentItem[] = [];
   private searchIndex: SearchResult[] = [];
   private indexReady = false;
+  private lastIndexTimestamp: number = 0;
+  
+  // Performance configuration
+  private readonly batchSize = 5; // Number of files to process in parallel
+  private readonly batchDelay = 100; // Milliseconds between batches
+  private readonly indexTTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
   
   // Public observables
   searchResults$ = this.searchResults.asObservable();
@@ -56,11 +69,21 @@ export class SearchService {
   constructor(
     private http: HttpClient,
     private markdownService: MarkdownService,
-    private contentService: ContentService
+    private contentService: ContentService,
+    private storageService: StorageService
   ) {
     console.log('[SearchService] Constructor called');
     this.loadRecentSearches();
-    this.initializeSearchIndex().subscribe();
+    this.loadSearchIndexFromStorage();
+    
+    // Check if we need to rebuild the index
+    if (this.shouldRebuildIndex()) {
+      console.log('[SearchService] Index is outdated or missing, rebuilding...');
+      this.initializeSearchIndex().subscribe();
+    } else {
+      console.log('[SearchService] Using cached search index');
+      this.indexReady = true;
+    }
   }
   
   /**
@@ -141,6 +164,9 @@ export class SearchService {
         next: () => {
           console.log('[SearchService] Indexing completed successfully');
           this.indexReady = true;
+          
+          // Save the index to storage
+          this.saveSearchIndexToStorage();
         },
         error: (err) => {
           console.error('[SearchService] Error during indexing:', err);
@@ -149,6 +175,81 @@ export class SearchService {
       }),
       finalize(() => this.isLoading.next(false))
     );
+  }
+  
+  /**
+   * Load search index from storage
+   */
+  private loadSearchIndexFromStorage(): void {
+    // Load the search index from storage
+    this.storageService.get<SearchResult[]>(this.searchIndexKey).subscribe({
+      next: (storedIndex) => {
+        if (storedIndex && storedIndex.length > 0) {
+          this.searchIndex = storedIndex;
+          console.log(`[SearchService] Loaded ${storedIndex.length} items from cached index`);
+        }
+      },
+      error: (err) => {
+        console.error('[SearchService] Error loading search index from storage:', err);
+        this.searchIndex = [];
+      }
+    });
+    
+    // Load the timestamp
+    this.storageService.get<number>(this.indexTimestampKey).subscribe({
+      next: (timestamp) => {
+        if (timestamp) {
+          this.lastIndexTimestamp = timestamp;
+          console.log(`[SearchService] Index timestamp: ${new Date(timestamp).toLocaleString()}`);
+        }
+      },
+      error: (err) => {
+        console.error('[SearchService] Error loading timestamp from storage:', err);
+        this.lastIndexTimestamp = 0;
+      }
+    });
+  }
+  
+  /**
+   * Save search index to storage
+   */
+  private saveSearchIndexToStorage(): void {
+    const now = Date.now();
+    this.lastIndexTimestamp = now;
+    
+    // Save the search index to storage with a TTL of 24 hours
+    this.storageService.set(this.searchIndexKey, this.searchIndex, this.indexTTL).subscribe({
+      next: () => {
+        console.log(`[SearchService] Saved ${this.searchIndex.length} items to index cache`);
+        
+        // Save the timestamp after the index is successfully saved
+        this.storageService.set(this.indexTimestampKey, now).subscribe({
+          next: () => console.log(`[SearchService] Updated index timestamp: ${new Date(now).toLocaleString()}`),
+          error: (err) => console.error('[SearchService] Error saving timestamp:', err)
+        });
+      },
+      error: (err) => console.error('[SearchService] Error saving search index to storage:', err)
+    });
+  }
+  
+  /**
+   * Determine if the index should be rebuilt
+   */
+  private shouldRebuildIndex(): boolean {
+    // If there's no index, rebuild it
+    if (!this.searchIndex || this.searchIndex.length === 0) {
+      return true;
+    }
+    
+    // If the index is too old, rebuild it
+    const now = Date.now();
+    const indexAge = now - this.lastIndexTimestamp;
+    if (indexAge > this.indexTTL) {
+      console.log(`[SearchService] Index is ${Math.round(indexAge / (60 * 60 * 1000))} hours old, rebuilding`);
+      return true;
+    }
+    
+    return false;
   }
 
   /**
@@ -176,23 +277,50 @@ export class SearchService {
         
         console.log(`[SearchService] Indexing ${itemsToIndex.length} markdown files`);
         
-        // Create an array of observables to index each file
-        const indexOperations = itemsToIndex.map(item => 
-          this.indexMarkdownFile(item).pipe(
-            catchError(err => {
-              console.error(`[SearchService] Error indexing ${item.path}:`, err);
-              return of(null);
-            })
-          )
-        );
+        console.log(`[SearchService] Starting batch indexing of ${itemsToIndex.length} files with batch size ${this.batchSize}`);
         
-        // Execute all indexing operations in parallel
-        return forkJoin(indexOperations).pipe(
-          tap(results => {
-            // Filter out null results (errors)
-            const validResults = results.filter((r): r is SearchResult => r !== null);
-            this.searchIndex = validResults;
-            console.log(`[SearchService] Successfully indexed ${validResults.length} files`);
+        // Track progress
+        let processedCount = 0;
+        let successCount = 0;
+        let errorCount = 0;
+        this.searchIndex = [];
+        
+        // Process items in batches to avoid overwhelming the server
+        return from(itemsToIndex).pipe(
+          // Process in batches
+          concatMap((item, index) => {
+            // Add a delay between batches
+            const shouldDelay = index > 0 && index % this.batchSize === 0;
+            const source = shouldDelay ? of(item).pipe(delay(this.batchDelay)) : of(item);
+            
+            // Process the item
+            return source.pipe(
+              tap(() => {
+                // Log progress every 5 items or for the first/last item
+                if (index === 0 || index === itemsToIndex.length - 1 || index % 5 === 0) {
+                  console.log(`[SearchService] Processing ${index + 1}/${itemsToIndex.length} (${Math.round((index + 1) / itemsToIndex.length * 100)}%)`);
+                }
+              }),
+              switchMap(item => this.indexMarkdownFile(item).pipe(
+                catchError(err => {
+                  console.error(`[SearchService] Error indexing ${item.path}:`, err);
+                  errorCount++;
+                  return of(null);
+                })
+              )),
+              tap(result => {
+                processedCount++;
+                if (result) {
+                  successCount++;
+                  this.searchIndex.push(result);
+                }
+              })
+            );
+          }),
+          // Collect all results
+          toArray(),
+          tap(() => {
+            console.log(`[SearchService] Batch indexing completed: ${successCount} successful, ${errorCount} failed, ${processedCount} total`);
           }),
           map(() => {}) // Convert to Observable<void>
         );
