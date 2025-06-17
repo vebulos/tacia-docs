@@ -144,7 +144,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private transformContentItems(items: ContentItem[]): NavigationItem[] {
     if (!items) return [];
     
-    return items.map(item => {
+    // Sort items: files first, then directories
+    const sortedItems = [...items].sort((a, b) => {
+      // If one is a directory and the other is not, the file comes first
+      if (a.isDirectory !== b.isDirectory) {
+        return a.isDirectory ? 1 : -1; // Files (false) come before directories (true)
+      }
+      // If both are the same type, sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+    
+    return sortedItems.map(item => {
       const isDirectory = item.isDirectory;
       return {
         ...item,
