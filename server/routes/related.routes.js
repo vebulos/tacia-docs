@@ -39,7 +39,16 @@ export async function getRelatedDocuments(req, res) {
     }
     
     // Normalize the path to ensure consistent handling
-    const normalizedPath = path.normalize(documentPath.replace(/\\/g, '/'));
+    // Replace backslashes, remove leading/trailing slashes, and ensure .md extension
+    let normalizedPath = documentPath
+      .replace(/\\/g, '/')
+      .replace(/^\/+|\/+$/g, '');
+    
+    if (!normalizedPath.endsWith('.md')) {
+      normalizedPath = `${normalizedPath}.md`;
+    }
+    
+    console.log(`[related] Normalized document path: ${normalizedPath}`);
     
     // Check cache first if not skipping
     if (!skipCache) {
@@ -168,101 +177,72 @@ function cleanupCache() {
 }
 
 /**
- * Find documents related to the current document based on directory proximity and metadata.
+ * Find documents related to the current document based on tags.
  * @param {string} currentPath - Path of the current document
- * @param {string} documentDir - Directory containing the current document
+ * @param {string} documentDir - Directory containing the current document (not used for relevance)
  * @param {Object} currentMetadata - Metadata of the current document
  * @param {number} limit - Maximum number of related documents to return
  * @returns {Promise<Array>} Array of related documents
  */
 async function findRelatedDocuments(currentPath, documentDir, currentMetadata, limit) {
   try {
-    // Get all markdown files in the same directory
     const relatedDocs = [];
-    const candidates = [];
     
-    // First, get files from the same directory
-    const sameDirectoryFiles = await getMarkdownFilesInDirectory(documentDir);
+    // Get all markdown files in the content directory
+    const allMarkdownFiles = await getAllMarkdownFiles('.');
     
-    // Add files from the same directory to candidates with high relevance
-    for (const file of sameDirectoryFiles) {
-      const filePath = path.join(documentDir, file).replace(/\\/g, '/');
-      
+    // Process each file to check for common tags
+    for (const filePath of allMarkdownFiles) {
       // Skip the current document
-      if (filePath === currentPath) {
+      const normalizedFilePath = filePath.replace(/\\/g, '/').replace(/\\.md$/i, '');
+      const normalizedCurrentPath = currentPath.replace(/\\/g, '/').replace(/\\.md$/i, '');
+      
+      if (normalizedFilePath === normalizedCurrentPath) {
+        console.log(`[related] Skipping current document: ${normalizedFilePath}`);
         continue;
       }
       
-      candidates.push({
-        path: filePath,
-        relevance: 10, // High relevance for same directory
-        metadata: {}
-      });
-    }
-    
-    // If we're in a subdirectory, also check the parent directory
-    if (documentDir !== '.') {
-      const parentDir = path.dirname(documentDir);
-      const parentDirFiles = await getMarkdownFilesInDirectory(parentDir);
-      
-      // Add files from parent directory with medium relevance
-      for (const file of parentDirFiles) {
-        const filePath = path.join(parentDir, file).replace(/\\/g, '/');
-        
-        // Skip directories
-        if ((await fs.stat(path.join(CONTENT_DIR, filePath))).isDirectory()) {
-          continue;
-        }
-        
-        candidates.push({
-          path: filePath,
-          relevance: 5, // Medium relevance for parent directory
-          metadata: {}
-        });
-      }
-    }
-    
-    // Process candidates to get their metadata and calculate final relevance
-    for (const candidate of candidates) {
       try {
-        const fullPath = path.join(CONTENT_DIR, candidate.path);
+        const fullPath = path.join(CONTENT_DIR, filePath);
         const content = await fs.readFile(fullPath, 'utf-8');
         const { data } = matter(content);
+        
+        // Skip if no tags in either document
+        if (!data.tags || !currentMetadata.tags) {
+          continue;
+        }
         
         // Extract title from metadata or filename
         let title = data.title;
         if (!title) {
-          // Extract filename without extension
-          const basename = path.basename(candidate.path, '.md');
+          const basename = path.basename(filePath, '.md');
           title = basename
             .replace(/[-_]/g, ' ')
             .replace(/\b\w/g, l => l.toUpperCase());
         }
         
-        // Calculate tag relevance if both documents have tags
-        let commonTags = [];
-        let tagRelevance = 0;
+        // Calculate common tags and relevance
+        const candidateTags = Array.isArray(data.tags) ? data.tags : [data.tags];
+        const currentTags = Array.isArray(currentMetadata.tags) ? currentMetadata.tags : [currentMetadata.tags];
         
-        if (data.tags && currentMetadata.tags) {
-          const candidateTags = Array.isArray(data.tags) ? data.tags : [data.tags];
-          const currentTags = Array.isArray(currentMetadata.tags) ? currentMetadata.tags : [currentMetadata.tags];
+        const commonTags = candidateTags.filter(tag => currentTags.includes(tag));
+        
+        // Only include if there are common tags
+        if (commonTags.length > 0) {
+          const relevance = commonTags.length; // Relevance based on number of common tags
           
-          commonTags = candidateTags.filter(tag => currentTags.includes(tag));
-          tagRelevance = commonTags.length * 3; // 3 points per common tag
+          relatedDocs.push({
+            path: filePath
+              .replace(/\\.md$/i, '') // Remove .md extension
+              .replace(/\\/g, '/'),   // Replace backslashes with forward slashes
+            title: title,
+            commonTags: commonTags,
+            commonTagsCount: commonTags.length,
+            relevance: relevance
+          });
         }
-        
-        // Calculate final relevance score
-        const finalRelevance = candidate.relevance + tagRelevance;
-        
-        relatedDocs.push({
-          path: candidate.path.replace(/\.md$/, ''), // Remove .md extension for frontend
-          title: title,
-          commonTags: commonTags,
-          commonTagsCount: commonTags.length,
-          relevance: finalRelevance
-        });
       } catch (error) {
-        console.warn(`[related] Error processing candidate ${candidate.path}:`, error);
+        console.warn(`[related] Error processing file ${filePath}:`, error);
       }
     }
     
@@ -270,6 +250,7 @@ async function findRelatedDocuments(currentPath, documentDir, currentMetadata, l
     return relatedDocs
       .sort((a, b) => b.relevance - a.relevance)
       .slice(0, limit);
+      
   } catch (error) {
     console.error('[related] Error finding related documents:', error);
     return [];
@@ -277,22 +258,30 @@ async function findRelatedDocuments(currentPath, documentDir, currentMetadata, l
 }
 
 /**
- * Get all markdown files in a directory.
- * @param {string} dirPath - Relative path to the directory
- * @returns {Promise<Array<string>>} Array of filenames
+ * Recursively get all markdown files in a directory
+ * @param {string} dir - Directory to search in
+ * @returns {Promise<Array<string>>} Array of relative file paths
  */
-async function getMarkdownFilesInDirectory(dirPath) {
-  try {
-    const fullPath = path.join(CONTENT_DIR, dirPath);
-    const files = await fs.readdir(fullPath);
-    
-    // Filter for markdown files only
-    return files.filter(file => 
-      file.endsWith('.md') && 
-      !file.startsWith('.')
+async function getAllMarkdownFiles(dir) {
+  const results = [];
+  const items = await fs.readdir(path.join(CONTENT_DIR, dir), { withFileTypes: true });
+  
+  for (const item of items) {
+    // Use path.posix.join to ensure forward slashes are used
+    const relativePath = path.posix.join(
+      dir.replace(/\\/g, '/'), 
+      item.name
     );
-  } catch (error) {
-    console.warn(`[related] Error reading directory ${dirPath}:`, error);
-    return [];
+    
+    if (item.isDirectory()) {
+      // Recursively get files in subdirectories
+      const subDirFiles = await getAllMarkdownFiles(relativePath);
+      results.push(...subDirFiles);
+    } else if (item.isFile() && item.name.endsWith('.md')) {
+      // Add markdown files with forward slashes
+      results.push(relativePath.replace(/\\/g, '/'));
+    }
   }
+  
+  return results;
 }
