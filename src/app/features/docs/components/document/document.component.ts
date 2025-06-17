@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink, RouterModule, ParamMap } from '@angular/router';
-import { MarkdownService, MarkdownFile } from '@app/core/services/markdown.service';
+import { MarkdownService, MarkdownApiResponse } from '@app/core/services/markdown.service';
 import { RelatedDocumentsService, type RelatedDocument } from '@app/core/services/related-documents.service';
 import { tap } from 'rxjs/operators';
 import { Subscription, catchError, of, switchMap, Observable, forkJoin } from 'rxjs';
@@ -127,42 +127,19 @@ export class DocumentComponent implements OnInit, OnDestroy {
     });
   }
   
-  private processContent(file: MarkdownFile, fullPath: string): void {
+  private processContent(response: MarkdownApiResponse, fullPath: string): void {
     // Use requestAnimationFrame for better performance
     requestAnimationFrame(() => {
       // Create a temporary div to manipulate the HTML
       const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = file.html;
-      
-      // Create a map to track processed headings for optimization
-      const headingMap = new Map<string, number>();
-      
-      // Process each heading
-      file.headings.forEach(heading => {
-        const headingKey = `${heading.level}-${heading.text.trim()}`;
-        const occurrence = (headingMap.get(headingKey) || 0) + 1;
-        headingMap.set(headingKey, occurrence);
-        
-        // Only select headings that don't have an ID yet
-        const selector = `h${heading.level}:not([id])`;
-        const headings = Array.from(tempDiv.querySelectorAll(selector));
-        
-        // Find the first matching heading that doesn't have an ID
-        const target = headings.find(h => 
-          h.textContent?.trim() === heading.text.trim()
-        ) as HTMLElement | undefined;
-        
-        if (target) {
-          target.id = heading.id;
-        }
-      });
+      tempDiv.innerHTML = response.html;
       
       // Process links after the content is loaded
       const processedHtml = this.processHtmlLinks(tempDiv.innerHTML, fullPath);
       
       // Update the content with processed HTML in a single operation
       this.content = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
-      this.headings = [...file.headings]; // Create a new array reference
+      this.headings = [...response.headings]; // Create a new array reference
       this.headingsChange.emit(this.headings);
     });
   }
