@@ -204,6 +204,9 @@ export class DocumentComponent implements OnInit, OnDestroy {
   private readonly doubleSlashRegex = /\/\//g;
 
   private createId(text: string): string {
+    // Return empty string for empty input
+    if (!text || typeof text !== 'string') return '';
+    
     const cacheKey = text.trim().toLowerCase();
     
     // Return cached ID if available
@@ -212,17 +215,31 @@ export class DocumentComponent implements OnInit, OnDestroy {
     }
     
     // Process the text to create an ID
-    const id = cacheKey
+    let id = cacheKey
+      // Replace umlauts and accents
       .replace(this.umlautRegex, match => this.umlautMap[match] || match)
-      .replace(this.specialCharsRegex, '')
-      .replace(this.spacesRegex, '-')
-      .replace(this.multiHyphenRegex, '-')
-      .replace(this.trimHyphenRegex, '');
+      // Convert to lowercase
+      .toLowerCase()
+      // Replace special characters with hyphen
+      .replace(/[^\w\s-]/g, '-')
+      // Replace spaces with single hyphen
+      .replace(/\s+/g, '-')
+      // Replace multiple hyphens with single hyphen
+      .replace(/-+/g, '-')
+      // Remove leading/trailing hyphens
+      .replace(/^-+|-+$/g, '')
+      // Truncate to 50 chars to avoid very long URLs
+      .substring(0, 50)
+      // Remove any trailing hyphen
+      .replace(/-+$/, '');
+    
+    // Ensure ID is not empty
+    if (!id) {
+      id = 'section';
+    }
     
     // Cache the result
-    if (id) {
-      this.idCache.set(cacheKey, id);
-    }
+    this.idCache.set(cacheKey, id);
     
     return id;
   }
@@ -235,45 +252,79 @@ export class DocumentComponent implements OnInit, OnDestroy {
   private handleFragmentNavigation() {
     // Wait for the content to be rendered
     setTimeout(() => {
-      const fragment = this.router.parseUrl(this.router.url)['fragment'];
-      if (fragment) {
-        // Try exact match first
-        let element = document.getElementById(fragment);
-        
-        // If not found, try decoding the fragment (for encoded umlauts)
-        if (!element) {
-          const decodedFragment = decodeURIComponent(fragment);
-          element = document.getElementById(decodedFragment);
-          
-          // If still not found, try to find by URL-encoded version of the fragment
-          if (!element && fragment !== decodedFragment) {
-            element = document.getElementById(encodeURIComponent(decodedFragment));
-          }
+      const fragment = this.router.parseUrl(this.router.url).fragment || '';
+      if (!fragment) return;
+      
+      // Try exact match first
+      let element = document.getElementById(fragment);
+      
+      // If not found, try with the cleaned up version of the fragment
+      if (!element) {
+        const cleanFragment = this.createId(fragment);
+        if (cleanFragment) {
+          element = document.getElementById(cleanFragment);
         }
+      }
+      
+      // If still not found, try to find a matching heading by text content
+      if (!element) {
+        // Remove any URL encoding and clean the fragment
+        const decodedFragment = decodeURIComponent(fragment);
+        const cleanFragment = this.createId(decodedFragment);
         
-        // If still not found, try to find a partial match (for backward compatibility)
-        if (!element) {
-          // Try with the original fragment
-          let elements = Array.from(document.querySelectorAll(`[id*="${fragment}"]`));
+        if (cleanFragment) {
+          // Try exact match with cleaned fragment
+          element = document.getElementById(cleanFragment);
           
-          // If no matches, try with decoded fragment
-          if (elements.length === 0) {
-            const decodedFragment = decodeURIComponent(fragment);
-            if (decodedFragment !== fragment) {
-              elements = Array.from(document.querySelectorAll(`[id*="${decodedFragment}"]`));
+          // Try partial match if still not found
+          if (!element) {
+            const elements = Array.from(document.querySelectorAll('[id]'));
+            const matchingElement = elements.find(el => 
+              el.id.includes(cleanFragment) || 
+              this.createId(el.textContent || '').includes(cleanFragment)
+            );
+            
+            if (matchingElement) {
+              element = matchingElement as HTMLElement;
             }
           }
+        }
+      }
+      
+      // Scroll to the element if found
+      if (element) {
+        // Use requestAnimationFrame for smoother scrolling
+        requestAnimationFrame(() => {
+          // Add a small offset to account for fixed headers
+          const headerOffset = 80;
+          const elementPosition = element!.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
           
-          // If we found elements, use the first one
-          if (elements.length > 0) {
-            element = elements[0] as HTMLElement;
-          }
-        }
-        
-        // Scroll to the element if found
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth' });
-        }
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          });
+          
+          // Focus the element for keyboard navigation
+          element!.setAttribute('tabindex', '-1');
+          element!.focus({ preventScroll: true });
+          
+          // Highlight the element briefly
+          const originalTransition = element!.style.transition;
+          const originalBoxShadow = element!.style.boxShadow;
+          
+          element!.style.transition = 'box-shadow 0.5s ease';
+          element!.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.5)';
+          
+          setTimeout(() => {
+            element!.style.boxShadow = originalBoxShadow;
+            setTimeout(() => {
+              element!.style.transition = originalTransition;
+            }, 500);
+          }, 1500);
+        });
+      } else {
+        console.warn(`Could not find element with ID or fragment: ${fragment}`);
       }
     }, 100);
   }
@@ -321,31 +372,60 @@ export class DocumentComponent implements OnInit, OnDestroy {
       // Set HTML content
       container.innerHTML = html;
       
-      // Process headings first
+      // First pass: Process all headings to ensure they have consistent IDs
       const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
-      const headingCache = new Map<string, number>();
+      const headingIds = new Map<string, number>();
       
+      // Create IDs for all headings first
       for (let i = 0; i < headings.length; i++) {
         const heading = headings[i];
-        if (!heading.id) {
-          const text = heading.textContent || '';
-          let id = this.createId(text);
+        const text = heading.textContent || '';
+        
+        // Check if the heading already has an ID that might have been set by the server
+        let id = heading.id;
+        
+        // If no ID or it's not a valid ID, create a new one
+        if (!id || id === '') {
+          id = this.createId(text);
           
-          // Handle duplicate IDs
-          if (id) {
-            const count = (headingCache.get(id) || 0) + 1;
-            headingCache.set(id, count);
-            
-            if (count > 1) {
-              id = `${id}-${count}`;
-            }
-            
-            heading.id = id;
+          // Skip if no valid ID could be generated
+          if (!id) continue;
+          
+          // Handle duplicate IDs by appending a number
+          const count = (headingIds.get(id) || 0) + 1;
+          headingIds.set(id, count);
+          
+          if (count > 1) {
+            id = `${id}-${count}`;
           }
+          
+          // Set the ID on the heading
+          heading.id = id;
         }
+        
+        // Add an anchor link next to the heading
+        const anchor = document.createElement('a');
+        anchor.href = `#${id}`;
+        anchor.className = 'header-link';
+        anchor.setAttribute('aria-hidden', 'true');
+        anchor.innerHTML = '#';
+        anchor.style.marginLeft = '0.5rem';
+        anchor.style.opacity = '0';
+        anchor.style.transition = 'opacity 0.2s';
+        
+        // Show the anchor on hover over the heading
+        (heading as HTMLElement).style.position = 'relative';
+        heading.addEventListener('mouseenter', () => {
+          (anchor as HTMLElement).style.opacity = '0.7';
+        });
+        heading.addEventListener('mouseleave', () => {
+          (anchor as HTMLElement).style.opacity = '0';
+        });
+        
+        heading.appendChild(anchor);
       }
       
-      // Process links
+      // Process all links in the document
       const links = container.querySelectorAll('a[href]');
       const basePath = currentPath.split('/').slice(0, -1).filter(Boolean).join('/');
       const currentPathWithoutHash = this.router.url.split('#')[0];
@@ -356,7 +436,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
         
         if (!href) continue;
         
-        // Handle relative URLs
+        // Handle relative URLs (not starting with http or #)
         if (!href.startsWith('http') && !href.startsWith('#')) {
           const newHref = `/${basePath ? basePath + '/' : ''}${href}`.replace(this.doubleSlashRegex, '/');
           link.setAttribute('href', newHref);
@@ -366,25 +446,55 @@ export class DocumentComponent implements OnInit, OnDestroy {
           const fragment = href.substring(1);
           if (!fragment) continue;
           
-          // Process fragment
-          let decodedFragment = fragment;
-          try {
-            decodedFragment = decodeURIComponent(fragment);
-          } catch (e) {
-            console.warn('Failed to decode fragment:', fragment);
+          // Process fragment to match the ID generation logic
+          let cleanFragment = this.createId(fragment);
+          
+          // If we couldn't create a clean ID, try to find a matching heading
+          if (!cleanFragment) {
+            const heading = Array.from(headings).find(h => 
+              this.createId(h.textContent || '') === this.createId(fragment)
+            );
+            if (heading && heading.id) {
+              cleanFragment = heading.id;
+            }
           }
           
-          const cleanId = this.createId(decodedFragment);
-          link.setAttribute('href', `${currentPathWithoutHash}#${cleanId}`);
-          
-          // Use event delegation instead of adding individual handlers
-          link.dataset['fragment'] = cleanId;
+          // Only update the href if we have a valid fragment
+          if (cleanFragment) {
+            link.setAttribute('href', `#${cleanFragment}`);
+            link.dataset['fragment'] = cleanFragment;
+          }
         }
       }
       
-      // Use event delegation for fragment navigation
+      // Add smooth scrolling for fragment links
       if (!this.fragmentClickHandler) {
-        this.fragmentClickHandler = this.handleFragmentClick.bind(this);
+        this.fragmentClickHandler = (event: MouseEvent) => {
+          const target = event.target as HTMLElement;
+          const link = target.closest('a[href^="#"]') as HTMLAnchorElement;
+          
+          if (link) {
+            const fragment = link.getAttribute('href');
+            if (fragment && fragment !== '#') {
+              event.preventDefault();
+              const elementId = fragment.substring(1);
+              const element = document.getElementById(elementId);
+              
+              if (element) {
+                // Update URL without page reload
+                history.pushState(null, '', `${window.location.pathname}${window.location.search}${fragment}`);
+                
+                // Scroll to element with smooth behavior
+                element.scrollIntoView({ behavior: 'smooth' });
+                
+                // Focus the element for accessibility
+                element.setAttribute('tabindex', '-1');
+                element.focus();
+              }
+            }
+          }
+        };
+        
         container.addEventListener('click', this.fragmentClickHandler as EventListener);
       }
       

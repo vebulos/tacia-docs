@@ -61,6 +61,57 @@ export default class MarkdownService {
   }
 
   /**
+   * Create a URL-friendly ID from text (matching client-side implementation)
+   * @param {string} text - Text to convert to ID
+   * @returns {string} - Generated ID
+   */
+  static createId(text) {
+    if (!text || typeof text !== 'string') return '';
+    
+    // Map for special characters
+    const umlautMap = {
+      'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 'ss',
+      'Ä': 'A', 'Ö': 'O', 'Ü': 'U',
+      'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'å': 'a',
+      'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+      'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
+      'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ø': 'o',
+      'ù': 'u', 'ú': 'u', 'û': 'u',
+      'ý': 'y', 'ÿ': 'y',
+      'ñ': 'n', 'ç': 'c', 'æ': 'ae', 'œ': 'oe'
+    };
+    
+    // Create a regex pattern for all keys in the map
+    const umlautRegex = new RegExp(`[${Object.keys(umlautMap).join('')}]`, 'g');
+    
+    // Process the text to create an ID
+    let id = text
+      // Replace umlauts and accents
+      .replace(umlautRegex, match => umlautMap[match] || match)
+      // Convert to lowercase
+      .toLowerCase()
+      // Replace special characters with hyphen
+      .replace(/[^\w\s-]/g, '-')
+      // Replace spaces with single hyphen
+      .replace(/\s+/g, '-')
+      // Replace multiple hyphens with single hyphen
+      .replace(/-+/g, '-')
+      // Remove leading/trailing hyphens
+      .replace(/^-+|-+$/g, '')
+      // Truncate to 50 chars to avoid very long URLs
+      .substring(0, 50)
+      // Remove any trailing hyphen
+      .replace(/-+$/, '');
+    
+    // Ensure ID is not empty
+    if (!id) {
+      id = 'section';
+    }
+    
+    return id;
+  }
+
+  /**
    * Extract headings from HTML content.
    * @param {string} html - HTML content
    * @returns {Array<{ text: string, level: number, id: string }>} - Array of heading objects
@@ -68,11 +119,31 @@ export default class MarkdownService {
   static extractHeadings(html) {
     const dom = new JSDOM(html);
     const headings = Array.from(dom.window.document.querySelectorAll('h1, h2, h3, h4, h5, h6'));
-    return headings.map(h => ({
-      text: h.textContent,
-      level: parseInt(h.tagName.substring(1)),
-      id: h.id || h.textContent.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
-    }));
+    const headingIds = new Map();
+    
+    return headings.map(h => {
+      const text = h.textContent || '';
+      let id = h.id || this.createId(text);
+      
+      // Handle duplicate IDs by appending a number
+      if (id) {
+        const count = (headingIds.get(id) || 0) + 1;
+        headingIds.set(id, count);
+        
+        if (count > 1) {
+          id = `${id}-${count}`;
+        }
+        
+        // Set the ID on the heading element
+        h.id = id;
+      }
+      
+      return {
+        text: text,
+        level: parseInt(h.tagName.substring(1)),
+        id: id
+      };
+    });
   }
 
   /**

@@ -99,6 +99,58 @@
   text-decoration: underline;
 }
 
+/* Styles pour les liens d'ancrage à côté des titres */
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  position: relative;
+  scroll-margin-top: 5rem; /* Espace pour le header fixe */
+}
+
+.header-link {
+  position: absolute;
+  left: -1.5rem;
+  text-decoration: none;
+  color: #9ca3af;
+  font-weight: normal;
+  font-size: 0.9em;
+  transition: color 0.2s, opacity 0.2s;
+}
+
+.header-link:hover {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+/* Mise en surbrillance pour la navigation par fragment */
+:target {
+  animation: highlight 2s ease-in-out;
+}
+
+@keyframes highlight {
+  0% {
+    background-color: rgba(59, 130, 246, 0.2);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Style pour les titres avec mise en surbrillance */
+.markdown-content h1:target,
+.markdown-content h2:target,
+.markdown-content h3:target,
+.markdown-content h4:target,
+.markdown-content h5:target,
+.markdown-content h6:target {
+  padding-left: 0.5rem;
+  margin-left: -0.5rem;
+  border-left: 3px solid #3b82f6;
+}
+
 .markdown-content ul,
 .markdown-content ol {
   margin: 1.25rem 0;
