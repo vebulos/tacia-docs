@@ -1,6 +1,8 @@
 import http from 'http';
 import url from 'url';
 import { getMarkdownContent } from './routes/content.routes.js';
+import { getRelatedDocuments } from './routes/related.routes.js';
+import { getContentStructure } from './routes/content-structure.routes.js';
 
 const PORT = process.env.PORT || 4201;
 
@@ -9,9 +11,10 @@ const PORT = process.env.PORT || 4201;
  */
 const server = http.createServer(async (req, res) => {
   // Enable CORS for all API requests
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:4200');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Cache-Control, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
@@ -21,17 +24,60 @@ const server = http.createServer(async (req, res) => {
 
   const parsedUrl = url.parse(req.url, true);
 
-  // Route for markdown content API
-  if (req.method === 'GET' && parsedUrl.pathname.startsWith('/api/content')) {
-    // Attach query and params for route handler compatibility
-    req.query = parsedUrl.query;
-    req.params = { path: parsedUrl.pathname.replace('/api/content/', '') };
-    // Patch res.json for convenience
-    res.json = (data) => {
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify(data));
-    };
+  // Patch res.json for convenience for all routes
+  res.json = (data) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(data));
+  };
+
+  // Route for markdown content API with path parameter
+  if (req.method === 'GET' && parsedUrl.pathname.startsWith('/api/content/')) {
+    const pathParam = parsedUrl.pathname.substring('/api/content/'.length);
+    req.params = { path: pathParam };
+    
+    // Parse query parameters properly
+    const queryParams = {};
+    for (const [key, value] of Object.entries(parsedUrl.query || {})) {
+      queryParams[key] = value;
+    }
+    req.query = queryParams;
+    
+    // Log the request for debugging
+    console.log(`[server] GET /api/content/${pathParam} with query:`, req.query);
+    
     await getMarkdownContent(req, res);
+    return;
+  }
+
+  // Route for related documents API
+  if (req.method === 'GET' && parsedUrl.pathname === '/api/related') {
+    // Parse query parameters properly
+    const queryParams = {};
+    for (const [key, value] of Object.entries(parsedUrl.query || {})) {
+      queryParams[key] = value;
+    }
+    req.query = queryParams;
+    
+    // Log the request for debugging
+    console.log('[server] GET /api/related with query:', req.query);
+    
+    await getRelatedDocuments(req, res);
+    return;
+  }
+
+  // Route for content structure API (without path parameter)
+  if (req.method === 'GET' && parsedUrl.pathname === '/api/content') {
+    // Parse query parameters properly
+    const queryParams = {};
+    for (const [key, value] of Object.entries(parsedUrl.query || {})) {
+      queryParams[key] = value;
+    }
+    req.query = queryParams;
+    
+    // Log the request for debugging
+    console.log('[server] GET /api/content with query:', req.query);
+    
+    await getContentStructure(req, res);
     return;
   }
 

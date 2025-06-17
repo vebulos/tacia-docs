@@ -15,7 +15,7 @@ export interface RelatedDocument {
   providedIn: 'root'
 })
 export class RelatedDocumentsService {
-  private readonly baseUrl = environment.apiUrl;
+  private readonly baseUrl = 'http://localhost:4201/api';
 
   constructor(private http: HttpClient) {}
 

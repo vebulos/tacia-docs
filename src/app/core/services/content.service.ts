@@ -121,8 +121,8 @@ export class ContentService {
     // Encode the path to handle spaces and special characters
     const encodedPath = encodeURIComponent(path);
     
-    // Use the encoded path in the request
-    return this.http.get<ContentItem[]>(`/api/content?path=${encodedPath}`).pipe(
+    // Use the encoded path in the request with full backend URL
+    return this.http.get<ContentItem[]>(`http://localhost:4201/api/content?path=${encodedPath}`).pipe(
       map(items => this.transformStructure(items, path)),
       // Retry logic for failed requests
       retryWhen(errors => errors.pipe(
