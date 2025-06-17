@@ -10,7 +10,8 @@ export const environment: EnvironmentConfig = {
     maxResults: 50,
     maxRecentSearches: 10,
     debounceTime: 300,
-    contentBasePath: '/assets/content',
+    // Content is now managed by the backend API
+    contentBasePath: '',
     contextLines: 1,
     index: {
       enabled: true,
@@ -21,7 +22,8 @@ export const environment: EnvironmentConfig = {
   },
   content: {
     ...defaultConfig.content,
-    basePath: '/assets/content'
+    // Content is now managed by the backend API
+    basePath: ''
   },
   docs: {
     basePath: '/docs',

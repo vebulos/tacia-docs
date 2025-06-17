@@ -9,9 +9,9 @@ export class PathUtils {
     return environment.docs?.defaultPath || 'getting-started/introduction';
   }
   
-  // Base path for content
+  // Base path for content (now empty as content is managed by the backend)
   static get CONTENT_BASE_PATH(): string {
-    return environment.content?.basePath || environment.search?.contentBasePath || '/assets/content';
+    return environment.content?.basePath || environment.search?.contentBasePath || '';
   }
   
   // Base path for API
@@ -71,6 +71,7 @@ export class PathUtils {
   /**
    * Builds an API path for content
    * @param path The relative path of the content
+   * @deprecated Content API paths are now handled directly by the backend
    */
   static buildApiPath(path: string): string {
     // Return the path as-is, without modification
@@ -79,12 +80,13 @@ export class PathUtils {
   }
   
   /**
-   * Builds a static content access path
+   * Builds a content access path via the API
+   * @deprecated Direct content access is now handled by the backend API
    */
   static buildContentPath(path: string): string {
     const normalizedPath = this.normalizePath(path);
-    const contentPath = `${this.CONTENT_BASE_PATH}/${normalizedPath}`;
-    return contentPath.replace(/\/+/g, '/');
+    // Use the API endpoint instead of direct file access
+    return `${this.API_BASE_PATH}/content/${normalizedPath}`;
   }
   
 

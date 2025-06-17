@@ -6,8 +6,8 @@ import matter from 'gray-matter';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Default content directory (can be replaced with config)
-const CONTENT_DIR = path.join(process.cwd(), 'src', 'assets', 'content');
+// Get CONTENT_DIR from the server configuration
+import { CONTENT_DIR } from '../server.js';
 
 // Simple in-memory cache for related documents
 // Structure: { [documentPath]: { timestamp: Date, data: Array<RelatedDoc>, ttl: number } }

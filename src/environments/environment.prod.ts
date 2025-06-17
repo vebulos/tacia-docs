@@ -11,7 +11,8 @@ export const environment: EnvironmentConfig = {
     maxResults: 50,
     maxRecentSearches: 10,
     debounceTime: 300,
-    contentBasePath: '/assets/content',
+    // Content is now managed by the backend API
+    contentBasePath: '',
     contextLines: 1,
     index: {
       enabled: true,
@@ -22,6 +23,8 @@ export const environment: EnvironmentConfig = {
   },
   content: {
     ...defaultConfig.content,
+    // Content is now managed by the backend API
+    basePath: '',
     cacheTtl: 5 * 60 * 1000, // 5 minutes
     hoverDelay: 300,
     maxRetries: 3,

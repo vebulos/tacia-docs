@@ -1,10 +1,29 @@
 import http from 'http';
 import url from 'url';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { getMarkdownContent } from './routes/content.routes.js';
 import { getRelatedDocuments } from './routes/related.routes.js';
 import { getContentStructure } from './routes/content-structure.routes.js';
 
-const PORT = process.env.PORT || 4201;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Parse command line arguments
+const args = process.argv.slice(2).reduce((acc, arg) => {
+  const [key, value] = arg.split('=');
+  if (key.startsWith('--')) {
+    acc[key.slice(2)] = value || true;
+  }
+  return acc;
+}, {});
+
+const PORT = args.port || process.env.PORT || 4201;
+export const CONTENT_DIR = args['content-dir'] 
+  ? path.resolve(process.cwd(), args['content-dir'])
+  : path.join(process.cwd(), 'src', 'assets', 'content');
+
+console.log(`[server] Content directory: ${CONTENT_DIR}`);
 
 /**
  * Minimal HTTP server for Markdown Content API

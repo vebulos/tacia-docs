@@ -36,9 +36,8 @@ export class MarkdownService implements OnDestroy {
   private readonly maxCacheSize = 50; // Maximum number of items in cache
 
   constructor(private http: HttpClient) {
-    // Configure the base content path
-    const contentPath = environment.search?.contentBasePath || 'assets/content';
-    this.contentBasePath = contentPath.replace(/^\/+|\/+$/g, '');
+    // Content is now fully managed by the backend API, no need for a content path
+    this.contentBasePath = '';
     // Initialize LRU cache with max 50 items and 5 minutes TTL by default
     this.cache = new LruCache<Observable<MarkdownApiResponse>>(50, 5 * 60 * 1000);
     console.log('[MarkdownService] Initialized with backend-rendered markdown API');
