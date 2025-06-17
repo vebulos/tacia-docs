@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, of, throwError, timer } from 'rxjs';
 import { catchError, map, retryWhen, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { StorageService } from './storage.service';
@@ -121,14 +121,41 @@ export class ContentService {
     // Encode the path to handle spaces and special characters
     const encodedPath = encodeURIComponent(path);
     
+    console.log(`[ContentService] Fetching content structure for path: ${path}`);
+    
     // Use the encoded path in the request with full backend URL
     return this.http.get<ContentItem[]>(`http://localhost:4201/api/content?path=${encodedPath}`).pipe(
-      map(items => this.transformStructure(items, path)),
-      // Retry logic for failed requests
+      map(items => {
+        console.log(`[ContentService] Successfully fetched ${items.length} items for path: ${path}`);
+        return this.transformStructure(items, path);
+      }),
+      catchError((error: HttpErrorResponse) => {
+        // Log detailed error information
+        console.error(`[ContentService] Error fetching content for path: ${path}`, error);
+        
+        // Create user-friendly error message based on HTTP status
+        let errorMessage = 'Failed to load content. Please try again later.';
+        
+        if (error.status === 404) {
+          errorMessage = `The requested content at "${path}" could not be found.`;
+        } else if (error.status === 403) {
+          errorMessage = 'You do not have permission to access this content.';
+        } else if (error.status === 0) {
+          errorMessage = 'Unable to connect to the content server. Please check your network connection.';
+        } else if (error.status >= 500) {
+          errorMessage = 'The content server is currently unavailable. Please try again later.';
+        }
+        
+        // Retry logic for failed requests
+        return throwError(() => new Error(errorMessage));
+      }),
       retryWhen(errors => errors.pipe(
         switchMap((error, count) => {
           const retryAttempts = this.config.maxRetries || 3;
           const retryDelay = this.config.retryDelay || 1000;
+          
+          console.log(`[ContentService] Retry attempt ${count + 1}/${retryAttempts} for path: ${path}`);
+          
           if (count >= retryAttempts - 1) {
             return throwError(() => error);
           }

@@ -9,6 +9,11 @@ const __dirname = path.dirname(__filename);
 // Default content directory (can be replaced with config)
 const CONTENT_DIR = path.join(process.cwd(), 'src', 'assets', 'content');
 
+// Simple in-memory cache for related documents
+// Structure: { [documentPath]: { timestamp: Date, data: Array<RelatedDoc>, ttl: number } }
+const relatedDocsCache = new Map();
+const DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
 /**
  * Handler for fetching related documents based on tags and categories.
  * @param {Request} req - HTTP request object
@@ -19,16 +24,34 @@ export async function getRelatedDocuments(req, res) {
     // Get document path from query
     const documentPath = req.query?.path || '';
     const limit = parseInt(req.query?.limit || '5', 10);
+    const skipCache = req.query?.skipCache === 'true';
     
-    console.log(`[related] Getting related documents for path: ${documentPath}, limit: ${limit}`);
+    console.log(`[related] Getting related documents for path: ${documentPath}, limit: ${limit}, skipCache: ${skipCache}`);
     
     if (!documentPath) {
+      console.warn('[related] Missing document path in request');
       res.statusCode = 400;
-      return res.json({ error: 'Missing document path', related: [] });
+      return res.json({ 
+        error: 'Missing document path', 
+        details: 'The path parameter is required',
+        related: [] 
+      });
     }
     
     // Normalize the path to ensure consistent handling
     const normalizedPath = path.normalize(documentPath.replace(/\\/g, '/'));
+    
+    // Check cache first if not skipping
+    if (!skipCache) {
+      const cachedResult = getCachedRelatedDocs(normalizedPath, limit);
+      if (cachedResult) {
+        console.log(`[related] Cache hit for ${normalizedPath}`);
+        return res.json({
+          related: cachedResult,
+          fromCache: true
+        });
+      }
+    }
     
     // Get the directory containing the current document
     const documentDir = path.dirname(normalizedPath);
@@ -39,7 +62,12 @@ export async function getRelatedDocuments(req, res) {
       await fs.access(fullDocumentPath);
     } catch (error) {
       console.warn(`[related] Document not found: ${fullDocumentPath}`);
-      return res.json({ related: [] });
+      res.statusCode = 404;
+      return res.json({ 
+        error: 'Document not found', 
+        details: `The document at path '${normalizedPath}' does not exist`,
+        related: [] 
+      });
     }
     
     // Get metadata from the current document
@@ -62,14 +90,81 @@ export async function getRelatedDocuments(req, res) {
     
     console.log(`[related] Found ${relatedDocs.length} related documents`);
     
+    // Cache the results
+    cacheRelatedDocs(normalizedPath, relatedDocs);
+    
     return res.json({
-      related: relatedDocs
+      related: relatedDocs,
+      fromCache: false
     });
   } catch (error) {
     console.error('[related] Error getting related documents:', error);
     res.statusCode = 500;
     return res.json({ error: 'Failed to get related documents', details: error.message, related: [] });
   }
+}
+
+/**
+ * Get cached related documents if available and not expired
+ * @param {string} documentPath - Path of the document
+ * @param {number} limit - Maximum number of related documents to return
+ * @returns {Array|null} Array of related documents or null if not cached
+ */
+function getCachedRelatedDocs(documentPath, limit) {
+  const cacheEntry = relatedDocsCache.get(documentPath);
+  
+  if (!cacheEntry) {
+    return null;
+  }
+  
+  // Check if cache entry has expired
+  const now = Date.now();
+  if (now - cacheEntry.timestamp > cacheEntry.ttl) {
+    console.log(`[related] Cache expired for ${documentPath}`);
+    relatedDocsCache.delete(documentPath);
+    return null;
+  }
+  
+  // Return cached data limited to requested limit
+  return cacheEntry.data.slice(0, limit);
+}
+
+/**
+ * Cache related documents for a document
+ * @param {string} documentPath - Path of the document
+ * @param {Array} relatedDocs - Array of related documents
+ * @param {number} ttl - Time to live in milliseconds (optional)
+ */
+function cacheRelatedDocs(documentPath, relatedDocs, ttl = DEFAULT_CACHE_TTL) {
+  relatedDocsCache.set(documentPath, {
+    timestamp: Date.now(),
+    data: relatedDocs,
+    ttl: ttl
+  });
+  
+  console.log(`[related] Cached ${relatedDocs.length} documents for ${documentPath}, TTL: ${ttl}ms`);
+  
+  // Cleanup old cache entries if cache is getting too large
+  if (relatedDocsCache.size > 100) {
+    cleanupCache();
+  }
+}
+
+/**
+ * Clean up expired cache entries
+ */
+function cleanupCache() {
+  const now = Date.now();
+  let expiredCount = 0;
+  
+  for (const [key, entry] of relatedDocsCache.entries()) {
+    if (now - entry.timestamp > entry.ttl) {
+      relatedDocsCache.delete(key);
+      expiredCount++;
+    }
+  }
+  
+  console.log(`[related] Cache cleanup: removed ${expiredCount} expired entries, remaining: ${relatedDocsCache.size}`);
 }
 
 /**
