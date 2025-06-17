@@ -1,9 +1,9 @@
 /**
  * MarkdownService - provides markdown parsing, front matter extraction, and heading extraction.
  */
-const marked = require('marked');
-const hljs = require('highlight.js');
-const { JSDOM } = require('jsdom');
+import { marked } from 'marked';
+import hljs from 'highlight.js';
+import { JSDOM } from 'jsdom';
 
 // Configure marked with highlight.js for syntax highlighting
 marked.setOptions({
@@ -19,7 +19,7 @@ marked.setOptions({
   silent: true
 });
 
-class MarkdownService {
+export default class MarkdownService {
   /**
    * Extract YAML front matter and markdown content from a file.
    * @param {string} content - Raw markdown file content
@@ -87,5 +87,3 @@ class MarkdownService {
     return { html, metadata, headings };
   }
 }
-
-module.exports = MarkdownService;
