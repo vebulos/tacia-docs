@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, takeUntil, tap } from 'rxjs/operators';
 import { SearchService, SearchResult } from '../../../../core/services/search/search.service';
+import { NotificationService } from '../../../../core/services/notification/notification.service';
 import { environment } from '../../../../../environments/environment';
 
 // Local search configuration (default values if not defined in environment)
@@ -37,6 +38,7 @@ export class SearchComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private router = inject(Router);
   private searchService = inject(SearchService);
+  private notificationService = inject(NotificationService);
   private searchConfig: any;
 
   constructor() {
@@ -276,20 +278,29 @@ export class SearchComponent implements OnInit, OnDestroy {
     event.preventDefault();
     event.stopPropagation();
     
+    // Prevent multiple clicks while loading
+    if (this.isLoading) {
+      return;
+    }
+    
     // Show loading state
     this.isLoading = true;
+    this.notificationService.info('Updating search index...', 0);
     
     // Call the search service to refresh the index
     this.searchService.refreshIndex().subscribe({
       next: () => {
         this.isLoading = false;
-        // Optional: Show a success message or notification
+        this.notificationService.clearAll(); // Clear any previous notifications
+        this.notificationService.success('Search index has been updated successfully', 5000);
         console.log('Search index refreshed successfully');
       },
       error: (error) => {
         this.isLoading = false;
+        this.notificationService.clearAll(); // Clear any previous notifications
+        const errorMessage = error?.message || 'An error occurred while updating the index';
+        this.notificationService.error(`Error: ${errorMessage}`, 7000);
         console.error('Error refreshing search index:', error);
-        // Optional: Show an error message to the user
       }
     });
   }

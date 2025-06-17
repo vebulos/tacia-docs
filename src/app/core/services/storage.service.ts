@@ -2,15 +2,18 @@ import { Injectable } from '@angular/core';
 import { from, Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 
-// Type declaration for localforage
-declare const localforage: {
-  createInstance(config: any): LocalForage;
-  INDEXEDDB: string;
-  WEBSQL: string;
-  LOCALSTORAGE: string;
-};
+declare global {
+  interface Window {
+    localforage?: {
+      createInstance(config: any): LocalForageInstance;
+      INDEXEDDB: string;
+      WEBSQL: string;
+      LOCALSTORAGE: string;
+    };
+  }
+}
 
-interface LocalForage {
+interface LocalForageInstance {
   getItem<T>(key: string): Promise<T | null>;
   setItem<T>(key: string, value: T): Promise<T>;
   removeItem(key: string): Promise<void>;
@@ -24,8 +27,7 @@ interface LocalForage {
   ): Promise<U>;
 }
 
-// Type assertion pour le store
-interface LocalForageStore {
+interface FallbackStorage {
   getItem<T>(key: string): Promise<T | null>;
   setItem<T>(key: string, value: T): Promise<T>;
   removeItem(key: string): Promise<void>;
@@ -41,18 +43,84 @@ interface CacheItem<T> {
   providedIn: 'root'
 })
 export class StorageService {
-  private store: LocalForageStore | null = null;
+  private store: LocalForageInstance | FallbackStorage;
+  private readonly PREFIX = 'mxc-docs-';
+  private readonly isLocalForageAvailable: boolean;
 
   constructor() {
-    this.store = localforage.createInstance({
-      name: 'mxc-docs-cache',
-      storeName: 'content_cache',
-      driver: [
-        localforage.INDEXEDDB,
-        localforage.WEBSQL,
-        localforage.LOCALSTORAGE
-      ]
-    });
+    this.isLocalForageAvailable = this.checkLocalForageAvailability();
+    
+    if (this.isLocalForageAvailable && window.localforage) {
+      try {
+        this.store = window.localforage.createInstance({
+          name: 'mxc-docs-cache',
+          storeName: 'content_cache',
+          driver: [
+            window.localforage.INDEXEDDB,
+            window.localforage.WEBSQL,
+            window.localforage.LOCALSTORAGE
+          ]
+        });
+        console.log('[StorageService] Using localforage with IndexedDB/WebSQL');
+      } catch (error) {
+        console.warn('[StorageService] Failed to initialize localforage, falling back to localStorage', error);
+        this.store = this.createFallbackStorage();
+      }
+    } else {
+      console.warn('[StorageService] localforage not available, using localStorage fallback');
+      this.store = this.createFallbackStorage();
+    }
+  }
+
+  private checkLocalForageAvailability(): boolean {
+    return typeof window !== 'undefined' && 
+           !!window.localforage &&
+           typeof window.localforage.createInstance === 'function';
+  }
+
+  private createFallbackStorage(): FallbackStorage {
+    const service = this; // Capture 'this' for use in callbacks
+    
+    return {
+      getItem: <T>(key: string): Promise<T | null> => {
+        try {
+          const item = localStorage.getItem(service.PREFIX + key);
+          return Promise.resolve(item ? JSON.parse(item) : null);
+        } catch (error) {
+          console.error('Error reading from localStorage:', error);
+          return Promise.resolve(null);
+        }
+      },
+      setItem: <T>(key: string, value: T): Promise<T> => {
+        try {
+          localStorage.setItem(service.PREFIX + key, JSON.stringify(value));
+          return Promise.resolve(value);
+        } catch (error) {
+          console.error('Error writing to localStorage:', error);
+          return Promise.reject(error);
+        }
+      },
+      removeItem: (key: string): Promise<void> => {
+        try {
+          localStorage.removeItem(service.PREFIX + key);
+          return Promise.resolve();
+        } catch (error) {
+          console.error('Error removing from localStorage:', error);
+          return Promise.reject(error);
+        }
+      },
+      clear: (): Promise<void> => {
+        try {
+          Object.keys(localStorage)
+            .filter(key => key.startsWith(service.PREFIX))
+            .forEach(key => localStorage.removeItem(key));
+          return Promise.resolve();
+        } catch (error) {
+          console.error('Error clearing storage:', error);
+          return Promise.reject(error);
+        }
+      }
+    };
   }
 
   /**
@@ -60,7 +128,7 @@ export class StorageService {
    */
   get<T>(key: string): Observable<T | null> {
     if (!this.store) {
-      console.error('LocalForage store is not initialized');
+      console.error('Store is not initialized');
       return of(null);
     }
     return from(Promise.resolve(this.store.getItem<CacheItem<T>>(key))).pipe(
@@ -81,7 +149,7 @@ export class StorageService {
    */
   set<T>(key: string, value: T, ttl: number = 24 * 60 * 60 * 1000): Observable<T> {
     if (!this.store) {
-      console.error('LocalForage store is not initialized');
+      console.error('Store is not initialized');
       return of(value);
     }
     const item: CacheItem<T> = {
@@ -99,7 +167,7 @@ export class StorageService {
    */
   remove(key: string): Observable<void> {
     if (!this.store) {
-      console.error('LocalForage store is not initialized');
+      console.error('Store is not initialized');
       return of(undefined);
     }
     return from(Promise.resolve(this.store.removeItem(key))).pipe(
@@ -116,7 +184,7 @@ export class StorageService {
    */
   clear(): Observable<void> {
     if (!this.store) {
-      console.error('LocalForage store is not initialized');
+      console.error('Store is not initialized');
       return of(undefined);
     }
     return from(Promise.resolve(this.store.clear())).pipe(

@@ -49,6 +49,17 @@ mark {
   height: 8px;
 }
 
+/* Rotation animation for the refresh icon */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.refresh-button[aria-busy="true"] svg {
+  animation: spin 1s linear infinite;
+  transform-origin: center;
+}
+
 .search-results::-webkit-scrollbar-track {
   background-color: #f3f4f6;
   border-radius: 4px;
