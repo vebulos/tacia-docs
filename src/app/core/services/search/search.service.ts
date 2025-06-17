@@ -294,12 +294,13 @@ export class SearchService {
     return this.markdownService.getMarkdownFile(cleanPath).pipe(
       map(markdownFile => {
         console.log(`[SearchService] Successfully loaded markdown file: ${cleanPath}`);
-        // Store the raw content for full-text search
-        searchResult.content = markdownFile.content;
+        // Extract text content from HTML for full-text search
+        const textContent = this.extractTextFromHtml(markdownFile.html);
+        searchResult.content = textContent;
         
         // If we don't have a preview from metadata, create one from content
         if (!searchResult.preview) {
-          searchResult.preview = this.createPreview(markdownFile.content);
+          searchResult.preview = this.createPreview(textContent);
         }
         
         return searchResult;
@@ -319,7 +320,7 @@ export class SearchService {
 
   /**
    * Create a preview from content
-   * @param content Source content
+   * @param content Source content (plain text)
    * @param maxLength Maximum preview length
    * @returns Formatted preview
    */
@@ -328,8 +329,6 @@ export class SearchService {
     
     // Clean up content
     let preview = content
-      .replace(/<[^>]*>/g, '') // Remove HTML
-      .replace(/[#*_`\[\]]/g, '') // Remove Markdown syntax
       .replace(/\s+/g, ' ') // Replace multiple spaces
       .trim();
     
@@ -339,6 +338,26 @@ export class SearchService {
     }
     
     return preview;
+  }
+  
+  /**
+   * Extract plain text from HTML content
+   * @param html HTML content
+   * @returns Plain text content
+   */
+  private extractTextFromHtml(html: string): string {
+    if (!html) return '';
+    
+    // Create a temporary div to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // Get text content
+    const textContent = tempDiv.textContent || tempDiv.innerText || '';
+    
+    return textContent
+      .replace(/\s+/g, ' ') // Replace multiple spaces
+      .trim();
   }
 
   /**
