@@ -30,7 +30,11 @@ console.log(`[server] Content directory: ${CONTENT_DIR}`);
  */
 const server = http.createServer(async (req, res) => {
   // Enable CORS for all API requests
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:4200');
+  const allowedOrigins = ['http://localhost:4200', 'http://localhost:8080'];
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Cache-Control, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
