@@ -1,13 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-// Get the directory name of the current module
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Content directory path (relative to the server root)
-const CONTENT_DIR = path.resolve(__dirname, '..', '..', 'content');
+// Import CONTENT_DIR from server.js
+import { CONTENT_DIR } from '../server.js';
 
 /**
  * Find the first markdown document in any content folder

@@ -92,16 +92,20 @@ export class DocumentComponent implements OnInit, OnDestroy {
         
         if (!fullPath) {
           // If no path is provided, try to get the first document
-          this.firstDocumentService.getFirstDocumentPath().subscribe(path => {
-            if (path) {
-              this.router.navigate(PathUtils.buildDocsUrl(path));
-            } else {
-              // If no document is found, navigate to 404
-              console.warn('No document found in content folders');
-              this.router.navigate([PathUtils.DOCS_BASE_PATH, '404']);
-            }
-          });
-          return of(null);
+          console.log('No path provided, getting first document path');
+          return this.firstDocumentService.getFirstDocumentPath().pipe(
+            switchMap(path => {
+              if (path) {
+                console.log('First document path found:', path);
+                this.router.navigate(PathUtils.buildDocsUrl(path));
+              } else {
+                // If no document is found, navigate to 404
+                console.warn('No document found in content folders');
+                this.router.navigate([PathUtils.DOCS_BASE_PATH, '404']);
+              }
+              return of(null);
+            })
+          );
         }
         
         // Get the current navigation to access the resolved data
