@@ -106,6 +106,11 @@ export async function getContentStructure(req, res) {
       return a.name.localeCompare(b.name);
     });
     
+    // Add anti-cache headers to prevent browser caching
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     // Return the sorted content items as JSON
     console.log(`[content-structure] Returning ${sortedItems.length} sorted content items (files first)`);
     return res.json(sortedItems);

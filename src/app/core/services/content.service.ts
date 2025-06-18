@@ -30,45 +30,60 @@ export class ContentService {
   /**
    * Get content for a specific path
    * @param path The content path to retrieve (defaults to root)
+   * @param skipCache Whether to skip the cache and force a fresh request
    * @returns Observable of ContentItem array
    */
-  getContent(path: string = ''): Observable<ContentItem[]> {
+  getContent(path: string = '', skipCache: boolean = false): Observable<ContentItem[]> {
     const cacheKey = this.cacheKey(path);
     
-    // Return existing observable if this path is already being loaded
-    if (this.loadingStates.has(cacheKey)) {
+    // Si skipCache est true, on ne vérifie pas les états de chargement en cours
+    if (!skipCache && this.loadingStates.has(cacheKey)) {
+      console.log(`[ContentService] Returning existing loading state for path: ${path}`);
       return this.loadingStates.get(cacheKey)!;
     }
 
-    // Check if we have a cached version
-    const cached$ = this.storage.get<CacheItem<ContentItem[]>>(cacheKey).pipe(
-      map(cachedData => {
-        if (cachedData) {
-          const now = Date.now();
-          const isExpired = now > cachedData.expires;
-          if (!isExpired) {
-            return cachedData.data;
-          }
-        }
-        return null;
-      }),
-      catchError(() => of(null))
-    );
+    // Si skipCache est true, on saute la vérification du cache
+    let cached$ = of<ContentItem[] | null>(null);
     
-    // Create the request observable when cache is not available
+    // Vérifier le cache seulement si skipCache est false
+    if (!skipCache) {
+      console.log(`[ContentService] Checking cache for path: ${path}`);
+      cached$ = this.storage.get<CacheItem<ContentItem[]>>(cacheKey).pipe(
+        map(cachedData => {
+          if (cachedData) {
+            const now = Date.now();
+            const isExpired = now > cachedData.expires;
+            if (!isExpired) {
+              console.log(`[ContentService] Using cached data for path: ${path}`);
+              return cachedData.data;
+            }
+          }
+          return null;
+        }),
+        catchError(() => of<ContentItem[] | null>(null))
+      );
+    } else {
+      console.log(`[ContentService] Skipping cache for path: ${path}`);
+    }
+    
+    // Create the request observable when cache is not available or skipped
     const request$ = cached$.pipe(
       switchMap(cachedData => {
-        // Return cached data if available and not expired
-        if (cachedData) {
-          return of(cachedData);
+        // Return cached data if available, not expired, and not skipping cache
+        if (!skipCache && cachedData) {
+          return of<ContentItem[]>(cachedData);
         }
         
         // Fetch from source when no valid cache exists
+        console.log(`[ContentService] Fetching fresh content for path: ${path}`);
         return this.fetchContent(path).pipe(
           // Cache the result with expiration
           tap(items => {
-            const expires = Date.now() + (this.config.cacheTtl || 300000);
-            this.storage.set(cacheKey, { data: items, expires }).subscribe();
+            // Ne pas mettre en cache si skipCache est true
+            if (!skipCache) {
+              const expires = Date.now() + (this.config.cacheTtl || 300000);
+              this.storage.set(cacheKey, { data: items, expires }).subscribe();
+            }
           })
         );
       }),

@@ -109,11 +109,27 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
   
   /**
-   * Rafraîchit le contenu de la navigation
+   * Rafraîchit le contenu de la navigation en vidant d'abord le cache
    * @public
    */
   public refreshContent(): void {
-    this.loadRootContent();
+    console.log('[NavigationComponent] Refreshing content with cache clearing');
+    
+    // Vider le cache du contenu racine avant de recharger
+    this.contentService.clearCache('').pipe(
+      take(1) // Prendre seulement la première émission et compléter
+    ).subscribe({
+      next: () => {
+        console.log('[NavigationComponent] Cache cleared, loading fresh content');
+        // Utiliser skipCache=true pour forcer une requête fraîche
+        this.loadRootContent(true);
+      },
+      error: (err) => {
+        console.error('[NavigationComponent] Error clearing cache:', err);
+        // Charger quand même le contenu en cas d'erreur avec skipCache=true
+        this.loadRootContent(true);
+      }
+    });
   }
 
   private clearAllHoverTimers(): void {
@@ -123,13 +139,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   /**
    * Charge le contenu racine de la documentation
+   * @param skipCache Indique si le cache doit être ignoré
    * @public
    */
-  public loadRootContent(): void {
+  public loadRootContent(skipCache: boolean = false): void {
     this.loading = true;
     this.error = null;
     
-    this.contentService.getContent('').subscribe({
+    console.log(`[NavigationComponent] Loading root content with skipCache=${skipCache}`);
+    this.contentService.getContent('', skipCache).subscribe({
       next: (items: ContentItem[]) => {
         if (!items || !Array.isArray(items)) {
           console.warn('Received invalid root content items:', items);
