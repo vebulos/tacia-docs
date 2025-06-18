@@ -2,6 +2,7 @@ import http from 'http';
 import url from 'url';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
 import { getMarkdownContent } from './routes/content.routes.js';
 import { getRelatedDocuments } from './routes/related.routes.js';
 import { getContentStructure } from './routes/content-structure.routes.js';
@@ -19,9 +20,28 @@ const args = process.argv.slice(2).reduce((acc, arg) => {
 }, {});
 
 const PORT = args.port || process.env.PORT || 4201;
-export const CONTENT_DIR = args['content-dir'] 
-  ? path.resolve(process.cwd(), args['content-dir'])
+
+// Get content directory from args or use default
+let contentDir = args['content-dir'] || '';
+
+// Handle Cygwin paths (starts with /cygdrive/)
+if (contentDir.startsWith('/cygdrive/')) {
+  // Convert /cygdrive/c/... to c:/...
+  const pathParts = contentDir.split('/').filter(Boolean);
+  if (pathParts.length >= 3) {
+    const driveLetter = pathParts[1].charAt(0).toUpperCase();
+    const restOfPath = pathParts.slice(2).join('/');
+    contentDir = `${driveLetter}:/${restOfPath}`;
+  }
+}
+
+// Resolve the final content directory path
+export const CONTENT_DIR = contentDir 
+  ? path.resolve(contentDir)  // Use path.resolve directly as the path is already absolute
   : path.join(process.cwd(), 'src', 'assets', 'content');
+
+console.log('[server] Resolved content directory:', CONTENT_DIR);
+console.log('[server] Content directory exists:', existsSync(CONTENT_DIR) ? 'Yes' : 'No');
 
 console.log(`[server] Content directory: ${CONTENT_DIR}`);
 
