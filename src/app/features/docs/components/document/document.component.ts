@@ -8,6 +8,7 @@ import { tap, takeUntil, catchError, switchMap } from 'rxjs/operators';
 import { Subject, Subscription, of, Observable, forkJoin } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { PathUtils } from '@app/core/utils/path.utils';
+import { FirstDocumentService } from '@app/core/services/first-document.service';
 
 // Simple DOM parser to safely manipulate HTML
 const parseHtml = (html: string): Document => {
@@ -46,6 +47,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
 
   private elementRef = inject(ElementRef);
   private destroy$ = new Subject<void>();
+  private firstDocumentService: FirstDocumentService;
 
   constructor(
     private route: ActivatedRoute,
@@ -54,8 +56,11 @@ export class DocumentComponent implements OnInit, OnDestroy {
     private relatedDocumentsService: RelatedDocumentsService,
     private sanitizer: DomSanitizer,
     private refreshService: RefreshService,
-    private cdr: ChangeDetectorRef
-  ) {}
+    private cdr: ChangeDetectorRef,
+    firstDocumentService: FirstDocumentService
+  ) {
+    this.firstDocumentService = firstDocumentService;
+  }
 
   ngOnInit(): void {
     // Clean up any existing subscription
@@ -86,8 +91,16 @@ export class DocumentComponent implements OnInit, OnDestroy {
         let fullPath = pathSegments.join('/');
         
         if (!fullPath) {
-          // Use the default path if no path is provided
-          this.router.navigate(PathUtils.buildDocsUrl(PathUtils.DEFAULT_DOCS_PATH));
+          // Use the first document path from API if no path is provided
+          this.firstDocumentService.getFirstDocumentPath().subscribe(path => {
+            if (path) {
+              this.router.navigate(PathUtils.buildDocsUrl(path));
+            } else {
+              // If no document is found, navigate to 404 or handle as needed
+              console.warn('No document found in content folders');
+              // The route will handle the 404 case
+            }
+          });
           return of(null);
         }
         

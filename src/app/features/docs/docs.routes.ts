@@ -25,8 +25,7 @@ export function contentPathMatcher(
 export const DOCS_ROUTES: Routes = [
   {
     path: '',
-    redirectTo: 'getting-started/introduction',
-    pathMatch: 'full'
+    loadComponent: () => import('./components/document/document.component').then(m => m.DocumentComponent)
   },
   {
     matcher: contentPathMatcher,
@@ -34,6 +33,6 @@ export const DOCS_ROUTES: Routes = [
   },
   {
     path: '**',
-    redirectTo: 'getting-started/introduction'
+    loadComponent: () => import('./components/document/document.component').then(m => m.DocumentComponent)
   }
 ];

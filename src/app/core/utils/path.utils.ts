@@ -1,13 +1,10 @@
 import { environment } from '../../../environments/environment';
+import { Observable } from 'rxjs';
 
 /**
  * Utility for managing paths in a centralized way
  */
 export class PathUtils {
-  // Default path for documentation (without the /docs prefix)
-  static get DEFAULT_DOCS_PATH(): string {
-    return environment.docs?.defaultPath || 'getting-started/introduction';
-  }
   
   // Base path for content (now empty as content is managed by the backend)
   static get CONTENT_BASE_PATH(): string {

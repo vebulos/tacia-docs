@@ -26,7 +26,6 @@ export const environment: EnvironmentConfig = {
     basePath: ''
   },
   docs: {
-    basePath: '/docs',
-    defaultPath: 'getting-started/introduction'
+    basePath: '/docs'
   }
 };
