@@ -3,7 +3,7 @@ import url from 'url';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
-import { getMarkdownContent } from './routes/content.routes.js';
+import { getMarkdownContent, getFirstDocument } from './routes/content.routes.js';
 import { getRelatedDocuments } from './routes/related.routes.js';
 import { getContentStructure } from './routes/content-structure.routes.js';
 
@@ -121,6 +121,22 @@ const server = http.createServer(async (req, res) => {
     console.log('[server] GET /api/content with query:', req.query);
     
     await getContentStructure(req, res);
+    return;
+  }
+  
+  // Route for finding the first document in the first content folder
+  if (req.method === 'GET' && parsedUrl.pathname === '/api/first-document') {
+    // Parse query parameters properly
+    const queryParams = {};
+    for (const [key, value] of Object.entries(parsedUrl.query || {})) {
+      queryParams[key] = value;
+    }
+    req.query = queryParams;
+    
+    // Log the request for debugging
+    console.log('[server] GET /api/first-document');
+    
+    await getFirstDocument(req, res);
     return;
   }
 

@@ -27,9 +27,9 @@ export async function getMarkdownContent(req, res) {
 
     // Normalize and secure the path
     let safePath = path.normalize(requestedPath)
-      .replace(/^([\\/])+/, '')
+      .replace(/^([\/])+/, '')
       .replace(/\/\.\.\//g, '/')
-      .replace(/[\\/]+/g, '/');
+      .replace(/[\/]+/g, '/');
     
     // Ensure the path has .md extension
     if (!safePath.endsWith('.md')) {
@@ -108,6 +108,83 @@ export async function getMarkdownContent(req, res) {
     res.statusCode = 500;
     return res.json({ 
       error: 'Failed to process markdown', 
+      details: error.message,
+      stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+    });
+  }
+}
+
+/**
+ * Handler for finding the first document in the first content folder
+ * @param {Request} req - HTTP request object
+ * @param {Response} res - HTTP response object
+ */
+export async function getFirstDocument(req, res) {
+  try {
+    console.log('[content] Finding first document in first content folder');
+    
+    // Check if content directory exists
+    try {
+      const contentDirStats = await fs.stat(CONTENT_DIR);
+      if (!contentDirStats.isDirectory()) {
+        console.error(`[content] Base content directory is not a directory: ${CONTENT_DIR}`);
+        res.statusCode = 500;
+        return res.json({ error: 'Content directory configuration error' });
+      }
+    } catch (contentDirError) {
+      console.error(`[content] Base content directory not found: ${CONTENT_DIR}`, contentDirError);
+      res.statusCode = 500;
+      return res.json({ error: 'Content directory not found', details: contentDirError.message });
+    }
+    
+    // Read the content directory to find the first folder
+    const contentItems = await fs.readdir(CONTENT_DIR, { withFileTypes: true });
+    console.log(`[content] Found ${contentItems.length} items in content directory`);
+    
+    // Filter to only include directories
+    const contentFolders = contentItems.filter(item => item.isDirectory());
+    
+    if (contentFolders.length === 0) {
+      console.log('[content] No content folders found');
+      return res.json({ path: null });
+    }
+    
+    // Sort folders alphabetically
+    contentFolders.sort((a, b) => a.name.localeCompare(b.name));
+    
+    // Get the first folder
+    const firstFolder = contentFolders[0].name;
+    console.log(`[content] First content folder: ${firstFolder}`);
+    
+    // Read the first folder to find markdown files
+    const firstFolderPath = path.join(CONTENT_DIR, firstFolder);
+    const folderItems = await fs.readdir(firstFolderPath, { withFileTypes: true });
+    
+    // Filter to only include markdown files
+    const markdownFiles = folderItems.filter(item => item.isFile() && item.name.endsWith('.md'));
+    
+    if (markdownFiles.length === 0) {
+      console.log(`[content] No markdown files found in ${firstFolder}`);
+      return res.json({ path: null });
+    }
+    
+    // Sort markdown files alphabetically
+    markdownFiles.sort((a, b) => a.name.localeCompare(b.name));
+    
+    // Get the first markdown file
+    const firstFile = markdownFiles[0].name;
+    
+    // Create the relative path with forward slashes
+    const relativePath = path.posix.join(firstFolder, firstFile).replace(/\\/g, '/');
+    
+    console.log(`[content] First document found: ${relativePath}`);
+    
+    return res.json({ path: relativePath });
+  } catch (error) {
+    console.error('[content] Error finding first document:', error);
+    res.statusCode = 500;
+    return res.json({ 
+      error: 'Failed to find first document', 
       details: error.message,
       stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
     });
