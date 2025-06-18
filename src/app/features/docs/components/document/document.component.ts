@@ -1,10 +1,11 @@
-import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject, ChangeDetectorRef } from '@angular/core';
+import { RefreshService } from '@app/core/services/refresh/refresh.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink, RouterModule, ParamMap } from '@angular/router';
 import { MarkdownService, MarkdownApiResponse } from '@app/core/services/markdown.service';
 import { RelatedDocumentsService, type RelatedDocument } from '@app/core/services/related-documents.service';
-import { tap } from 'rxjs/operators';
-import { Subscription, catchError, of, switchMap, Observable, forkJoin } from 'rxjs';
+import { tap, takeUntil, catchError, switchMap } from 'rxjs/operators';
+import { Subject, Subscription, of, Observable, forkJoin } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { PathUtils } from '@app/core/utils/path.utils';
 
@@ -44,13 +45,16 @@ export class DocumentComponent implements OnInit, OnDestroy {
   relatedDocumentsError: string | null = null;
 
   private elementRef = inject(ElementRef);
+  private destroy$ = new Subject<void>();
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private markdownService: MarkdownService,
     private relatedDocumentsService: RelatedDocumentsService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private refreshService: RefreshService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -61,6 +65,19 @@ export class DocumentComponent implements OnInit, OnDestroy {
     
     // Handle fragment navigation when component loads
     this.handleFragmentNavigation();
+    
+    // Initialize refresh service if not already done
+    if (!this.refreshService) {
+      this.refreshService = inject(RefreshService);
+    }
+    
+    // Subscribe to refresh requests
+    this.refreshService.refreshRequested$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      console.log('Refresh requested, reloading document content...');
+      this.loadDocumentContent();
+    });
     
     this.subscription = this.route.paramMap.pipe(
       switchMap((params: ParamMap) => {
@@ -98,13 +115,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
         
         // Load document content and related documents in parallel
         return forkJoin([
-          this.markdownService.getMarkdownFile(fullPath).pipe(
-            catchError(err => {
-              console.error('Error loading markdown:', err);
-              this.error = 'Failed to load document. Please try again later.';
-              return of(null);
-            })
-          ),
+          this.loadDocumentContent(),
           relatedDocs$.pipe(catchError(() => of(null)))
         ]).pipe(
           switchMap(([file]) => {
@@ -127,23 +138,227 @@ export class DocumentComponent implements OnInit, OnDestroy {
     });
   }
   
+  /**
+   * Loads the document content with cache handling
+   */
+  private loadDocumentContent(): Observable<MarkdownApiResponse> {
+    const pathSegments = this.route.snapshot.url.map(segment => segment.path);
+    const fullPath = pathSegments.join('/');
+    
+    if (!fullPath) {
+      return of(null as unknown as MarkdownApiResponse);
+    }
+    
+    this.loading = true;
+    this.error = null;
+    this.content = null;
+    this.headings = [];
+    this.headingsChange.emit(this.headings);
+    
+    // Create a subject to handle the response
+    const responseSubject = new Subject<MarkdownApiResponse>();
+    
+    // First, clear the cache and then get the file
+    this.markdownService.clearCache(fullPath).subscribe({
+      next: () => {
+        this.markdownService.getMarkdownFile(fullPath).subscribe({
+          next: (response) => {
+            this.handleDocumentSuccess(response, fullPath);
+            responseSubject.next(response);
+            responseSubject.complete();
+          },
+          error: (error) => {
+            // If error after cache clear, try to load without clearing cache
+            console.error('Error after cache clear, trying to load without clearing cache:', error);
+            this.markdownService.getMarkdownFile(fullPath).subscribe({
+              next: (response) => {
+                this.handleDocumentSuccess(response, fullPath);
+                responseSubject.next(response);
+                responseSubject.complete();
+              },
+              error: (err) => {
+                this.handleDocumentLoadError(err, fullPath);
+                responseSubject.error(err);
+              }
+            });
+          }
+        });
+      },
+      error: (error) => {
+        console.error('Error clearing cache, trying to load anyway:', error);
+        this.markdownService.getMarkdownFile(fullPath).subscribe({
+          next: (response) => {
+            this.handleDocumentSuccess(response, fullPath);
+            responseSubject.next(response);
+            responseSubject.complete();
+          },
+          error: (err) => {
+            this.handleDocumentLoadError(err, fullPath);
+            responseSubject.error(err);
+          }
+        });
+      }
+    });
+    
+    return responseSubject.asObservable();
+  }
+  
+  /**
+   * Handle successful document load
+   */
+  private handleDocumentSuccess(response: MarkdownApiResponse, fullPath: string): void {
+    try {
+      // Process the content
+      this.processContent(response, fullPath);
+      
+      // Load related documents
+      this.loadRelatedDocuments(fullPath);
+      
+      // Update the UI
+      this.loading = false;
+      
+      // Emit the new headings to update the navigation
+      this.headingsChange.emit(this.headings);
+      
+      // If there's a fragment in the URL, navigate to it
+      const fragment = this.router.parseUrl(this.router.url).fragment;
+      if (fragment) {
+        setTimeout(() => this.handleFragmentNavigation(), 100);
+      }
+      
+      // Force change detection
+      this.cdr.detectChanges();
+    } catch (error) {
+      console.error('Error processing document:', error);
+      this.error = 'An error occurred while processing the document.';
+      this.loading = false;
+      this.cdr.detectChanges();
+    }
+  }
+  
+  /**
+   * Handles document content after it's loaded
+   */
   private processContent(response: MarkdownApiResponse, fullPath: string): void {
+    if (!response || !response.html) {
+      throw new Error('No content in response');
+    }
+    
     // Use requestAnimationFrame for better performance
     requestAnimationFrame(() => {
-      // Create a temporary div to manipulate the HTML
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = response.html;
-      
-      // Process links after the content is loaded
-      const processedHtml = this.processHtmlLinks(tempDiv.innerHTML, fullPath);
-      
-      // Update the content with processed HTML in a single operation
-      this.content = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
-      this.headings = [...response.headings]; // Create a new array reference
-      this.headingsChange.emit(this.headings);
+      try {
+        // Create a temporary div to manipulate the HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = response.html;
+        
+        // Process links after the content is loaded
+        const processedHtml = this.processHtmlLinks(tempDiv.innerHTML, fullPath);
+        
+        // Update the content with processed HTML in a single operation
+        this.content = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
+        
+        // Extract headings from the processed content if not provided in the response
+        if (!response.headings || response.headings.length === 0) {
+          this.extractHeadingsFromContent(tempDiv);
+        } else {
+          this.headings = [...response.headings];
+        }
+        
+        // Emit the headings change
+        this.headingsChange.emit(this.headings);
+      } catch (error) {
+        console.error('Error processing content:', error);
+        throw error;
+      }
     });
   }
   
+  /**
+   * Extract headings from the HTML content
+   */
+  private extractHeadingsFromContent(container: HTMLElement): void {
+    this.headings = [];
+    const headingElements = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    
+    headingElements.forEach((heading) => {
+      const text = heading.textContent?.trim() || '';
+      if (text) {
+        const level = parseInt(heading.tagName.substring(1), 10);
+        let id = heading.id;
+        
+        // If no ID, create one
+        if (!id) {
+          id = this.createId(text);
+          heading.id = id;
+        }
+        
+        // Add to headings array
+        this.headings.push({ text, level, id });
+      }
+    });
+  }
+  
+
+  
+  /**
+   * Scroll to a fragment in the document with smooth animation and highlight
+   * @param fragment The ID of the element to scroll to (without the #)
+   * @param offset Optional offset from the top of the viewport (default: 80px for header)
+   */
+  private scrollToFragment(fragment: string, offset: number = 80): void {
+    if (!fragment) return;
+    
+    const element = document.getElementById(fragment);
+    if (!element) {
+      console.warn(`Element with ID '${fragment}' not found`);
+      return;
+    }
+    
+    // Use requestAnimationFrame for smoother animations
+    requestAnimationFrame(() => {
+      // Calculate the scroll position with offset
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - offset;
+      
+      // Smooth scroll to the element
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+      
+      // Save original styles for restoration
+      const originalTransition = element.style.transition;
+      const originalBoxShadow = element.style.boxShadow;
+      
+      // Add highlight effect
+      element.style.transition = 'box-shadow 0.5s ease';
+      element.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.5)';
+      
+      // Focus the element for keyboard navigation
+      element.setAttribute('tabindex', '-1');
+      element.focus({ preventScroll: true });
+      
+      // Remove highlight after animation
+      setTimeout(() => {
+        element.style.boxShadow = originalBoxShadow;
+        setTimeout(() => {
+          element.style.transition = originalTransition;
+        }, 500);
+      }, 1500);
+    });
+  }
+  
+  /**
+   * Handles errors that occur during document loading
+   * @param error The error that occurred
+   * @param path The path of the document that failed to load
+   */
+  private handleDocumentLoadError(error: any, path: string): void {
+    console.error(`Error loading document at path '${path}':`, error);
+    this.error = 'Failed to load document. Please try again later.';
+    this.loading = false;
+  }
+
   private loadRelatedDocuments(documentPath: string): Observable<{ related: RelatedDocument[] }> {
     if (!documentPath) {
       console.log('No document path provided for related documents');
@@ -248,45 +463,41 @@ export class DocumentComponent implements OnInit, OnDestroy {
     this.showRelatedDocuments = !this.showRelatedDocuments;
   }
 
-  // Handle fragment links in the URL when component loads
-  private handleFragmentNavigation() {
-    // Wait for the content to be rendered
+  /**
+   * Handle fragment links in the URL when component loads
+   */
+  private handleFragmentNavigation(): void {
+    const fragment = this.router.parseUrl(this.router.url).fragment;
+    if (!fragment) return;
+    
+    // Use a small timeout to ensure the content is rendered
     setTimeout(() => {
-      const fragment = this.router.parseUrl(this.router.url).fragment || '';
-      if (!fragment) return;
-      
-      // Try exact match first
       let element = document.getElementById(fragment);
       
       // If not found, try with the cleaned up version of the fragment
       if (!element) {
-        const cleanFragment = this.createId(fragment);
-        if (cleanFragment) {
-          element = document.getElementById(cleanFragment);
+        const cleanedFragment = this.createId(fragment);
+        if (cleanedFragment && cleanedFragment !== fragment) {
+          element = document.getElementById(cleanedFragment);
         }
       }
       
       // If still not found, try to find a matching heading by text content
       if (!element) {
-        // Remove any URL encoding and clean the fragment
         const decodedFragment = decodeURIComponent(fragment);
         const cleanFragment = this.createId(decodedFragment);
         
         if (cleanFragment) {
-          // Try exact match with cleaned fragment
-          element = document.getElementById(cleanFragment);
+          const headingElements = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+          const matchingElement = headingElements.find((el: Element) => {
+            const elId = el.id || '';
+            const elText = el.textContent || '';
+            return elId.includes(cleanFragment) || 
+                   this.createId(elText).includes(cleanFragment);
+          });
           
-          // Try partial match if still not found
-          if (!element) {
-            const elements = Array.from(document.querySelectorAll('[id]'));
-            const matchingElement = elements.find(el => 
-              el.id.includes(cleanFragment) || 
-              this.createId(el.textContent || '').includes(cleanFragment)
-            );
-            
-            if (matchingElement) {
-              element = matchingElement as HTMLElement;
-            }
+          if (matchingElement) {
+            element = matchingElement as HTMLElement;
           }
         }
       }
@@ -297,7 +508,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
         requestAnimationFrame(() => {
           // Add a small offset to account for fixed headers
           const headerOffset = 80;
-          const elementPosition = element!.getBoundingClientRect().top;
+          const elementPosition = element.getBoundingClientRect().top;
           const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
           
           window.scrollTo({
@@ -305,21 +516,23 @@ export class DocumentComponent implements OnInit, OnDestroy {
             behavior: 'smooth'
           });
           
+          // Save original styles
+          const originalTransition = element.style.transition;
+          const originalBoxShadow = element.style.boxShadow;
+          
+          // Add highlight effect
+          element.style.transition = 'box-shadow 0.5s ease';
+          element.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.5)';
+          
           // Focus the element for keyboard navigation
-          element!.setAttribute('tabindex', '-1');
-          element!.focus({ preventScroll: true });
+          element.setAttribute('tabindex', '-1');
+          element.focus({ preventScroll: true });
           
-          // Highlight the element briefly
-          const originalTransition = element!.style.transition;
-          const originalBoxShadow = element!.style.boxShadow;
-          
-          element!.style.transition = 'box-shadow 0.5s ease';
-          element!.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.5)';
-          
+          // Remove highlight after animation
           setTimeout(() => {
-            element!.style.boxShadow = originalBoxShadow;
+            element.style.boxShadow = originalBoxShadow;
             setTimeout(() => {
-              element!.style.transition = originalTransition;
+              element.style.transition = originalTransition;
             }, 500);
           }, 1500);
         });
@@ -329,34 +542,45 @@ export class DocumentComponent implements OnInit, OnDestroy {
     }, 100);
   }
   
-  // Handle clicks on fragment links
-  onContentClick(event: MouseEvent) {
+  /**
+   * Handle clicks on fragment links in the document content
+   * @param event The click event
+   */
+  onContentClick(event?: MouseEvent): void {
+    if (!event) return;
+    
+    // Find the closest anchor element that was clicked
     const target = event.target as HTMLElement;
     const link = target.closest('a[href^="#"]') as HTMLAnchorElement;
     
     if (link) {
       const fragment = link.getAttribute('href');
       if (fragment) {
+        // Prevent default behavior to handle navigation manually
         event.preventDefault();
+        
+        // Extract the fragment ID (without the #)
+        const fragmentId = fragment.substring(1);
         
         // Check if it's the same fragment to avoid unnecessary navigation
         if (window.location.hash !== fragment) {
           // Use router.navigate for consistent navigation handling
+          // This updates the URL in the address bar
           this.router.navigate([], { 
-            fragment: fragment.substring(1),
+            fragment: fragmentId,
             replaceUrl: true,
             skipLocationChange: false
           }).then(() => {
-            // Let handleFragmentNavigation handle the scrolling
+            // Let handleFragmentNavigation handle the scrolling and highlighting
             this.handleFragmentNavigation();
+          }).catch(error => {
+            console.error('Navigation error:', error);
+            // Fallback to direct scrolling if navigation fails
+            this.scrollToFragment(fragmentId);
           });
         } else {
           // Same fragment, just scroll to it
-          const elementId = fragment.substring(1);
-          const element = document.getElementById(elementId);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth' });
-          }
+          this.scrollToFragment(fragmentId);
         }
       }
     }
@@ -508,7 +732,6 @@ export class DocumentComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.subscription) {
       this.subscription.unsubscribe();
-      this.subscription = null;
     }
     
     // Cleanup event listener
@@ -516,11 +739,14 @@ export class DocumentComponent implements OnInit, OnDestroy {
       this.elementRef.nativeElement.removeEventListener('click', this.fragmentClickHandler as EventListener);
       this.fragmentClickHandler = null;
     }
+    
+    this.destroy$.next();
+    this.destroy$.complete();
   }
-  
+
   private handleFragmentClick(event: MouseEvent): void {
-    const target = event.target as HTMLElement;
-    const link = target.closest('a[data-fragment]') as HTMLAnchorElement;
+    const target = event?.target as HTMLElement;
+    const link = target?.closest('a[data-fragment]') as HTMLAnchorElement;
     
     if (link) {
       event.preventDefault();

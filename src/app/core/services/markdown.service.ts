@@ -93,17 +93,42 @@ export class MarkdownService implements OnDestroy {
   /**
    * Clears the markdown cache
    * @param path Optional path to clear a specific entry
+   * @returns Observable that completes when the cache is cleared
    */
-  clearCache(path?: string): void {
-    if (path) {
-      this.cache.delete(path);
-      console.log(`[MarkdownService] Cleared cache for path: ${path}`);
-    } else {
-      this.cache.clear();
-      this.cacheHits = 0;
-      this.cacheMisses = 0;
-      console.log('[MarkdownService] Cache cleared');
-    }
+  clearCache(path?: string): Observable<void> {
+    return new Observable(subscriber => {
+      try {
+        if (path) {
+          // Remove a specific path from cache
+          const cacheKey = this.normalizePath(path);
+          this.cache.delete(cacheKey);
+          console.log(`[MarkdownService] Cleared cache for path: ${path}`);
+        } else {
+          // Clear the entire cache
+          this.cache.clear();
+          this.cacheHits = 0;
+          this.cacheMisses = 0;
+          console.log('[MarkdownService] Cleared entire markdown cache');
+        }
+        subscriber.next();
+        subscriber.complete();
+      } catch (error) {
+        console.error('[MarkdownService] Error clearing cache:', error);
+        subscriber.error(error);
+      }
+    });
+  }
+  
+  /**
+   * Normalizes a path for consistent cache key generation
+   * @param path The path to normalize
+   * @returns Normalized path string
+   */
+  private normalizePath(path: string): string {
+    // Remove leading/trailing slashes and .md extension for consistent keys
+    return path
+      .replace(/^\/+|\/+$/g, '')
+      .replace(/\.md$/i, '');
   }
   
   /**
@@ -134,7 +159,10 @@ export class MarkdownService implements OnDestroy {
     // If we're still over the limit, clear the entire cache
     if (this.cache.size >= this.maxCacheSize) {
       console.log(`[MarkdownService] Cache size (${this.cache.size}) exceeds max (${this.maxCacheSize}), clearing cache`);
-      this.clearCache();
+      this.clearCache().subscribe({
+        next: () => console.log('[MarkdownService] Cache cleared due to size limit'),
+        error: (err) => console.error('[MarkdownService] Error clearing cache during cleanup:', err)
+      });
     }
   }
 
@@ -168,13 +196,15 @@ export class MarkdownService implements OnDestroy {
     };
   }
 
+
+
   /**
    * Clean up resources when the service is destroyed
    */
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    this.clearCache();
-    console.log('[MarkdownService] Destroyed and cache cleared');
+    this.cache.clear();
+    console.log('[MarkdownService] Service destroyed and cache cleared');
   }
 }

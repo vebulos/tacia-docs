@@ -6,10 +6,11 @@ import { NavigationStateService } from '../../services/navigation-state.service'
 import { PathUtils } from '@app/core/utils/path.utils';
 import { ContentService } from '../../../../core/services/content.service';
 import { ContentItem } from '../../../../core/services/content.interface';
-import { map, filter, takeUntil } from 'rxjs/operators';
+import { map, filter, takeUntil, tap } from 'rxjs/operators';
 import { NavigationItemComponent, NavigationItem } from './navigation-item.component';
 import { SearchComponent as DocsSearchComponent } from '../search/search.component';
 import { Subject } from 'rxjs';
+import { RefreshService } from '@app/core/services/refresh/refresh.service';
 
 @Component({
   selector: 'app-navigation',
@@ -32,7 +33,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   constructor(
     private contentService: ContentService,
     private router: Router,
-    private navigationState: NavigationStateService
+    private navigationState: NavigationStateService,
+    private refreshService: RefreshService
   ) {
     // Listen for active category changes
     this.navigationState.activeCategory$.subscribe(activePath => {
@@ -51,6 +53,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$)
     ).subscribe(() => {
       this.updateActiveStates();
+    });
+    
+    // Subscribe to refresh requests
+    this.refreshService.refreshRequested$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      console.log('Refresh requested, reloading navigation content...');
+      this.refreshContent();
     });
   }
 
@@ -98,12 +108,24 @@ export class NavigationComponent implements OnInit, OnDestroy {
     closeRecursive(this.navItems);
   }
   
+  /**
+   * Rafraîchit le contenu de la navigation
+   * @public
+   */
+  public refreshContent(): void {
+    this.loadRootContent();
+  }
+
   private clearAllHoverTimers(): void {
     this.hoverTimers.forEach(timerId => clearTimeout(timerId));
     this.hoverTimers.clear();
   }
 
-  loadRootContent(): void {
+  /**
+   * Charge le contenu racine de la documentation
+   * @public
+   */
+  public loadRootContent(): void {
     this.loading = true;
     this.error = null;
     

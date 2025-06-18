@@ -1,4 +1,5 @@
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
+import { RefreshService } from '@app/core/services/refresh/refresh.service';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -39,6 +40,7 @@ export class SearchComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private searchService = inject(SearchService);
   private notificationService = inject(NotificationService);
+  private refreshService = inject(RefreshService);
   private searchConfig: any;
 
   constructor() {
@@ -285,22 +287,25 @@ export class SearchComponent implements OnInit, OnDestroy {
     
     // Show loading state
     this.isLoading = true;
-    this.notificationService.info('Updating search index...', 0);
+    this.notificationService.info('Updating content and search index...', 0);
+    
+    // Notify all components to refresh their content
+    this.refreshService.requestRefresh();
     
     // Call the search service to refresh the index
     this.searchService.refreshIndex().subscribe({
       next: () => {
         this.isLoading = false;
         this.notificationService.clearAll(); // Clear any previous notifications
-        this.notificationService.success('Search index has been updated successfully', 5000);
-        console.log('Search index refreshed successfully');
+        this.notificationService.success('Content and search index have been updated successfully', 5000);
+        console.log('Content and search index refreshed successfully');
       },
       error: (error) => {
         this.isLoading = false;
         this.notificationService.clearAll(); // Clear any previous notifications
-        const errorMessage = error?.message || 'An error occurred while updating the index';
+        const errorMessage = error?.message || 'An error occurred while updating the content and index';
         this.notificationService.error(`Error: ${errorMessage}`, 7000);
-        console.error('Error refreshing search index:', error);
+        console.error('Error refreshing content and search index:', error);
       }
     });
   }
