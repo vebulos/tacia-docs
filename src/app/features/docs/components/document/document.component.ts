@@ -96,9 +96,9 @@ export class DocumentComponent implements OnInit, OnDestroy {
             if (path) {
               this.router.navigate(PathUtils.buildDocsUrl(path));
             } else {
-              // If no document is found, navigate to 404 or handle as needed
+              // If no document is found, navigate to 404
               console.warn('No document found in content folders');
-              // The route will handle the 404 case
+              this.router.navigate([PathUtils.DOCS_BASE_PATH, '404']);
             }
           });
           return of(null);
@@ -145,7 +145,19 @@ export class DocumentComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Error in document subscription:', err);
-        this.error = 'An error occurred while loading the document.';
+        
+        // Check if the error is a 404 (document not found)
+        const status = err?.status || err?.originalError?.status || 
+                      (err?.message?.includes('404') ? 404 : null);
+        
+        if (status === 404 || (err?.error?.error === 'Document not found')) {
+          console.warn('Document not found, redirecting to 404 page');
+          this.router.navigate([PathUtils.DOCS_BASE_PATH, '404']);
+        } else {
+          // For other errors, show an error message
+          this.error = 'An error occurred while loading the document.';
+        }
+        
         this.loading = false;
       }
     });
@@ -368,7 +380,20 @@ export class DocumentComponent implements OnInit, OnDestroy {
    */
   private handleDocumentLoadError(error: any, path: string): void {
     console.error(`Error loading document at path '${path}':`, error);
-    this.error = 'Failed to load document. Please try again later.';
+    
+    // Check if the error is a 404 (document not found)
+    // Handle both direct HTTP errors and wrapped errors from our service
+    const status = error?.status || error?.originalError?.status || 
+                  (error?.message?.includes('404') ? 404 : null);
+    
+    if (status === 404 || (error?.error?.error === 'Document not found')) {
+      console.warn(`Document not found at path '${path}', redirecting to 404 page`);
+      this.router.navigate([PathUtils.DOCS_BASE_PATH, '404']);
+    } else {
+      // For other errors, show an error message
+      this.error = 'An error occurred while loading the document.';
+    }
+    
     this.loading = false;
   }
 

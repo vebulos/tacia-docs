@@ -77,7 +77,13 @@ export class MarkdownService implements OnDestroy {
       }),
       catchError((error: HttpErrorResponse) => {
         console.error(`[MarkdownService] Error loading markdown from ${apiUrl}:`, error.status, error.statusText);
-        return throwError(() => new Error(`Failed to load markdown: ${error.status} ${error.statusText}`));
+        
+        // Create a more detailed error object that includes the status code
+        const enhancedError = new Error(`Failed to load markdown: ${error.status} ${error.statusText}`);
+        (enhancedError as any).status = error.status;
+        (enhancedError as any).originalError = error;
+        
+        return throwError(() => enhancedError);
       }),
       shareReplay({ bufferSize: 1, refCount: true })
     );

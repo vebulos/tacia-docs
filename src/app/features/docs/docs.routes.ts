@@ -1,4 +1,5 @@
 import { Routes, UrlSegment, UrlSegmentGroup, Route, UrlMatchResult } from '@angular/router';
+import { NotFound404Component } from './components/404/404.component';
 
 // Custom URL matcher to handle paths with slashes
 export function contentPathMatcher(
@@ -24,6 +25,10 @@ export function contentPathMatcher(
 
 export const DOCS_ROUTES: Routes = [
   {
+    path: '404',
+    component: NotFound404Component
+  },
+  {
     path: '',
     loadComponent: () => import('./components/document/document.component').then(m => m.DocumentComponent)
   },
@@ -33,6 +38,7 @@ export const DOCS_ROUTES: Routes = [
   },
   {
     path: '**',
-    loadComponent: () => import('./components/document/document.component').then(m => m.DocumentComponent)
+    redirectTo: '404',
+    pathMatch: 'full'
   }
 ];
