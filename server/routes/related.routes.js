@@ -1,18 +1,5 @@
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import matter from 'gray-matter';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Get CONTENT_DIR from the server configuration
-import { CONTENT_DIR } from '../server.js';
-
-// Simple in-memory cache for related documents
-// Structure: { [documentPath]: { timestamp: Date, data: Array<RelatedDoc>, ttl: number } }
-const relatedDocsCache = new Map();
-const DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+// Import the RelatedService
+import * as RelatedService from '../services/related.service.js';
 
 /**
  * Handler for fetching related documents based on tags and categories.
@@ -28,86 +15,36 @@ export async function getRelatedDocuments(req, res) {
     
     console.log(`[related] Getting related documents for path: ${documentPath}, limit: ${limit}, skipCache: ${skipCache}`);
     
-    if (!documentPath) {
-      console.warn('[related] Missing document path in request');
-      res.statusCode = 400;
-      return res.json({ 
-        error: 'Missing document path', 
-        details: 'The path parameter is required',
-        related: [] 
-      });
-    }
+    // Use the RelatedService to find related documents
+    const result = await RelatedService.findRelatedDocumentsForPath(documentPath, limit, skipCache);
     
-    // Normalize the path to ensure consistent handling
-    // Replace backslashes, remove leading/trailing slashes, and ensure .md extension
-    let normalizedPath = documentPath
-      .replace(/\\/g, '/')
-      .replace(/^\/+|\/+$/g, '');
-    
-    if (!normalizedPath.endsWith('.md')) {
-      normalizedPath = `${normalizedPath}.md`;
-    }
-    
-    console.log(`[related] Normalized document path: ${normalizedPath}`);
-    
-    // Check cache first if not skipping
-    if (!skipCache) {
-      const cachedResult = getCachedRelatedDocs(normalizedPath, limit);
-      if (cachedResult) {
-        console.log(`[related] Cache hit for ${normalizedPath}`);
-        return res.json({
-          related: cachedResult,
-          fromCache: true
-        });
+    // If there was an error, return appropriate status code
+    if (result.error) {
+      console.error(`[related] Error from RelatedService: ${result.error}`);
+      
+      // Set appropriate status code based on the error
+      if (result.error === 'Document not found') {
+        res.statusCode = 404;
+      } else if (result.error === 'Missing document path') {
+        res.statusCode = 400;
+      } else {
+        res.statusCode = 500;
       }
-    }
-    
-    // Get the directory containing the current document
-    const documentDir = path.dirname(normalizedPath);
-    const fullDocumentPath = path.join(CONTENT_DIR, normalizedPath);
-    
-    try {
-      // Check if the document exists
-      await fs.access(fullDocumentPath);
-    } catch (error) {
-      console.warn(`[related] Document not found: ${fullDocumentPath}`);
-      res.statusCode = 404;
-      return res.json({ 
-        error: 'Document not found', 
-        details: `The document at path '${normalizedPath}' does not exist`,
-        related: [] 
+      
+      return res.json({
+        error: result.error,
+        details: result.details,
+        related: result.related || []
       });
     }
     
-    // Get metadata from the current document
-    let currentDocMetadata = {};
-    try {
-      const content = await fs.readFile(fullDocumentPath, 'utf-8');
-      const { data } = matter(content);
-      currentDocMetadata = data || {};
-    } catch (error) {
-      console.warn(`[related] Error reading current document metadata: ${error.message}`);
-    }
-    
-    // Find related documents
-    const relatedDocs = await findRelatedDocuments(
-      normalizedPath,
-      documentDir,
-      currentDocMetadata,
-      limit
-    );
-    
-    console.log(`[related] Found ${relatedDocs.length} related documents`);
-    
-    // Cache the results
-    cacheRelatedDocs(normalizedPath, relatedDocs);
-    
+    // Return the related documents
     return res.json({
-      related: relatedDocs,
-      fromCache: false
+      related: result.related,
+      fromCache: result.fromCache
     });
   } catch (error) {
-    console.error('[related] Error getting related documents:', error);
+    console.error('[related] Unexpected error in getRelatedDocuments:', error);
     res.statusCode = 500;
     return res.json({ error: 'Failed to get related documents', details: error.message, related: [] });
   }
