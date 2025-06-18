@@ -91,7 +91,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
         let fullPath = pathSegments.join('/');
         
         if (!fullPath) {
-          // Use the first document path from API if no path is provided
+          // If no path is provided, try to get the first document
           this.firstDocumentService.getFirstDocumentPath().subscribe(path => {
             if (path) {
               this.router.navigate(PathUtils.buildDocsUrl(path));

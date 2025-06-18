@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import MarkdownService from '../services/markdown.service.js';
+import * as ContentService from '../services/content.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -115,73 +116,36 @@ export async function getMarkdownContent(req, res) {
 }
 
 /**
- * Handler for finding the first document in the first content folder
+ * Handler for finding the first document in any content folder
  * @param {Request} req - HTTP request object
  * @param {Response} res - HTTP response object
  */
 export async function getFirstDocument(req, res) {
   try {
-    console.log('[content] Finding first document in first content folder');
+    console.log('[content] Finding first document using ContentService');
     
-    // Check if content directory exists
-    try {
-      const contentDirStats = await fs.stat(CONTENT_DIR);
-      if (!contentDirStats.isDirectory()) {
-        console.error(`[content] Base content directory is not a directory: ${CONTENT_DIR}`);
-        res.statusCode = 500;
-        return res.json({ error: 'Content directory configuration error' });
-      }
-    } catch (contentDirError) {
-      console.error(`[content] Base content directory not found: ${CONTENT_DIR}`, contentDirError);
+    // Add anti-cache headers to prevent browser caching
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    // Use the ContentService to find the first document
+    const result = await ContentService.findFirstDocument();
+    
+    // If there was an error, return appropriate status code
+    if (result.error) {
+      console.error(`[content] Error from ContentService: ${result.error}`);
       res.statusCode = 500;
-      return res.json({ error: 'Content directory not found', details: contentDirError.message });
+      return res.json({ 
+        error: result.error,
+        path: null
+      });
     }
     
-    // Read the content directory to find the first folder
-    const contentItems = await fs.readdir(CONTENT_DIR, { withFileTypes: true });
-    console.log(`[content] Found ${contentItems.length} items in content directory`);
-    
-    // Filter to only include directories
-    const contentFolders = contentItems.filter(item => item.isDirectory());
-    
-    if (contentFolders.length === 0) {
-      console.log('[content] No content folders found');
-      return res.json({ path: null });
-    }
-    
-    // Sort folders alphabetically
-    contentFolders.sort((a, b) => a.name.localeCompare(b.name));
-    
-    // Get the first folder
-    const firstFolder = contentFolders[0].name;
-    console.log(`[content] First content folder: ${firstFolder}`);
-    
-    // Read the first folder to find markdown files
-    const firstFolderPath = path.join(CONTENT_DIR, firstFolder);
-    const folderItems = await fs.readdir(firstFolderPath, { withFileTypes: true });
-    
-    // Filter to only include markdown files
-    const markdownFiles = folderItems.filter(item => item.isFile() && item.name.endsWith('.md'));
-    
-    if (markdownFiles.length === 0) {
-      console.log(`[content] No markdown files found in ${firstFolder}`);
-      return res.json({ path: null });
-    }
-    
-    // Sort markdown files alphabetically
-    markdownFiles.sort((a, b) => a.name.localeCompare(b.name));
-    
-    // Get the first markdown file
-    const firstFile = markdownFiles[0].name;
-    
-    // Create the relative path with forward slashes
-    const relativePath = path.posix.join(firstFolder, firstFile).replace(/\\/g, '/');
-    
-    console.log(`[content] First document found: ${relativePath}`);
-    
-    return res.json({ path: relativePath });
+    // Return the path (which may be null if no document was found)
+    return res.json({ path: result.path });
   } catch (error) {
-    console.error('[content] Error finding first document:', error);
+    console.error('[content] Unexpected error finding first document:', error);
     res.statusCode = 500;
     return res.json({ 
       error: 'Failed to find first document', 
