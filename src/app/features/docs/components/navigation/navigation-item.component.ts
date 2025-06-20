@@ -50,6 +50,10 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private hoverTimer: any = null;
   
+  // Variable to track which categories are currently in the process of opening
+  // This variable is static to be accessible to all component instances
+  private static openingItems: Set<string> = new Set<string>();
+  
   @Input() item!: NavigationItem;
   @Input() level: number = 0;
   @Input() activePath: string = '';
@@ -72,6 +76,12 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     if (!this.item.isDirectory) return;
     
     event.stopPropagation();
+    
+    // If the category is in the process of opening, prevent it from being closed
+    if (NavigationItemComponent.openingItems.has(this.item.path) && forceOpen === false) {
+      console.log('Preventing close during opening:', this.item.path);
+      return;
+    }
     
     // Calculate the new open state
     const willBeOpen = forceOpen !== null ? forceOpen : !this.item.isOpen;
@@ -157,12 +167,26 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     if (this.hoverTimer) {
       clearTimeout(this.hoverTimer);
     }
+    
+    // Mark this category as currently opening
+    if (this.item.path) {
+      console.log('Marking as opening:', this.item.path);
+      NavigationItemComponent.openingItems.add(this.item.path);
+    }
 
     // Set a new timer
     this.hoverTimer = setTimeout(() => {
       this.toggleItem(event, true); // Force open on hover
       this.hoverTimer = null;
-    }, 300); // 300ms delay before loading on hover
+      
+      // After a short delay, reset the opening state
+      setTimeout(() => {
+        if (this.item.path) {
+          console.log('Unmarking as opening:', this.item.path);
+          NavigationItemComponent.openingItems.delete(this.item.path);
+        }
+      }, 1000); // Longer delay to prevent accidental clicks
+    }, 500); // 500ms delay before opening on hover
   }
 
   onMouseLeave(event: MouseEvent): void {
@@ -170,6 +194,11 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     if (this.hoverTimer) {
       clearTimeout(this.hoverTimer);
       this.hoverTimer = null;
+      
+      // Reset the opening state if mouse leaves before opening completes
+      if (this.item.path) {
+        NavigationItemComponent.openingItems.delete(this.item.path);
+      }
     }
   }
 
