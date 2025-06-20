@@ -6,7 +6,7 @@ export const routes: Routes = [
   {
     path: '',
     component: HomeComponent,
-    title: 'MXC Documentation',
+    title: 'TaciaNet Documentation',
     data: { title: 'Home' }
   },
   {

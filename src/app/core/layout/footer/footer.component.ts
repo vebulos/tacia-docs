@@ -10,7 +10,7 @@ import { CommonModule } from '@angular/common';
       <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div class="flex flex-col md:flex-row justify-between items-center">
           <div class="text-sm text-gray-500 dark:text-gray-400">
-            © {{ currentYear }} MXC Foundation. All rights reserved.
+            © {{ currentYear }} TaciaNet Foundation. All rights reserved.
           </div>
           <div class="mt-4 md:mt-0">
             <a 
@@ -19,7 +19,7 @@ import { CommonModule } from '@angular/common';
               rel="noopener noreferrer"
               class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
-              Visit MXC Website
+              Visit TaciaNet Website
             </a>
           </div>
         </div>
