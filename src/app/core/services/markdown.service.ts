@@ -1,4 +1,8 @@
 import { Injectable, OnDestroy } from '@angular/core';
+
+// Global configuration for supported markdown extensions (expand as needed)
+const SUPPORTED_MARKDOWN_EXTENSIONS = ['.md'];
+
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, of, throwError, Subject } from 'rxjs';
 import { map, catchError, tap, shareReplay, takeUntil } from 'rxjs/operators';
@@ -105,10 +109,13 @@ export class MarkdownService implements OnDestroy {
     return new Observable(subscriber => {
       try {
         if (path) {
-          // Remove a specific path from cache
-          const cacheKey = this.normalizePath(path);
-          this.cache.delete(cacheKey);
-          console.log(`[MarkdownService] Cleared cache for path: ${path}`);
+          // Remove cache for the bare path (without extension)
+          this.cache.delete(path);
+          // Remove cache for all path+extension variants
+          for (const ext of SUPPORTED_MARKDOWN_EXTENSIONS) {
+            this.cache.delete(`${path}${ext}`);
+          }
+          console.log(`[MarkdownService] Cleared cache for path: ${path} and all supported extensions`);
         } else {
           // Clear the entire cache
           this.cache.clear();
