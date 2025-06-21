@@ -1,59 +1,122 @@
-# Frontend
+# TaciaNet Documentation Portal
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.8.
+[![Angular](https://img.shields.io/badge/Angular-DD0031?style=for-the-badge&logo=angular&logoColor=white)](https://angular.io/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
-## Development server
+Modern documentation portal built with Angular, providing a clean and intuitive interface for browsing and searching documentation content.
 
-To start a local development server, run:
+## ✨ Features
+
+- 🚀 Fast and responsive UI built with Angular
+- 📱 Mobile-friendly design
+- 🌓 Light/Dark theme support
+- 🔍 Full-text search functionality
+- 📚 Hierarchical documentation navigation
+- 📝 Markdown support with syntax highlighting
+- 🔗 Automatic internal link generation
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+ and npm 9+
+- Angular CLI 19+
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/tacianet-frontend.git
+   cd tacianet-frontend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+## 🛠 Development
+
+### Start Development Server
 
 ```bash
+# Start the frontend development server
 ng serve
+
+# In a separate terminal, start the API server
+cd server
+node server.js --content-dir=/path/to/your/content
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+The application will be available at `http://localhost:4200/`
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+### Build for Production
 
 ```bash
-ng generate component component-name
+# Build the application
+ng build --configuration production
+
+# The build artifacts will be stored in the `dist/` directory
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## 🧰 Utilities
+
+### Add Metadata to Markdown Files
+
+To automatically add front matter metadata to markdown files without it:
 
 ```bash
-ng generate --help
+node scripts/add-metadata.js --content-dir=/path/to/your/content
 ```
 
-## Building
+## 📁 Project Structure
 
-To build the project run:
-
-```bash
-ng build
+```
+frontend/
+├── src/                    # Source files
+│   ├── app/                # Application code
+│   │   ├── core/           # Core module (singleton services, guards, etc.)
+│   │   ├── features/       # Feature modules
+│   │   └── shared/         # Shared module (components, directives, pipes)
+│   └── assets/             # Static assets
+├── server/                 # API server
+└── scripts/                # Utility scripts
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## 🤝 Contributing
 
-## Running unit tests
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+## 🧪 Testing
+
+### Unit Tests
+
+Run the unit tests with Karma test runner:
 
 ```bash
 ng test
 ```
 
-## Running end-to-end tests
+### End-to-End Tests
 
-For end-to-end (e2e) testing, run:
+Run end-to-end tests (requires a test framework to be set up):
 
 ```bash
 ng e2e
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## 📚 Additional Resources
 
-## Additional Resources
+- [Angular Documentation](https://angular.io/docs)
+- [TypeScript Documentation](https://www.typescriptlang.org/docs/)
+- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
+- [Angular CLI Command Reference](https://angular.dev/tools/cli)
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
