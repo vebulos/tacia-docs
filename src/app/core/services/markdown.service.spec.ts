@@ -2,6 +2,7 @@ import { of, throwError, lastValueFrom } from 'rxjs';
 import { describe, it, expect, beforeEach, vi, MockInstance } from 'vitest';
 import { HttpClient } from '@angular/common/http';
 import { MarkdownService } from './markdown.service';
+import { PathUtils } from '../utils/path.utils';
 
 describe('MarkdownService', () => {
   let service: MarkdownService;
@@ -135,7 +136,7 @@ Some content`;
 
     // Directly verify if the clearCache method removes the item from the cache
     const serviceAny = service as any;
-    const cacheKey = serviceAny.normalizePath(path);
+    const cacheKey = PathUtils.normalizePath(path);
     
     // Reset the cache first
     serviceAny.cache.clear();
@@ -189,7 +190,7 @@ Some content`;
     expect(httpGetSpy).toHaveBeenCalledTimes(0);
     
     // Verify the second request didn't trigger an HTTP call, so it came from cache
-    const cacheKey = serviceAny.normalizePath(path);
+    const cacheKey = PathUtils.normalizePath(path);
     // Optional: we could verify the cache contains an entry, but some environments
     // might purge it quickly based on TTL. We'll just verify the absence
     // of additional HTTP calls as proof of a cache hit.
@@ -229,15 +230,6 @@ Some content`;
     await lastValueFrom(service.getMarkdownFile(path1));
     
     expect(httpGetSpy).toHaveBeenCalledTimes(2);
-  });
-
-  it('should normalize paths correctly', () => {
-    const serviceAny = service as any; // Access private method for testing
-    
-    expect(serviceAny.normalizePath('/test/path/')).toBe('test/path');
-    expect(serviceAny.normalizePath('test/path.md')).toBe('test/path');
-    expect(serviceAny.normalizePath('/test/path.md')).toBe('test/path');
-    expect(serviceAny.normalizePath('test//path')).toBe('test//path');
   });
 
   it('should use getCachedOrLoad to get markdown', async () => {
