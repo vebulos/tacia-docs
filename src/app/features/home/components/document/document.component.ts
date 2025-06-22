@@ -9,6 +9,7 @@ import { Subject, Subscription, of, Observable, forkJoin } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { PathUtils } from '@app/core/utils/path.utils';
 import { FirstDocumentService } from '@app/core/services/first-document.service';
+import { HeadingsService } from '@app/core/services/headings.service';
 
 // Simple DOM parser to safely manipulate HTML
 const parseHtml = (html: string): Document => {
@@ -30,6 +31,11 @@ const serializeDocument = (doc: Document): string => {
 export class DocumentComponent implements OnInit, OnDestroy {
   @Output() headingsChange = new EventEmitter<Array<{ text: string; level: number; id: string }>>();
   @Output() relatedDocumentsChange = new EventEmitter<RelatedDocument[]>();
+  updateHeadings(headings: Array<{text: string, level: number, id: string}>) {
+    this.headings = headings;
+    this.headingsService.updateHeadings(headings);
+    this.headingsChange.emit(headings);
+  }
   public headings: Array<{ text: string; level: number; id: string }> = [];
   private _currentPath: string | null = null;
   private subscription: Subscription | null = null;
@@ -48,6 +54,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
   private elementRef = inject(ElementRef);
   private destroy$ = new Subject<void>();
   private firstDocumentService: FirstDocumentService;
+  private headingsService = inject(HeadingsService);
 
   constructor(
     private route: ActivatedRoute,
@@ -97,11 +104,11 @@ export class DocumentComponent implements OnInit, OnDestroy {
             switchMap(path => {
               if (path) {
                 console.log('First document path found:', path);
-                this.router.navigate(PathUtils.buildDocsUrl(path));
+                this.router.navigate(path ? ['/', ...path.split('/')] : ['/']);
               } else {
                 // If no document is found, navigate to 404
                 console.warn('No document found in content folders');
-                this.router.navigate([PathUtils.DOCS_BASE_PATH, '404']);
+                this.router.navigate(['', '404']);
               }
               return of(null);
             })
@@ -156,7 +163,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
         
         if (status === 404 || (err?.error?.error === 'Document not found')) {
           console.warn('Document not found, redirecting to 404 page');
-          this.router.navigate([PathUtils.DOCS_BASE_PATH, '404']);
+          this.router.navigate(['', '404']);
         } else {
           // For other errors, show an error message
           this.error = 'An error occurred while loading the document.';
@@ -392,7 +399,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
     
     if (status === 404 || (error?.error?.error === 'Document not found')) {
       console.warn(`Document not found at path '${path}', redirecting to 404 page`);
-      this.router.navigate([PathUtils.DOCS_BASE_PATH, '404']);
+      this.router.navigate(['', '404']);
     } else {
       // For other errors, show an error message
       this.error = 'An error occurred while loading the document.';
@@ -438,7 +445,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
   }
   
   // Make PathUtils available in the template
-  buildDocsUrl = PathUtils.buildDocsUrl;
+  buildDocsUrl = ['/'];
   
   // Cache for createId function
   private readonly idCache = new Map<string, string>();
@@ -693,7 +700,8 @@ export class DocumentComponent implements OnInit, OnDestroy {
       
       // Process all links in the document
       const links = container.querySelectorAll('a[href]');
-      const basePath = currentPath.split('/').slice(0, -1).filter(Boolean).join('/');
+      // basePath supprimé, utiliser currentPath directement si besoin
+      // const basePath = currentPath.split('/').slice(0, -1).filter(Boolean).join('/');
       const currentPathWithoutHash = this.router.url.split('#')[0];
       
       for (let i = 0; i < links.length; i++) {
@@ -704,7 +712,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
         
         // Handle relative URLs (not starting with http or #)
         if (!href.startsWith('http') && !href.startsWith('#')) {
-          const newHref = `/${basePath ? basePath + '/' : ''}${href}`.replace(this.doubleSlashRegex, '/');
+          const newHref = `/${href}`.replace(this.doubleSlashRegex, '/');
           link.setAttribute('href', newHref);
         }
         // Handle fragment links

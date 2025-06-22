@@ -23,7 +23,7 @@ export function contentPathMatcher(
   };
 }
 
-export const DOCS_ROUTES: Routes = [
+export const HOME_ROUTES: Routes = [
   {
     path: '404',
     component: NotFound404Component

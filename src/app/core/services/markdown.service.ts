@@ -57,6 +57,10 @@ export class MarkdownService implements OnDestroy {
     // Normalize the path and ensure it has .md extension
     const pathWithExtension = apiPath.endsWith('.md') ? apiPath : `${apiPath}.md`;
     const normalizedPath = PathUtils.normalizePath(pathWithExtension);
+    // Encode each segment to handle spaces and special characters
+    const encodedPath = normalizedPath.split('/').map(encodeURIComponent).join('/');
+    const fullUrl = `${this.apiUrl}/${encodedPath}`;
+    console.log('[MarkdownService] Fetching:', fullUrl);
 
     // Check cache first if not forcing refresh
     if (!forceRefresh) {

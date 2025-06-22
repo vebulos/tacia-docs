@@ -8,14 +8,14 @@ import { ContentService } from '../../../../core/services/content.service';
 import { ContentItem } from '../../../../core/services/content.interface';
 import { map, filter, takeUntil, tap } from 'rxjs/operators';
 import { NavigationItemComponent, NavigationItem } from './navigation-item.component';
-import { SearchComponent as DocsSearchComponent } from '../search/search.component';
+import { HomeSearchComponent } from '../search/search.component';
 import { Subject } from 'rxjs';
 import { RefreshService } from '@app/core/services/refresh/refresh.service';
 
 @Component({
   selector: 'app-navigation',
   standalone: true,
-  imports: [CommonModule, RouterModule, NavigationItemComponent, DocsSearchComponent],
+  imports: [CommonModule, RouterModule, NavigationItemComponent, HomeSearchComponent],
   templateUrl: './navigation.component.html',
   styleUrls: ['./navigation.component.css']
 })
@@ -309,9 +309,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this.router.navigated) return;
     
     const url = this.router.url;
-    const docsBase = PathUtils.DOCS_BASE_PATH;
-    this.activePath = url.startsWith(`${docsBase}/`) 
-      ? PathUtils.normalizePath(url.substring(docsBase.length + 1))
+    const homeBase = '';
+    this.activePath = url.startsWith(`${homeBase}/`) 
+      ? PathUtils.normalizePath(url.substring(homeBase.length + 1))
       : '';
       
     this.setActiveStates(this.contentStructure, this.activePath);

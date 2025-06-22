@@ -6,13 +6,7 @@ import { Observable } from 'rxjs';
  */
 export class PathUtils {
   
-  // Base path for content (now empty as content is managed by the backend)
-  static get CONTENT_BASE_PATH(): string {
-    if (!environment?.content?.basePath && !environment?.search?.contentBasePath) {
-      throw new Error('Environment configuration is missing required content paths');
-    }
-    return environment.content?.basePath || environment.search?.contentBasePath;
-  }
+
   
   // Base path for API
   static get API_BASE_PATH(): string {
@@ -22,13 +16,7 @@ export class PathUtils {
     return environment.apiUrl;
   }
   
-  // Base path for documentation
-  static get DOCS_BASE_PATH(): string {
-    if (!environment?.docs?.basePath) {
-      throw new Error('Environment configuration is missing required docs.basePath');
-    }
-    return environment.docs.basePath;
-  }
+
   
   /**
    * Cleans and normalizes a path
@@ -56,23 +44,7 @@ export class PathUtils {
     return !path || path.trim() === '';
   }
   
-  /**
-   * Builds a URL for documentation
-   */
-  static buildDocsUrl(path: string = ''): string[] {
-    // If the path is empty, return the base documentation path
-    if (!path) return [PathUtils.DOCS_BASE_PATH];
-    
-    // Normalize the path and remove the extension
-    const normalizedPath = PathUtils.normalizePath(path);
-    const pathWithoutExt = PathUtils.removeFileExtension(normalizedPath);
-    
-    // If the path is empty after normalization, return the base path
-    if (!pathWithoutExt) return [PathUtils.DOCS_BASE_PATH];
-    
-    // Otherwise, return the full path
-    return [PathUtils.DOCS_BASE_PATH, ...pathWithoutExt.split('/')];
-  }
+
   
   /**
    * Builds an API path for content
@@ -85,15 +57,7 @@ export class PathUtils {
     return path;
   }
   
-  /**
-   * Builds a content access path via the API
-   * @deprecated Direct content access is now handled by the backend API
-   */
-  static buildContentPath(path: string): string {
-    const normalizedPath = this.normalizePath(path);
-    // Use the API endpoint instead of direct file access
-    return `${this.API_BASE_PATH}/content/${normalizedPath}`;
-  }
+
   
 
 }

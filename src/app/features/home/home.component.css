@@ -1,5 +1,5 @@
 /* Base container */
-.docs-container {
+.home-container {
   width: 100vw;
   min-height: 100vh;
   margin: 0;
@@ -37,7 +37,7 @@
 }
 
 /* Dark mode styles */
-:host-context(.dark) .docs-container,
+:host-context(.dark) .home-container,
 :host-context(.dark) .left-sidebar,
 :host-context(.dark) .main-content,
 :host-context(.dark) .right-sidebar {
@@ -283,7 +283,7 @@
 
 /* Responsive adjustments */
 @media (max-width: 1280px) {
-  .docs-container {
+  .home-container {
     grid-template-columns: 16rem 1fr;
     grid-template-areas: 
       "left-sidebar main"
@@ -296,7 +296,7 @@
 }
 
 @media (max-width: 768px) {
-  .docs-container {
+  .home-container {
     grid-template-columns: 1fr;
     grid-template-areas: "main";
   }

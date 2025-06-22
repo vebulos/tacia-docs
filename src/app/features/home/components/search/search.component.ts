@@ -17,13 +17,13 @@ const DEFAULT_SEARCH_CONFIG = {
 };
 
 @Component({
-  selector: 'app-docs-search',
+  selector: 'app-home-search',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './search.component.html',
   styleUrls: ['./search.component.css']
 })
-export class SearchComponent implements OnInit, OnDestroy {
+export class HomeSearchComponent implements OnInit, OnDestroy {
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
   @ViewChild('searchResultsElement') searchResultsElement!: ElementRef<HTMLDivElement>;
 
@@ -371,8 +371,7 @@ export class SearchComponent implements OnInit, OnDestroy {
     
     try {
       // Get base paths from config or use defaults
-      const contentBasePath = this.searchConfig?.contentBasePath || 'content';
-      const docsBasePath = this.searchConfig?.docsBasePath || 'docs';
+
       
       // Start with the result path and normalize it
       let targetPath = resultPath.trim()
@@ -380,22 +379,20 @@ export class SearchComponent implements OnInit, OnDestroy {
         .replace(/^\/+|\/+$/g, '');
       
       // Remove content base path if already included in the path
-      if (targetPath.startsWith(`${contentBasePath}/`)) {
-        targetPath = targetPath.substring(contentBasePath.length).replace(/^\/+/, '');
-      }
+
       
       // Remove .md extension from the URL for cleaner paths
       targetPath = targetPath.replace(/\.md$/i, '');
       
       // Construct the full path with proper segments
-      targetPath = `/${docsBasePath}/${targetPath}`
+      targetPath = `/${targetPath}`
         // Normalize any remaining double slashes (except after protocol)
         .replace(/([^:]\/)\/+/g, '$1')
         // Remove trailing slash
         .replace(/\/+$/, '');
       
       console.log('Formatted path for navigation:', targetPath);
-      console.log('Using base paths - content:', contentBasePath, 'docs:', docsBasePath);
+      console.log('Using base paths removed, targetPath:', targetPath);
       
       // Add to recent searches
       this.searchService.addToRecentSearches(result.title);

@@ -221,7 +221,7 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     const itemPath = item.path || '';
     
     // Build the base URL
-    const baseUrl = PathUtils.buildDocsUrl(itemPath);
+    const baseUrl = itemPath ? ['/', ...itemPath.split('/')] : ['/'];
     
     // Return the link and navigation state
     return {
@@ -235,7 +235,7 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
   /**
    * @deprecated Use getNavigationLink instead
    */
-  buildDocsLink(item: NavigationItem): string[] {
+  buildHomeLink(item: NavigationItem): string[] {
     // For backward compatibility
     return this.getNavigationLink(item).link;
   }

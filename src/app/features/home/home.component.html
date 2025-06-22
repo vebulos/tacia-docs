@@ -1,4 +1,4 @@
-<div class="docs-container">
+<div class="home-container">
   <!-- Left Sidebar -->
   <div class="sidebar left-sidebar">
     <div class="p-4">
@@ -46,7 +46,7 @@
         <h3 class="sidebar-heading">Related</h3>
         <div class="space-y-3" *ngIf="relatedDocuments && relatedDocuments.length > 0">
           <a *ngFor="let doc of relatedDocuments" 
-             [routerLink]="buildDocsUrl(doc.path)" 
+             [routerLink]="buildHomeUrl(doc.path)" 
              class="related-link">
             {{ doc.title || doc.path }}
           </a>

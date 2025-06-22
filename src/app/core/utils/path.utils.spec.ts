@@ -21,19 +21,6 @@ describe('PathUtils', () => {
     vi.clearAllMocks();
   });
 
-  describe('CONTENT_BASE_PATH', () => {
-    it('should throw an error when no content paths are available', async () => {
-      // Import the mocked module
-      const envModule = await import('../../../environments/environment');
-      // Get the mocked environment
-      const env = envModule.environment;
-      // Modify the mock values to be empty but valid
-      env.content = {};
-      
-      // Expect the getter to throw an error
-      expect(() => PathUtils.CONTENT_BASE_PATH).toThrow('Environment configuration is missing required content paths');
-    });
-  });
 
   describe('API_BASE_PATH', () => {
     it('should return API base path from environment', () => {
@@ -57,27 +44,6 @@ describe('PathUtils', () => {
     });
   });
 
-  describe('DOCS_BASE_PATH', () => {
-    it('should return docs base path from environment', () => {
-      expect(PathUtils.DOCS_BASE_PATH).toBe('/docs');
-    });
-
-    it('should throw an error when docs.basePath is not available', async () => {
-      // Import the mocked module
-      const envModule = await import('../../../environments/environment');
-      // Get the mocked environment
-      const env = envModule.environment;
-      // Remove the basePath
-      const originalDocs = { ...env.docs };
-      env.docs = {};
-      
-      // Expect the getter to throw an error
-      expect(() => PathUtils.DOCS_BASE_PATH).toThrow('Environment configuration is missing required docs.basePath');
-      
-      // Restore the original value
-      env.docs = originalDocs;
-    });
-  });
 
   describe('normalizePath', () => {
     it('should return empty string for undefined or null path', () => {
