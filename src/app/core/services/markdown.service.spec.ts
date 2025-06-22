@@ -39,11 +39,7 @@ Some content`;
     expect(service).toBeTruthy();
   });
 
-  it('should be created', () => {
-    expect(service).toBeTruthy();
-  });
-
-  it('should parse markdown with frontmatter', async () => {
+  it('should parse markdown with frontmattºer', async () => {
     // Mock the HTTP response
     const mockResponse = {
       html: '<h1 id="heading-1">Heading 1</h1>\n<p>Some content</p>',
@@ -127,7 +123,7 @@ Some content`;
   });
 
   it('should clear cache for a specific path', async () => {
-    // Test du nettoyage du cache pour un chemin spécifique
+    // Test cache clearing for a specific path
     const path = 'test/path';
     const mockResponse = {
       html: '<h1>Test</h1>',
@@ -137,29 +133,29 @@ Some content`;
       name: 'test'
     };
 
-    // Vérifier directement si la méthode clearCache supprime l'élément du cache
+    // Directly verify if the clearCache method removes the item from the cache
     const serviceAny = service as any;
     const cacheKey = serviceAny.normalizePath(path);
     
-    // Réinitialiser le cache d'abord
+    // Reset the cache first
     serviceAny.cache.clear();
     
-    // Ajouter l'élément dans le cache
+    // Add the item to the cache
     const mockObservable = of(mockResponse);
     serviceAny.cache.set(cacheKey, mockObservable);
     
-    // Vérifier que l'élément est dans le cache avant suppression
+    // Verify the item is in the cache before deletion
     expect(serviceAny.cache.has(cacheKey)).toBe(true);
     
     // Supprimer du cache
     await lastValueFrom(service.clearCache(path));
     
-    // Vérifier que l'élément a été supprimé du cache
+    // Verify the item has been removed from the cache
     expect(serviceAny.cache.has(cacheKey)).toBe(false);
   });
 
   it('should ensure HTTP request after cache clear', async () => {
-    // Ce test vérifie spécifiquement le comportement HTTP après le vidage du cache
+    // This test specifically verifies HTTP behavior after clearing the cache
     const path = 'test/path';
     const mockResponse = {
       html: '<h1>Test</h1>',
@@ -169,43 +165,43 @@ Some content`;
       name: 'test'
     };
     
-    // Réinitialiser complètement tous les mocks avant de commencer
+    // Completely reset all mocks before starting
     vi.resetAllMocks();
-    // Réinitialiser complètement le cache du service
+    // Completely reset the service cache
     const serviceAny = service as any;
     serviceAny.cache.clear();
     serviceAny.cacheHits = 0;
     serviceAny.cacheMisses = 0;
     
-    // Configurer le mock HTTP pour qu'il retourne toujours une nouvelle copie 
-    // de la réponse à chaque appel - important pour le test de cache
+    // Configure the HTTP mock to always return a new copy of the response 
+    // for each call - important for cache testing
     httpGetSpy.mockImplementation(() => {
       return of({...mockResponse});
     });
     
-    // Premier appel - devrait faire un appel HTTP
+    // First call - should make an HTTP request
     await lastValueFrom(service.getMarkdownFile(path, false));
     expect(httpGetSpy).toHaveBeenCalledTimes(1);
     httpGetSpy.mockClear();
     
-    // Deuxième appel - devrait venir du cache
+    // Second call - should come from cache
     await lastValueFrom(service.getMarkdownFile(path, false));
     expect(httpGetSpy).toHaveBeenCalledTimes(0);
     
-    // Vérifier que la deuxième requête n'a pas déclenché d'appel HTTP, donc provient du cache
+    // Verify the second request didn't trigger an HTTP call, so it came from cache
     const cacheKey = serviceAny.normalizePath(path);
-    // Optionnel : on peut vérifier que le cache contient bien une entrée, mais certains environnements
-    // peuvent la purger rapidement selon le TTL. Nous nous contentons donc de vérifier l'absence
-    // d'appel HTTP supplémentaire comme preuve d'un cache hit.
+    // Optional: we could verify the cache contains an entry, but some environments
+    // might purge it quickly based on TTL. We'll just verify the absence
+    // of additional HTTP calls as proof of a cache hit.
     
     // Vider le cache
     await lastValueFrom(service.clearCache(path));
     
-    // Après vidage, le cache ne doit plus contenir l'entrée
-    // (si jamais l'environnement de test possède encore la clé)
+    // After clearing, the cache should no longer contain the entry
+    // (if the test environment still has the key)
     expect(serviceAny.cache.has(cacheKey)).toBe(false);
     
-    // Troisième appel - doit maintenant faire un nouvel appel HTTP
+    // Third call - should now make a new HTTP request
     await lastValueFrom(service.getMarkdownFile(path, false));
     expect(httpGetSpy).toHaveBeenCalledTimes(1);
   });
@@ -259,11 +255,11 @@ Some content`;
     const result = await lastValueFrom(service.getCachedOrLoad(path));
     expect(result).toEqual(mockResponse);
     
-    // Vérifie que l'URL contient le bon chemin, en gérant l'encodage
+    // Verify the URL contains the correct path, handling encoding
     const calledUrl = httpGetSpy.mock.calls[0][0];
     expect(decodeURIComponent(calledUrl)).toContain('test/path.md');
     
-    // Vérifier juste que l'URL contient le chemin et que les headers sont corrects
+    // Just verify the URL contains the path and that the headers are correct
     expect(httpGetSpy).toHaveBeenCalledWith(
       expect.stringContaining('test%2Fpath.md'),
       { headers: { 'Cache-Control': 'no-cache' } }

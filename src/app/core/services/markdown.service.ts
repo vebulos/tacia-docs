@@ -1,5 +1,6 @@
 import { Injectable, OnDestroy } from '@angular/core';
 
+
 // Global configuration for supported markdown extensions (expand as needed)
 const SUPPORTED_MARKDOWN_EXTENSIONS = ['.md'];
 

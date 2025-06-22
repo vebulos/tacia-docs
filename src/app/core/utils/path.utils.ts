@@ -8,17 +8,26 @@ export class PathUtils {
   
   // Base path for content (now empty as content is managed by the backend)
   static get CONTENT_BASE_PATH(): string {
-    return environment.content?.basePath || environment.search?.contentBasePath || '';
+    if (!environment?.content?.basePath && !environment?.search?.contentBasePath) {
+      throw new Error('Environment configuration is missing required content paths');
+    }
+    return environment.content?.basePath || environment.search?.contentBasePath;
   }
   
   // Base path for API
   static get API_BASE_PATH(): string {
-    return environment.apiUrl || '/api';
+    if (!environment?.apiUrl) {
+      throw new Error('Environment configuration is missing required apiUrl');
+    }
+    return environment.apiUrl;
   }
   
   // Base path for documentation
   static get DOCS_BASE_PATH(): string {
-    return environment.docs?.basePath || '/docs';
+    if (!environment?.docs?.basePath) {
+      throw new Error('Environment configuration is missing required docs.basePath');
+    }
+    return environment.docs.basePath;
   }
   
   /**
