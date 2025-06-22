@@ -11,6 +11,7 @@ import { map, catchError, tap, shareReplay, takeUntil } from 'rxjs/operators';
 // Import environment
 import { environment } from '../../../environments/environment';
 import { LruCache } from '../utils/lru-cache';
+import { PathUtils } from '../utils/path.utils';
 
 // Interface for the backend API response for markdown content
 export interface MarkdownApiResponse {
@@ -53,8 +54,9 @@ export class MarkdownService implements OnDestroy {
    * @param apiPath The path to the markdown file relative to the content directory
    */
   getMarkdownFile(apiPath: string, forceRefresh = false): Observable<MarkdownApiResponse> {
-    // Normalize the path and add .md extension if not present
-    const normalizedPath = apiPath.endsWith('.md') ? apiPath : `${apiPath}.md`;
+    // Normalize the path and ensure it has .md extension
+    const pathWithExtension = apiPath.endsWith('.md') ? apiPath : `${apiPath}.md`;
+    const normalizedPath = PathUtils.normalizePath(pathWithExtension);
 
     // Check cache first if not forcing refresh
     if (!forceRefresh) {
@@ -131,18 +133,6 @@ export class MarkdownService implements OnDestroy {
         subscriber.error(error);
       }
     });
-  }
-  
-  /**
-   * Normalizes a path for consistent cache key generation
-   * @param path The path to normalize
-   * @returns Normalized path string
-   */
-  private normalizePath(path: string): string {
-    // Remove leading/trailing slashes and .md extension for consistent keys
-    return path
-      .replace(/^\/+|\/+$/g, '')
-      .replace(/\.md$/i, '');
   }
   
   /**
