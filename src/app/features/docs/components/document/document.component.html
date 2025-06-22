@@ -33,54 +33,6 @@
            [innerHTML]="content"
            (click)="onContentClick($event)">
       </div>
-      
-      <!-- Related Documents Section -->
-      <div *ngIf="relatedDocuments.length > 0" class="mt-12 border-t border-gray-200 dark:border-gray-700 pt-8">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
-            Related Documents
-          </h2>
-          <button 
-            (click)="toggleRelatedDocuments()" 
-            class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-            [attr.aria-expanded]="showRelatedDocuments"
-            [attr.aria-controls]="'related-documents'"
-          >
-            {{ showRelatedDocuments ? 'Hide' : 'Show' }}
-          </button>
-        </div>
-        
-        <div id="related-documents" [class.hidden]="!showRelatedDocuments">
-          <div *ngIf="loadingRelated" class="flex justify-center py-4">
-            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-          </div>
-          
-          <div *ngIf="!loadingRelated && relatedDocumentsError" class="text-red-600 dark:text-red-400 text-sm">
-            {{ relatedDocumentsError }}
-          </div>
-          
-          <div *ngIf="!loadingRelated && !relatedDocumentsError" class="space-y-3">
-            <a 
-              *ngFor="let doc of relatedDocuments" 
-              [routerLink]="buildDocsUrl(doc.path)"
-              class="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            >
-              <h3 class="font-medium text-gray-900 dark:text-white">{{ doc.title || doc.path }}</h3>
-              <div *ngIf="doc.commonTags && doc.commonTags.length > 0" class="mt-2 flex flex-wrap gap-2">
-                <span 
-                  *ngFor="let tag of doc.commonTags"
-                  class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                >
-                  {{ tag }}
-                </span>
-              </div>
-              <p *ngIf="doc.path" class="mt-1 text-sm text-gray-500 dark:text-gray-400 truncate">
-                /{{ doc.path }}
-              </p>
-            </a>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </div>
