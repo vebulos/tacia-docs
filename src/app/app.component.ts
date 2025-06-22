@@ -22,5 +22,5 @@ import { LayoutComponent } from './core/layout/layout.component';
   styles: []
 })
 export class AppComponent {
-  title = 'TaciaNet Documentation';
+  title = 'TaciaDocs';
 }

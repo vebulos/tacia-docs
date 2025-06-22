@@ -6,15 +6,15 @@ export const routes: Routes = [
   {
     path: '',
     component: HomeComponent,
-    title: 'TaciaNet Documentation',
+    title: 'TaciaDocs',
     data: { title: 'Home' }
   },
   {
     path: 'docs',
     loadComponent: () => import('./features/docs/docs.component').then(m => m.DocsComponent),
     loadChildren: () => import('./features/docs/docs.routes').then(m => m.DOCS_ROUTES),
-    title: 'Documentation',
-    data: { title: 'Documentation' }
+    title: 'TaciaDocs',
+    data: { title: 'TaciaDocs' }
   },
   {
     path: '**',

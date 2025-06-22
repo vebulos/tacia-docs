@@ -12,10 +12,7 @@ import { RouterModule } from '@angular/router';
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center">
             <a routerLink="/" class="flex items-center">
-              <span class="text-xl font-bold text-gray-900 dark:text-white">TaciaNet</span>
-              <span class="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md">
-                Docs
-              </span>
+              <span class="text-xl font-bold text-gray-900 dark:text-white">TaciaDocs</span>
             </a>
           </div>
           

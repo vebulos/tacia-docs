@@ -64,7 +64,7 @@ describe('AppComponent', () => {
   });
 
   it('should have the correct title', () => {
-    expect(component.title).toBe('TaciaNet Documentation');
+    expect(component.title).toBe('TaciaDocs');
   });
 
   it('should render router outlet inside layout', () => {
