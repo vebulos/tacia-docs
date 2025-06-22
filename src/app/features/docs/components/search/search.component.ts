@@ -384,6 +384,9 @@ export class SearchComponent implements OnInit, OnDestroy {
         targetPath = targetPath.substring(contentBasePath.length).replace(/^\/+/, '');
       }
       
+      // Remove .md extension from the URL for cleaner paths
+      targetPath = targetPath.replace(/\.md$/i, '');
+      
       // Construct the full path with proper segments
       targetPath = `/${docsBasePath}/${targetPath}`
         // Normalize any remaining double slashes (except after protocol)
