@@ -24,8 +24,5 @@ export const environment: EnvironmentConfig = {
     ...defaultConfig.content,
     // Content is now managed by the backend API
     basePath: ''
-  },
-  docs: {
-    basePath: '/docs'
   }
 };

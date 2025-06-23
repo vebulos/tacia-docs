@@ -4,10 +4,24 @@ import { PathUtils } from './path.utils';
 // Mock the environment for testing
 vi.mock('../../../environments/environment', () => ({
   environment: {
+    production: false,
+    apiUrl: 'http://localhost:4201/api',
+    search: {
+      maxResults: 50,
+      maxRecentSearches: 10,
+      debounceTime: 300,
+      contentBasePath: '',
+      contextLines: 1,
+      index: {
+        enabled: true,
+        interval: 300000,
+        initialDelay: 10000,
+        indexOnStartup: true
+      }
+    },
     content: {
       basePath: ''
     },
-    apiUrl: 'http://localhost:4201/api',
     docs: {
       basePath: '/docs'
     }
