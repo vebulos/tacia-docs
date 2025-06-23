@@ -220,14 +220,17 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     // Use the path which now includes the extension for files
     const itemPath = item.path || '';
     
+    // Remove .md extension for the URL but keep it in the state
+    const displayPath = !item.isDirectory ? PathUtils.removeFileExtension(itemPath) : itemPath;
+    
     // Build the base URL
-    const baseUrl = itemPath ? ['/', ...itemPath.split('/')] : ['/'];
+    const baseUrl = displayPath ? ['/', ...displayPath.split('/')] : ['/'];
     
     // Return the link and navigation state
     return {
       link: baseUrl,
       state: {
-        path: itemPath // Pass the full path with extension
+        path: itemPath // Keep the original path with extension in state
       }
     };
   }
