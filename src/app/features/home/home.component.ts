@@ -18,21 +18,15 @@ export interface Heading {
   standalone: true,
   imports: [
     CommonModule, 
-    RouterModule, 
-    RouterOutlet, 
-    NavigationComponent
+    RouterModule, // RouterOutlet included here
+    NavigationComponent // Used within the template via <app-navigation>
   ],
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.css']
 })
 export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
   // ...
-  // Méthode appelée lors de l'activation du composant enfant
-  onHeadingsChange(headings: Heading[]): void {
-    // Cette méthode est conservée pour la compatibilité
-    // mais n'est plus strictement nécessaire car on utilise le service
-    this.headings = headings || [];
-  }
+  public headings$ = inject(HeadingsService).currentHeadings;
 
   scrollToHeading(event: MouseEvent, headingId: string): void {
     event.preventDefault();
@@ -43,9 +37,7 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   @ViewChild('routerOutlet', { static: true }) routerOutletRef!: ElementRef;
-  
-  headings: Heading[] = [];
-  private headingsService = inject(HeadingsService);
+
   currentPath: string = '';
   relatedDocuments: any[] = [];
   buildHomeUrl = (path: string) => {
@@ -71,9 +63,7 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute
   ) {
-    this.headingsService.currentHeadings.subscribe(headings => {
-      this.headings = headings;
-    });
+
   }
 
   ngOnInit(): void {

@@ -10,7 +10,7 @@
   <!-- Main content -->
   <main class="main-content">
     <div class="content-wrapper">
-      <router-outlet #routerOutlet (activate)="onHeadingsChange($event)"></router-outlet>
+      <router-outlet #routerOutlet></router-outlet>
     </div>
   </main>
   
@@ -18,30 +18,32 @@
   <aside class="sidebar right-sidebar">
     <div class="p-6">
       <div class="toc">
-        <ng-container *ngIf="headings.length > 0; else loadingToc">
-          <ul class="space-y-2">
-            <li *ngFor="let heading of headings">
-              <a 
-                (click)="scrollToHeading($event, heading.id)"
-                class="block py-1 text-sm text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200 cursor-pointer"
-                [class.pl-4]="heading.level > 2"
-                [class.pl-8]="heading.level > 3"
-                [class.pl-12]="heading.level > 4">
-                {{ heading.text }}
-              </a>
-            </li>
-          </ul>
+        <ng-container *ngIf="(headings$ | async) as headings">
+          <ng-container *ngIf="headings.length > 0; else loadingToc">
+            <ul class="space-y-2">
+              <li *ngFor="let heading of headings">
+                <a 
+                  (click)="scrollToHeading($event, heading.id)"
+                  class="block py-1 text-sm text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors duration-200 cursor-pointer"
+                  [class.pl-4]="heading.level > 2"
+                  [class.pl-8]="heading.level > 3"
+                  [class.pl-12]="heading.level > 4">
+                  {{ heading.text }}
+                </a>
+              </li>
+            </ul>
+          </ng-container>
+          <ng-template #loadingToc>
+            <div class="animate-pulse space-y-2">
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 ml-4"></div>
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 ml-4"></div>
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+            </div>
+          </ng-template>
         </ng-container>
-        <ng-template #loadingToc>
-          <div class="animate-pulse space-y-2">
-            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 ml-4"></div>
-            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 ml-4"></div>
-            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
-          </div>
-        </ng-template>
       </div>
-      
+
       <div class="related-links">
         <h3 class="sidebar-heading">Related</h3>
         <div class="space-y-3" *ngIf="relatedDocuments && relatedDocuments.length > 0">

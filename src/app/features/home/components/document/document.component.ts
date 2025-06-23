@@ -280,40 +280,43 @@ export class DocumentComponent implements OnInit, OnDestroy {
       throw new Error('No content in response');
     }
     
-    // Use requestAnimationFrame for better performance
-    requestAnimationFrame(() => {
-      try {
-        // Create a temporary div to manipulate the HTML
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = response.html;
-        
-        // Process links after the content is loaded
-        const processedHtml = this.processHtmlLinks(tempDiv.innerHTML, fullPath);
-        
-        // Update the content with processed HTML in a single operation
-        this.content = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
-        
-        // Extract headings from the processed content if not provided in the response
-        if (!response.headings || response.headings.length === 0) {
-          this.extractHeadingsFromContent(tempDiv);
-        } else {
-          this.headings = [...response.headings];
-        }
-        
-        // Emit the headings change
-        this.headingsChange.emit(this.headings);
-      } catch (error) {
-        console.error('Error processing content:', error);
-        throw error;
+    try {
+      // Create a temporary div to manipulate the HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = response.html;
+      
+      // Process links after the content is loaded
+      const processedHtml = this.processHtmlLinks(tempDiv.innerHTML, fullPath);
+      
+      // Update the content with processed HTML in a single operation
+      this.content = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
+      
+      // If headings are provided in the response, use them
+      if (response.headings && response.headings.length > 0) {
+        this.updateHeadings([...response.headings]);
+      } else {
+        // Otherwise, we'll extract headings after the content is rendered
+        // We use setTimeout to ensure the content is in the DOM
+        setTimeout(() => {
+          const contentElement = this.elementRef.nativeElement.querySelector('.markdown-content');
+          if (contentElement) {
+            this.extractHeadingsFromContent(contentElement);
+          } else {
+            console.warn('Could not find .markdown-content element to extract headings');
+          }
+        }, 0);
       }
-    });
+    } catch (error) {
+      console.error('Error processing content:', error);
+      throw error;
+    }
   }
   
   /**
    * Extract headings from the HTML content
    */
   private extractHeadingsFromContent(container: HTMLElement): void {
-    this.headings = [];
+    const headings: Array<{text: string, level: number, id: string}> = [];
     const headingElements = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
     
     headingElements.forEach((heading) => {
@@ -329,9 +332,12 @@ export class DocumentComponent implements OnInit, OnDestroy {
         }
         
         // Add to headings array
-        this.headings.push({ text, level, id });
+        headings.push({ text, level, id });
       }
     });
+
+    // Update the headings through the service
+    this.updateHeadings(headings);
   }
   
 
