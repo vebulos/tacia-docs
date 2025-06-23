@@ -27,6 +27,9 @@ export interface Heading {
 export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
   // ...
   public headings$ = inject(HeadingsService).currentHeadings;
+  private documentComponent: DocumentComponent | null = null;
+  private destroy$ = new Subject<void>();
+  private subscriptions: Subscription[] = [];
 
   scrollToHeading(event: MouseEvent, headingId: string): void {
     event.preventDefault();
@@ -54,10 +57,6 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
       return ['/', 'error'];
     }
   };
-
-  private documentComponent: DocumentComponent | null = null;
-  private subscriptions: Subscription[] = [];
-  private destroy$ = new Subject<void>();
 
   constructor(
     private router: Router,
@@ -87,6 +86,20 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
           setTimeout(() => this.scrollToFragment(fragment), 100);
         }
       });
+  }
+
+  onActivate(component: any) {
+    if (component instanceof DocumentComponent) {
+      this.documentComponent = component;
+      // S'abonner aux changements de documents connexes
+      const sub = this.documentComponent.relatedDocumentsChange
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(docs => {
+          this.relatedDocuments = docs || [];
+          console.log('Related documents updated in HomeComponent:', this.relatedDocuments);
+        });
+      this.subscriptions.push(sub);
+    }
   }
 
   ngAfterViewInit(): void {

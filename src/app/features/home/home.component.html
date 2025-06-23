@@ -10,7 +10,7 @@
   <!-- Main content -->
   <main class="main-content">
     <div class="content-wrapper">
-      <router-outlet #routerOutlet></router-outlet>
+      <router-outlet #routerOutlet (activate)="onActivate($event)"></router-outlet>
     </div>
   </main>
   

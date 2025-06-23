@@ -134,19 +134,14 @@ export class DocumentComponent implements OnInit, OnDestroy {
         this.loading = true;
         this.error = null;
         
-        // Start loading related documents in parallel
-        const relatedDocs$ = this.loadRelatedDocuments(fullPath);
-        
-        // Load document content and related documents in parallel
-        return forkJoin([
-          this.loadDocumentContent(),
-          relatedDocs$.pipe(catchError(() => of(null)))
-        ]).pipe(
-          switchMap(([file]) => {
+        // Load document content
+        return this.loadDocumentContent().pipe(
+          tap(file => {
             if (file) {
               this.processContent(file, fullPath);
+              // Load related documents after content is processed
+              this.loadRelatedDocuments(fullPath).subscribe();
             }
-            return of(file);
           })
         );
       })
@@ -246,9 +241,6 @@ export class DocumentComponent implements OnInit, OnDestroy {
     try {
       // Process the content
       this.processContent(response, fullPath);
-      
-      // Load related documents
-      this.loadRelatedDocuments(fullPath);
       
       // Update the UI
       this.loading = false;
@@ -430,21 +422,34 @@ export class DocumentComponent implements OnInit, OnDestroy {
     return this.relatedDocumentsService.getRelatedDocuments(pathWithExtension, 5).pipe(
       tap({
         next: (response: { related: RelatedDocument[] }) => {
-          this.relatedDocuments = response.related;
+          console.log('Received related documents:', response.related);
+          this.relatedDocuments = response.related || [];
           this.showRelatedDocuments = this.relatedDocuments.length > 0;
           this.loadingRelated = false;
           this.relatedDocumentsChange.emit(this.relatedDocuments);
+          
+          console.log('Updated related documents state:', {
+            count: this.relatedDocuments.length,
+            showRelated: this.showRelatedDocuments,
+            loading: this.loadingRelated,
+            error: this.relatedDocumentsError
+          });
         },
         error: (error) => {
           console.error('Error loading related documents:', error);
           this.relatedDocumentsError = 'Failed to load related documents';
           this.loadingRelated = false;
+          this.relatedDocuments = [];
+          this.showRelatedDocuments = false;
+          this.relatedDocumentsChange.emit([]);
         }
       }),
       catchError(error => {
         console.error('Error in related documents stream:', error);
         this.relatedDocumentsError = 'An error occurred while loading related documents.';
         this.loadingRelated = false;
+        this.relatedDocuments = [];
+        this.showRelatedDocuments = false;
         return of({ related: [] });
       })
     );
