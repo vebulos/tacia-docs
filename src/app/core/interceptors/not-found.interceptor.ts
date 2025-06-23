@@ -32,7 +32,7 @@ export const notFoundInterceptor: HttpInterceptorFn = (
           // Navigate to the 404 page
           // We use setTimeout to avoid "Navigation triggered outside Angular zone" warnings
           setTimeout(() => {
-            router.navigate(['/docs/404']);
+            router.navigate(['/404']);
           });
         }
       }
