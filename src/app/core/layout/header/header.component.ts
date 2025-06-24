@@ -1,11 +1,12 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { HomeSearchComponent } from '../../../shared/components/search/search.component';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, HomeSearchComponent],
   template: `
     <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-20 h-16">
       <div class="w-full mx-auto px-4 sm:px-6 lg:px-8 h-16">
@@ -14,6 +15,11 @@ import { RouterModule } from '@angular/router';
             <a routerLink="/" class="flex items-center">
               <span class="text-xl font-bold text-gray-900 dark:text-white">TaciaDocs</span>
             </a>
+          </div>
+          
+          <!-- Search Bar -->
+          <div class="flex-1 max-w-2xl mx-4">
+            <app-home-search></app-home-search>
           </div>
           
           <div class="flex items-center space-x-4">

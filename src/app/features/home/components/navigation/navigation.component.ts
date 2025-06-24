@@ -8,14 +8,14 @@ import { ContentService } from '../../../../core/services/content.service';
 import { ContentItem } from '../../../../core/services/content.interface';
 import { map, filter, takeUntil, tap } from 'rxjs/operators';
 import { NavigationItemComponent, NavigationItem } from './navigation-item.component';
-import { HomeSearchComponent } from '../search/search.component';
+
 import { Subject } from 'rxjs';
 import { RefreshService } from '@app/core/services/refresh/refresh.service';
 
 @Component({
   selector: 'app-navigation',
   standalone: true,
-  imports: [CommonModule, RouterModule, NavigationItemComponent, HomeSearchComponent],
+  imports: [CommonModule, RouterModule, NavigationItemComponent],
   templateUrl: './navigation.component.html',
   styleUrls: ['./navigation.component.css']
 })

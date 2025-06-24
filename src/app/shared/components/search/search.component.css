@@ -190,16 +190,6 @@ dark button:focus-visible {
   box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.5);
 }
 
-/* Loading indicator */
-.loading-indicator {
-  position: absolute;
-  right: 2.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9ca3af;
-  pointer-events: none;
-}
-
 /* Hide default clear button for search inputs */
 input[type="search"]::-webkit-search-cancel-button {
   -webkit-appearance: none;

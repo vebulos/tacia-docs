@@ -5,9 +5,9 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, takeUntil, tap } from 'rxjs/operators';
-import { SearchService, SearchResult } from '../../../../core/services/search/search.service';
-import { NotificationService } from '../../../../core/services/notification/notification.service';
-import { environment } from '../../../../../environments/environment';
+import { SearchService, SearchResult } from '@app/core/services/search/search.service';
+import { NotificationService } from '@app/core/services/notification/notification.service';
+import { environment } from '../../../../environments/environment';
 
 // Local search configuration (default values if not defined in environment)
 const DEFAULT_SEARCH_CONFIG = {
@@ -85,31 +85,24 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
     this.searchService.searchResults$.pipe(
       takeUntil(this.destroy$)
     ).subscribe({
-      next: (results) => {
-        this.searchResults = results || [];
-        this.isLoading = false;
-        this.showRecentSearches = this.searchResults.length === 0 && !this.searchControl.value;
-      },
-      error: (error) => {
-        console.error('Error in search results', error);
-        this.error = 'An error occurred while searching';
-        this.isLoading = false;
-      }
+      next: (results: SearchResult[]) => this.handleSearchResults(results),
+      error: (error: Error) => this.handleSearchError(error)
     });
 
     // Subscribe to loading state
     this.searchService.isLoading$.pipe(
       takeUntil(this.destroy$)
-    ).subscribe(isLoading => {
+    ).subscribe((isLoading: boolean) => {
       this.isLoading = isLoading;
     });
 
     // Subscribe to errors
     this.searchService.error$.pipe(
+      filter((error: string | null): error is string => !!error),
       takeUntil(this.destroy$)
-    ).subscribe(error => {
+    ).subscribe((error: string) => {
       this.error = error;
-      this.isLoading = false;
+      this.notificationService.show(error, 'error');
     });
   }
 
@@ -221,26 +214,8 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
     
     console.log('Calling search service');
     this.searchService.search(term).subscribe({
-      next: (results) => {
-        console.log('Search results received:', results);
-        this.searchResults = results || [];
-        this.isLoading = false;
-        this.showRecentSearches = this.searchResults.length === 0;
-        
-        // Set focus back to input after a small delay
-        setTimeout(() => {
-          if (this.searchInput?.nativeElement) {
-            console.log('Focusing search input after results');
-            this.searchInput.nativeElement.focus();
-          }
-        }, 100);
-      },
-      error: (error) => {
-        console.error('Error in search', error);
-        this.error = 'An error occurred while searching';
-        this.isLoading = false;
-        this.showRecentSearches = true;
-      }
+      next: (results: SearchResult[]) => this.handleSearchResults(results),
+      error: (error: Error) => this.handleSearchError(error)
     });
     
     this.activeResultIndex = -1;
@@ -503,6 +478,34 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
       if (recentIndex >= 0 && recentIndex < this.recentSearches.length) {
         this.selectRecentSearch(this.recentSearches[recentIndex]);
       }
+    }
+  }
+
+  private handleSearchResults(results: SearchResult[]): void {
+    this.searchResults = results || [];
+    this.isLoading = false;
+    this.error = null;
+    this.showRecentSearches = this.searchResults.length === 0 && !this.searchControl.value;
+    
+    // Set focus back to input after a small delay
+    if (this.searchInput?.nativeElement) {
+      setTimeout(() => {
+        this.searchInput.nativeElement.focus();
+      }, 100);
+    }
+  }
+
+  private handleSearchError(error: Error): void {
+    console.error('Search error:', error);
+    this.error = error?.message || 'An error occurred while searching';
+    this.isLoading = false;
+    this.showRecentSearches = true;
+    
+    // Use the notification service if available
+    if (this.notificationService && typeof this.notificationService.show === 'function') {
+      this.notificationService.show(this.error, 'error');
+    } else {
+      console.error('Notification service not available or show method not found');
     }
   }
 }
