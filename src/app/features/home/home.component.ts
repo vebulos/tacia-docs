@@ -1,8 +1,7 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, inject } from '@angular/core';
-import { DocumentComponent } from './components/document/document.component';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, ActivatedRoute, RouterOutlet, RouterModule, NavigationEnd } from '@angular/router';
-import { Subject, Subscription } from 'rxjs';
+import { Router, RouterOutlet, RouterModule, ActivatedRoute } from '@angular/router';
+import { Subject, Observable } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { NavigationComponent } from './components/navigation/navigation.component';
 import { HeadingsService } from '@app/core/services/headings.service';
@@ -11,6 +10,11 @@ export interface Heading {
   text: string;
   level: number;
   id: string;
+}
+
+export interface RelatedDocument {
+  path: string;
+  title?: string;
 }
 
 @Component({
@@ -24,104 +28,77 @@ export interface Heading {
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.css']
 })
-export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
-  // ...
-  public headings$ = inject(HeadingsService).currentHeadings;
-  private documentComponent: DocumentComponent | null = null;
+export class HomeComponent implements OnInit, OnDestroy {
+  public headings$: Observable<Heading[]>;
+  public relatedDocuments: RelatedDocument[] = [];
+  public currentPath: string = '';
+  
   private destroy$ = new Subject<void>();
-  private subscriptions: Subscription[] = [];
 
-  scrollToHeading(event: MouseEvent, headingId: string): void {
-    event.preventDefault();
-    const el = document.getElementById(headingId);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+  constructor(
+    private router: Router,
+    private route: ActivatedRoute,
+    private headingsService: HeadingsService
+  ) {
+    // Initialize headings from the service
+    this.headings$ = this.headingsService.currentHeadings.pipe(
+      takeUntil(this.destroy$)
+    );
   }
 
-  @ViewChild('routerOutlet', { static: true }) routerOutletRef!: ElementRef;
+  ngOnInit(): void {
+    // Listen for route changes to update the current path
+    this.route.paramMap.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe((params) => {
+      this.currentPath = params.get('path') || '';
+    });
+  }
 
-  currentPath: string = '';
-  relatedDocuments: any[] = [];
-  buildHomeUrl = (path: string) => {
+  // Method to build navigation URLs
+  buildHomeUrl = (path: string): string[] => {
     try {
       // Remove .md extension if present
       let cleanPath = path.endsWith('.md') ? path.slice(0, -3) : path;
       // Decode any encoded characters in the path
       cleanPath = decodeURIComponent(cleanPath);
-      // Split into segments to ensure proper URL handling
+      // Split into segments for proper URL handling
       const segments = cleanPath.split('/').filter(segment => segment.trim() !== '');
       return ['/', ...segments];
     } catch (e) {
       console.error('Error building home URL:', e);
-      return ['/', 'error'];
+      return ['/'];
     }
   };
 
-  constructor(
-    private router: Router,
-    private route: ActivatedRoute
-  ) {
-
-  }
-
-  ngOnInit(): void {
-    // Get the current route path
-    this.route.paramMap
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(params => {
-        const path = params.get('path');
-        if (path) {
-          this.currentPath = path;
-        }
-        // Scroll to fragment if present in URL
-        setTimeout(() => this.scrollToFragment(), 100);
+  // Called when a component is activated in the router
+  onActivate(component: any): void {
+    // If the activated component has a relatedDocumentsChange property, subscribe to it
+    if (component && typeof component.relatedDocumentsChange !== 'undefined') {
+      component.relatedDocumentsChange.pipe(
+        takeUntil(this.destroy$)
+      ).subscribe((docs: RelatedDocument[]) => {
+        this.relatedDocuments = Array.isArray(docs) ? docs : [];
       });
-
-    // Handle initial fragment if present in URL
-    this.route.fragment
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(fragment => {
-        if (fragment) {
-          setTimeout(() => this.scrollToFragment(fragment), 100);
-        }
-      });
-  }
-
-  onActivate(component: any) {
-    if (component instanceof DocumentComponent) {
-      this.documentComponent = component;
-      // S'abonner aux changements de documents connexes
-      const sub = this.documentComponent.relatedDocumentsChange
-        .pipe(takeUntil(this.destroy$))
-        .subscribe(docs => {
-          this.relatedDocuments = docs || [];
-          console.log('Related documents updated in HomeComponent:', this.relatedDocuments);
-        });
-      this.subscriptions.push(sub);
     }
-  }
-
-  ngAfterViewInit(): void {
-    // This will be called after the view is initialized
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 
-  scrollToFragment(fragment?: string): void {
-    if (!fragment) {
-      fragment = this.route.snapshot.fragment || '';
-    }
-    if (!fragment) return;
-    const element = document.getElementById(fragment);
+  // Utility method to scroll to an element
+  scrollToElement(id: string): void {
+    const element = document.getElementById(id);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      element.scrollIntoView({ behavior: 'smooth' });
     }
   }
-
-  // Ajoutez ici les autres méthodes nécessaires, adaptées de l'ancien DocsComponent
+  
+  // Handle heading click for table of contents
+  scrollToHeading(event: Event, id: string): void {
+    event.preventDefault();
+    this.scrollToElement(id);
+  }
 }

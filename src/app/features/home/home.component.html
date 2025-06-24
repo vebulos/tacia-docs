@@ -19,7 +19,7 @@
     <div class="p-6">
       <div class="toc">
         <ng-container *ngIf="(headings$ | async) as headings">
-          <ng-container *ngIf="headings.length > 0; else loadingToc">
+          <ng-container *ngIf="headings && headings.length > 0; else loadingToc">
             <ul class="space-y-2">
               <li *ngFor="let heading of headings">
                 <a 

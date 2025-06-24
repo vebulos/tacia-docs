@@ -711,7 +711,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
       
       // Process all links in the document
       const links = container.querySelectorAll('a[href]');
-      // basePath supprimé, utiliser currentPath directement si besoin
+      // basePath removed, use currentPath directly if needed
       // const basePath = currentPath.split('/').slice(0, -1).filter(Boolean).join('/');
       const currentPathWithoutHash = this.router.url.split('#')[0];
       

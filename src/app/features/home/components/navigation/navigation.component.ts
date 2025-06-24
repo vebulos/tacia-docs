@@ -117,16 +117,16 @@ export class NavigationComponent implements OnInit, OnDestroy {
     
     // Vider le cache du contenu racine avant de recharger
     this.contentService.clearCache('').pipe(
-      take(1) // Prendre seulement la première émission et compléter
+      take(1) // Take only the first emission and complete
     ).subscribe({
       next: () => {
         console.log('[NavigationComponent] Cache cleared, loading fresh content');
-        // Utiliser skipCache=true pour forcer une requête fraîche
+        // Use skipCache=true to force a fresh request
         this.loadRootContent(true);
       },
       error: (err) => {
         console.error('[NavigationComponent] Error clearing cache:', err);
-        // Charger quand même le contenu en cas d'erreur avec skipCache=true
+        // Still load the content in case of error with skipCache=true
         this.loadRootContent(true);
       }
     });
@@ -328,7 +328,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       let isActive = false;
       const itemPath = item.path || '';
       
-      // Vérifier si cet item est dans le chemin actif
+      // Check if this item is in the active path
       const isInPath = currentPath === itemPath || 
                       (itemPath && currentPath.startsWith(itemPath + '/'));
       
@@ -337,7 +337,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         this.loadChildItems(item);
       }
       
-      // Vérifier si un enfant est actif
+      // Check if a child is active
       if (item.children && item.children.length > 0) {
         const childIsActive = this.setActiveStates(item.children, currentPath);
         if (childIsActive) {
@@ -346,7 +346,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         }
       }
       
-      // Vérifier si l'item actuel est actif
+      // Check if the current item is active
       if (!isActive && itemPath) {
         isActive = currentPath === itemPath || 
                   (itemPath ? currentPath.startsWith(itemPath + '/') : false);
