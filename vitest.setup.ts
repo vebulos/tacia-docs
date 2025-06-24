@@ -1,9 +1,9 @@
 // Configuration pour les tests avec Vitest et Angular
-import 'zone.js/dist/zone';
-import 'zone.js/dist/zone-testing';
+import "zone.js";
+import "zone.js/testing";
 import { getTestBed } from '@angular/core/testing';
 import { BrowserDynamicTestingModule, platformBrowserDynamicTesting } from '@angular/platform-browser-dynamic/testing';
-import { expect, afterEach, beforeAll, afterAll } from 'vitest';
+import { expect, afterEach, beforeAll, beforeEach, afterAll } from 'vitest';
 
 // Mock pour ResizeObserver
 class ResizeObserverMock {

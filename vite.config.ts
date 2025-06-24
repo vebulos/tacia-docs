@@ -30,8 +30,10 @@ export default defineConfig({
     },
     
     // Configuration pour les dépendances Angular
-    deps: {
-      inline: ['@angular/**']
+    server: {
+      deps: {
+        inline: ['@angular/**']
+      }
     },
     
     // Désactiver le cache pour éviter les problèmes
