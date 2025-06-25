@@ -3,8 +3,8 @@ import { Subject } from 'rxjs';
 import { FirstDocumentService } from '../first-document.service';
 
 export enum RefreshType {
-  NORMAL = 'normal',  // Rafraîchissement standard
-  FULL = 'full'       // Rafraîchissement complet (y compris le cache du navigateur)
+  NORMAL = 'normal',  // Standard refresh
+  FULL = 'full'       // Full refresh (including browser cache)
 }
 
 @Injectable({
@@ -14,28 +14,38 @@ export class RefreshService {
   private refreshRequested = new Subject<RefreshType>();
   
   /**
-   * Observable émis lorsqu'un rafraîchissement est demandé
+   * Observable emitted when a refresh is requested
    */
   refreshRequested$ = this.refreshRequested.asObservable();
   
   constructor(private firstDocumentService: FirstDocumentService) {}
   
   /**
-   * Demande un rafraîchissement standard de l'application
+   * Requests a standard application refresh
    */
   requestRefresh(): void {
     this.refreshRequested.next(RefreshType.NORMAL);
   }
   
   /**
-   * Demande un rafraîchissement complet de l'application
-   * Cela inclut le vidage du cache du service FirstDocumentService
+   * Requests a full application refresh
+   * @param directory The directory to clear cache for (optional)
    */
-  requestFullRefresh(): void {
-    console.log('[RefreshService] Requesting full refresh including cache clearing');
-    // Vider le cache du service FirstDocumentService
-    this.firstDocumentService.clearCache();
-    // Émettre un événement de rafraîchissement complet
+  requestFullRefresh(directory?: string): void {
+    console.log(`[RefreshService] Requesting full refresh including cache clearing for directory: '${directory || 'root'}'`);
+    // Clear the FirstDocumentService cache for the specified directory
+    this.firstDocumentService.clearCache(directory);
+    // Emit a full refresh event
     this.refreshRequested.next(RefreshType.FULL);
+  }
+  
+  /**
+   * Requests a cache refresh for a specific directory
+   * @param directory The directory to clear cache for
+   */
+  refreshDirectory(directory: string): void {
+    console.log(`[RefreshService] Refreshing cache for directory: '${directory}'`);
+    this.firstDocumentService.clearCache(directory);
+    this.refreshRequested.next(RefreshType.NORMAL);
   }
 }

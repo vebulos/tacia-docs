@@ -2,16 +2,16 @@ import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'url';
 import { resolve } from 'path';
 
-// Configuration de base pour Vitest
+// Base configuration for Vitest
 export default defineConfig({
   test: {
-    // Configuration de base
+    // Base configuration
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
     include: ['src/**/*.spec.ts'],
     
-    // Configuration de la couverture de code
+    // Code coverage configuration
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -29,24 +29,24 @@ export default defineConfig({
       ]
     },
     
-    // Configuration pour les dépendances Angular
+    // Configuration for Angular dependencies
     server: {
       deps: {
         inline: ['@angular/**']
       }
     },
     
-    // Désactiver le cache pour éviter les problèmes
+    // Disable cache to avoid issues
     cache: false,
     
-    // Configuration pour les tests
+    // Test configuration
     testTimeout: 30000,
     clearMocks: true,
     mockReset: true,
     restoreMocks: true
   },
   
-  // Configuration des alias
+  // Alias configuration
   resolve: {
     alias: [
       {

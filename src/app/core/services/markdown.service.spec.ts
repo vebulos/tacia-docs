@@ -303,28 +303,28 @@ Some content`;
   });
 
   it('should clean up on destroy', () => {
-    // Crée un espion sur cache.clear avant d'appeler ngOnDestroy
+    // Create a spy on cache.clear before calling ngOnDestroy
     const cacheClearSpy = vi.spyOn((service as any).cache, 'clear');
     
-    // Crée un espion sur destroy$
+    // Create a spy on destroy$
     const nextSpy = vi.spyOn((service as any).destroy$, 'next');
     const completeSpy = vi.spyOn((service as any).destroy$, 'complete');
     
     // Call ngOnDestroy
     service.ngOnDestroy();
     
-    // Vérifie que cache.clear a été appelé
+    // Verify that cache.clear was called
     expect(cacheClearSpy).toHaveBeenCalled();
     
-    // Vérifie que next() et complete() ont été appelés sur destroy$
+    // Verify that next() and complete() were called on destroy$
     expect(nextSpy).toHaveBeenCalled();
     expect(completeSpy).toHaveBeenCalled();
     
-    // Vérifie que le sujet destroy$ a été complété en vérifiant que complete a été appelé
+    // Verify that the destroy$ subject was completed by checking that complete was called
     // Dans RxJS, after complete is called we cannot emit more values, but calling next() might not throw
     expect(completeSpy).toHaveBeenCalled();
     
-    // Restaure les implémentations originales
+    // Restore original implementations
     cacheClearSpy.mockRestore();
     nextSpy.mockRestore();
     completeSpy.mockRestore();

@@ -40,8 +40,8 @@ export class RelatedDocumentsService {
     
     const headers = {
       'Accept': 'application/json'
-      // Ne pas définir Content-Type pour les requêtes GET
-      // car cela peut déclencher une pré-requête CORS (OPTIONS)
+      // Don't set Content-Type for GET requests
+      // as it can trigger a CORS preflight (OPTIONS) request
     };
 
     return this.http.get<{ related: RelatedDocument[] }>(
@@ -52,7 +52,7 @@ export class RelatedDocumentsService {
           limit: limit.toString() 
         },
         headers: headers,
-        withCredentials: true // Important pour les cookies d'authentification si nécessaire
+        withCredentials: true // Important for authentication cookies if needed
       }
     ).pipe(
       tap(response => {

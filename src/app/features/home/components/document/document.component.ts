@@ -10,6 +10,7 @@ import { CommonModule } from '@angular/common';
 import { PathUtils } from '@app/core/utils/path.utils';
 import { FirstDocumentService } from '@app/core/services/first-document.service';
 import { HeadingsService } from '@app/core/services/headings.service';
+import * as path from 'path';
 
 // Simple DOM parser to safely manipulate HTML
 const parseHtml = (html: string): Document => {
@@ -98,16 +99,19 @@ export class DocumentComponent implements OnInit, OnDestroy {
         let fullPath = pathSegments.join('/');
         
         if (!fullPath) {
-          // If no path is provided, try to get the first document
-          console.log('No path provided, getting first document path');
-          return this.firstDocumentService.getFirstDocumentPath().pipe(
+          // If no path is provided, try to get the first document from the current directory
+          const currentPath = this.route.snapshot.url.map(segment => segment.path).join('/');
+          const currentDir = currentPath ? path.dirname(currentPath) : '';
+          
+          console.log(`No path provided, getting first document in directory: '${currentDir}'`);
+          return this.firstDocumentService.getFirstDocumentPath(currentDir).pipe(
             switchMap(path => {
               if (path) {
                 console.log('First document path found:', path);
                 this.router.navigate(path ? ['/', ...path.split('/')] : ['/']);
               } else {
                 // If no document is found, navigate to 404
-                console.warn('No document found in content folders');
+                console.warn(`No document found in directory: '${currentDir}'`);
                 this.router.navigate(['', '404']);
               }
               return of(null);

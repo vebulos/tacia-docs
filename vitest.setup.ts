@@ -1,4 +1,4 @@
-// Configuration pour les tests avec Vitest et Angular
+// Configuration for tests with Vitest and Angular
 import "zone.js";
 import "zone.js/testing";
 import { getTestBed } from '@angular/core/testing';
@@ -27,9 +27,9 @@ Object.defineProperty(window, 'matchMedia', {
   }),
 });
 
-// Configuration globale pour les tests
+// Global test configuration
 beforeAll(() => {
-  // Initialisation de l'environnement de test Angular
+  // Initialize Angular testing environment
   getTestBed().initTestEnvironment(
     BrowserDynamicTestingModule,
     platformBrowserDynamicTesting()
@@ -38,23 +38,23 @@ beforeAll(() => {
   // Mock pour ResizeObserver
   (global as any).ResizeObserver = ResizeObserverMock;
   
-  // S'assurer que window.ResizeObserver est défini
+  // Ensure window.ResizeObserver is defined
   if (!('ResizeObserver' in window)) {
     (window as any).ResizeObserver = ResizeObserverMock;
   }
 });
 
-// Configuration avant chaque test
+// Configuration before each test
 beforeEach(() => {
-  // Réinitialiser l'état entre les tests si nécessaire
+  // Reset state between tests if needed
 });
 
 // Nettoyage après chaque test
 afterEach(() => {
-  // Nettoyage après chaque test si nécessaire
+  // Cleanup after each test if needed
 });
 
-// Nettoyage final après tous les tests
+// Final cleanup after all tests
 afterAll(() => {
-  // Nettoyage final si nécessaire
+  // Final cleanup if needed
 });

@@ -7,15 +7,15 @@ import { BehaviorSubject } from 'rxjs';
 export class NavigationStateService {
   private activeCategory = new BehaviorSubject<string | null>(null);
   
-  // Observable pour suivre la catégorie active
+  // Observable to track the active category
   activeCategory$ = this.activeCategory.asObservable();
 
-  // Définir la catégorie active
+  // Set the active category
   setActiveCategory(path: string | null): void {
     this.activeCategory.next(path);
   }
 
-  // Vérifier si une catégorie est active ou parente d'une catégorie active
+  // Check if a category is active or a parent of an active category
   isCategoryOrParentActive(path: string | null): boolean {
     const current = this.activeCategory.value;
     return !!current && (current === path || current.startsWith(path + '/'));

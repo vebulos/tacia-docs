@@ -1,10 +1,10 @@
 /// <reference types="vitest" />
 /// <reference types="@testing-library/jest-dom" />
 
-// Déclarations de types pour les tests
+// Type declarations for tests
 interface ImportMetaEnv {
   readonly VITE_TEST_ENV: string;
-  // Ajoutez d'autres variables d'environnement de test ici
+  // Add other test environment variables here
 }
 
 interface ImportMeta {

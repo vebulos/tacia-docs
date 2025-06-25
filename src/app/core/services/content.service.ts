@@ -37,16 +37,16 @@ export class ContentService {
   getContent(path: string = '', skipCache: boolean = false): Observable<ContentItem[]> {
     const cacheKey = this.cacheKey(path);
     
-    // Si skipCache est true, on ne vérifie pas les états de chargement en cours
+    // If skipCache is true, we don't check loading states
     if (!skipCache && this.loadingStates.has(cacheKey)) {
       console.log(`[ContentService] Returning existing loading state for path: ${path}`);
       return this.loadingStates.get(cacheKey)!;
     }
 
-    // Si skipCache est true, on saute la vérification du cache
+    // If skipCache is true, skip cache check
     let cached$ = of<ContentItem[] | null>(null);
     
-    // Vérifier le cache seulement si skipCache est false
+    // Check cache only if skipCache is false
     if (!skipCache) {
       console.log(`[ContentService] Checking cache for path: ${path}`);
       cached$ = this.storage.get<CacheItem<ContentItem[]>>(cacheKey).pipe(
@@ -80,7 +80,7 @@ export class ContentService {
         return this.fetchContent(path).pipe(
           // Cache the result with expiration
           tap(items => {
-            // Ne pas mettre en cache si skipCache est true
+            // Don't cache if skipCache is true
             if (!skipCache) {
               const expires = Date.now() + (this.config.cacheTtl || 300000);
               this.storage.set(cacheKey, { data: items, expires }).subscribe();
