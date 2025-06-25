@@ -5,6 +5,7 @@ import { catchError, map, retryWhen, shareReplay, switchMap, tap } from 'rxjs/op
 import { StorageService } from './storage.service';
 import { environment } from '../../../environments/environment';
 import { ContentItem } from './content.interface';
+import { PathUtils } from '../utils/path.utils';
 
 export interface CacheItem<T> {
   data: T;
@@ -218,11 +219,6 @@ export class ContentService {
       const isDirectory = item.isDirectory ?? false;
       let path = item.path || item.name;
       
-      // Ensure files have .md extension
-      if (!isDirectory && !path.endsWith('.md')) {
-        path = `${path}.md`;
-      }
-      
       // Construct full path with proper formatting
       const fullPath = parentPath && !path.startsWith(parentPath) 
         ? `${parentPath}/${path}`.replace(/\/+/g, '/')
@@ -246,11 +242,9 @@ export class ContentService {
         const pathParts = fullPath.split(/[\\/]/);
         let baseName = pathParts[pathParts.length - 1];
         
-        // Remove .md extension if present
-        if (baseName.endsWith('.md')) {
-          baseName = baseName.slice(0, -3);
-        }
-        
+        // Remove extension which supposed to be available
+        baseName = PathUtils.removeFileExtension(baseName);
+      
         transformedItem.name = baseName
           .replace(/[-_]/g, ' ') // Replace underscores and hyphens with spaces
           .replace(/\b\w/g, (l: string) => l.toUpperCase()); // Capitalize first letter of each word
