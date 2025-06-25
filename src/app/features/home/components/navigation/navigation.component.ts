@@ -142,16 +142,24 @@ export class NavigationComponent implements OnInit, OnDestroy {
    * @param skipCache Indique si le cache doit être ignoré
    * @public
    */
-  public loadRootContent(skipCache: boolean = false): void {
+  public loadRootContent(skipCache: boolean = true): void {
     this.loading = true;
     this.error = null;
     
     console.log(`[NavigationComponent] Loading root content with skipCache=${skipCache}`);
-    this.contentService.getContent('', skipCache).subscribe({
+    console.log('[NavigationComponent] Calling contentService.getContent()');
+    this.contentService.getContent('', skipCache).pipe(
+      tap(items => console.log('[NavigationComponent] Received items from contentService:', items))
+    ).subscribe({
       next: (items: ContentItem[]) => {
+        console.log('[NavigationComponent] ContentService response received, items count:', items?.length);
+        console.log('[NavigationComponent] First few items:', items?.slice(0, 3));
+        
         if (!items || !Array.isArray(items)) {
-          console.warn('Received invalid root content items:', items);
+          console.error('[NavigationComponent] Received invalid root content items:', items);
           items = [];
+        } else {
+          console.log('[NavigationComponent] Items structure:', JSON.stringify(items, null, 2).substring(0, 500) + '...');
         }
         
         try {

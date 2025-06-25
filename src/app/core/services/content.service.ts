@@ -138,22 +138,39 @@ export class ContentService {
     
     console.log(`[ContentService] Fetching content structure for path: ${path}`);
     
-    // Use the encoded path in the request with full backend URL
-    return this.http.get<ContentItem[]>(`http://localhost:4201/api/content?path=${encodedPath}`).pipe(
-      map(items => {
+    // Use the new URL format with path in the URL only
+    const url = `http://localhost:4201/api/content/${path || ''}`;
+    console.log(`[ContentService] Making request to URL: ${url}`);
+    
+    return this.http.get<{path: string, items: ContentItem[], count: number}>(url).pipe(
+      tap(response => {
+        console.log(`[ContentService] Raw API response for path ${path}:`, response);
+      }),
+      map(response => {
+        const items = response?.items || [];
         console.log(`[ContentService] Successfully fetched ${items.length} items for path: ${path}`);
+        if (items.length > 0) {
+          console.log('[ContentService] First item structure:', JSON.stringify(items[0], null, 2));
+        } else {
+          console.warn('[ContentService] No items returned from API for path:', path);
+        }
         return this.transformStructure(items, path);
       }),
       catchError((error: HttpErrorResponse) => {
         // Log detailed error information
         console.error(`[ContentService] Error fetching content for path: ${path}`, error);
         
+        // Handle 404 specifically for non-existent paths
+        if (error.status === 404) {
+          console.warn(`[ContentService] Content not found for path: ${path}`);
+          // Return empty array to prevent breaking the UI
+          return of([]);
+        }
+        
         // Create user-friendly error message based on HTTP status
         let errorMessage = 'Failed to load content. Please try again later.';
         
-        if (error.status === 404) {
-          errorMessage = `The requested content at "${path}" could not be found.`;
-        } else if (error.status === 403) {
+        if (error.status === 403) {
           errorMessage = 'You do not have permission to access this content.';
         } else if (error.status === 0) {
           errorMessage = 'Unable to connect to the content server. Please check your network connection.';
@@ -161,7 +178,7 @@ export class ContentService {
           errorMessage = 'The content server is currently unavailable. Please try again later.';
         }
         
-        // Retry logic for failed requests
+        // For other errors, throw the error to be handled by retry logic
         return throwError(() => new Error(errorMessage));
       }),
       retryWhen(errors => errors.pipe(
@@ -187,7 +204,13 @@ export class ContentService {
    * @returns Array of transformed ContentItem objects
    */
   private transformStructure(items: any[], parentPath: string = ''): ContentItem[] {
+    console.log('[ContentService] Transforming items:', { items, parentPath });
+    if (!items) {
+      console.error('[ContentService] transformStructure called with null/undefined items');
+      return [];
+    }
     if (!Array.isArray(items)) {
+      console.error('[ContentService] transformStructure called with non-array items:', items);
       return [];
     }
 
