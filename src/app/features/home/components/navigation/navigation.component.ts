@@ -1,7 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
-import { take } from 'rxjs/operators';
+import { Observable, of } from 'rxjs';
+import { take, catchError } from 'rxjs/operators';
 import { NavigationStateService } from '../../services/navigation-state.service';
 import { PathUtils } from '@app/core/utils/path.utils';
 import { ContentService } from '../../../../core/services/content.service';
@@ -189,6 +190,31 @@ export class NavigationComponent implements OnInit, OnDestroy {
     });
   }
   
+  public getRootContentItems(skipCache: boolean = true): Observable<NavigationItem[]> {
+    return this.contentService.getContent('', skipCache).pipe(
+      tap(items => console.log('[NavigationComponent] Received root items from contentService:', items?.length)),
+      map((items: ContentItem[] = []) => {
+        if (!Array.isArray(items)) {
+          console.error('[NavigationComponent] Received invalid root content items');
+          return [];
+        }
+        
+        // Traitement des chemins
+        const processedItems = items.map(item => ({
+          ...item,
+          path: item.path ? item.path.replace(/^content\//, '') : item.path
+        }));
+  
+        return this.transformContentItems(processedItems);
+      }),
+      catchError(error => {
+        console.error('[NavigationComponent] Error loading root content:', error);
+        return of([] as NavigationItem[]);
+      })
+    );
+  }
+  
+
   /**
    * Transforms content items to navigation items with proper sorting and structure
    * This should match the transformation logic in the parent NavigationComponent
