@@ -16,6 +16,14 @@ import { HomeSearchComponent } from '../../../shared/components/search/search.co
               <span class="text-xl font-bold text-gray-900 dark:text-white">TaciaDocs</span>
             </a>
           </div>
+
+          <!-- Main Navigation -->  
+          <nav class="hidden md:flex space-x-6">
+            <a routerLink="/docs" class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium">Documentation</a>
+            <a routerLink="/api" class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium">API</a>
+            <a routerLink="/tutorials" class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium">Tutorials</a>
+            <a routerLink="/community" class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium">Community</a>
+          </nav>
           
           <!-- Search Bar -->
           <div class="flex-1 max-w-2xl mx-4">
@@ -23,6 +31,25 @@ import { HomeSearchComponent } from '../../../shared/components/search/search.co
           </div>
           
           <div class="flex items-center space-x-4">
+            
+            <!-- Version Selector -->  
+            <div class="hidden md:block relative">
+             <select 
+                [value]="selectedVersion"
+                (change)="onVersionChange($event)"
+                class="appearance-none bg-transparent pr-8 py-1 pl-2 border border-gray-300 dark:border-gray-700 rounded text-sm text-gray-700 dark:text-gray-300"
+              >
+                <option value="latest">v1.0 (latest)</option>
+                <option value="v0.9">v0.9</option>
+                <option value="v0.8">v0.8</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
+                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+              </div>
+            </div>
+          
             <button 
               (click)="toggleTheme()" 
               class="p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -50,6 +77,14 @@ import { HomeSearchComponent } from '../../../shared/components/search/search.co
   styles: []
 })
 export class HeaderComponent {
+
+  selectedVersion: string = 'latest';
+
+  onVersionChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    this.selectedVersion = select.value;
+  }
+
   toggleTheme() {
     if (document.documentElement.classList.contains('dark')) {
       document.documentElement.classList.remove('dark');

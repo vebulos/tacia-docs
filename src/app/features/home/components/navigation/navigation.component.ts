@@ -189,6 +189,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     });
   }
   
+  /**
+   * Transforms content items to navigation items with proper sorting and structure
+   * This should match the transformation logic in the parent NavigationComponent
+   */
   private transformContentItems(items: ContentItem[]): NavigationItem[] {
     if (!items) return [];
     
@@ -215,6 +219,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Handles the hover event on a navigation item
+   * @param item The navigation item to handle hover for
+   */
   onItemHover(item: NavigationItem): void {
     if (!item.isDirectory || item.childrenLoaded || item.isLoading) {
       return;
