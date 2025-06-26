@@ -1,10 +1,24 @@
 <div class="not-found-container">
   <div class="not-found-content">
     <h1>404</h1>
-    <h2>Page non trouvée</h2>
-    <p>Le document demandé n'existe pas ou a été déplacé.</p>
-    <div class="action-buttons">
-      <a [routerLink]="['/']" class="home-link">Retour à l'accueil</a>
+    <h2>Page not found</h2>
+    
+    <div *ngIf="errorMessage" class="error-message">
+      <p>{{ errorMessage }}</p>
+    </div>
+    
+    <div *ngIf="!errorMessage" class="default-message">
+      <p>The requested page does not exist or has been moved.</p>
+    </div>
+    
+    <div *ngIf="originalUrl" class="original-url">
+      <p><small>Requested URL: {{ originalUrl }}</small></p>
+    </div>
+    
+    <div class="action-buttons mt-4">
+      <a [routerLink]="['/']" class="home-link">
+        Back to home
+      </a>
     </div>
   </div>
 </div>

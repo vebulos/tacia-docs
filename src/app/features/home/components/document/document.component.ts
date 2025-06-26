@@ -391,6 +391,23 @@ export class DocumentComponent implements OnInit, OnDestroy {
    * @param error The error that occurred
    * @param path The path of the document that failed to load
    */
+  /**
+   * Reloads the current document
+   */
+  reloadDocument(): void {
+    const pathSegments = this.route.snapshot.url.map(segment => segment.path);
+    const fullPath = pathSegments.join('/');
+    
+    if (fullPath) {
+      this.loadDocumentContent();
+    }
+  }
+  
+  /**
+   * Handles document loading errors
+   * @param error The error that occurred
+   * @param path The path of the document that failed to load
+   */
   private handleDocumentLoadError(error: any, path: string): void {
     console.error(`Error loading document at path '${path}':`, error);
     
@@ -400,14 +417,37 @@ export class DocumentComponent implements OnInit, OnDestroy {
                   (error?.message?.includes('404') ? 404 : null);
     
     if (status === 404 || (error?.error?.error === 'Document not found')) {
-      console.warn(`Document not found at path '${path}', redirecting to 404 page`);
-      this.router.navigate(['', '404']);
+      console.warn(`Document not found at path: '${path}', redirecting to 404 page`);
+      this.router.navigate(['/404'], { 
+        state: { 
+          originalUrl: this.router.url,
+          error: `The document "${path || 'unknown path'}" does not exist or has been moved.`
+        } 
+      });
     } else {
       // For other errors, show an error message
       this.error = 'An error occurred while loading the document.';
+      this.content = this.sanitizer.bypassSecurityTrustHtml(`
+        <div class="document-error p-6 bg-red-50 dark:bg-red-900/20 rounded-lg border-l-4 border-red-400 dark:border-red-600">
+          <h1 class="text-2xl font-bold text-red-900 dark:text-red-200 mb-4">Error loading document</h1>
+          <p class="text-red-700 dark:text-red-300">
+            An error occurred while loading the document at <code class="bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded">${path || 'unknown path'}</code>.
+          </p>
+          <div class="mt-4">
+            <button (click)="reloadDocument()" class="text-blue-600 dark:text-blue-400 hover:underline">
+              Try again
+            </button>
+            <span class="mx-2 text-gray-400">or</span>
+            <a routerLink="/" class="text-blue-600 dark:text-blue-400 hover:underline">
+              Go to home
+            </a>
+          </div>
+        </div>
+      `);
     }
     
     this.loading = false;
+    this.cdr.detectChanges();
   }
 
   private loadRelatedDocuments(documentPath: string): Observable<{ related: RelatedDocument[] }> {

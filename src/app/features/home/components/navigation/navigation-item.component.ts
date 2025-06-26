@@ -126,8 +126,10 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     this.contentService.getContent(this.item.path).pipe(
       takeUntil(this.destroy$)
     ).subscribe({
-      next: (children: any) => {
-        this.item.children = children as NavigationItem[];
+      next: (children: ContentItem[]) => {
+        // Transform the children items to ensure consistent structure
+        const transformedChildren = this.transformContentItems(children || []);
+        this.item.children = transformedChildren;
         this.item.childrenLoaded = true;
         this.item.isLoading = false;
       },
@@ -137,6 +139,33 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
         this.item.isLoading = false;
       }
     });
+  }
+  
+  /**
+   * Transforms content items to navigation items with proper sorting and structure
+   * This should match the transformation logic in the parent NavigationComponent
+   */
+  private transformContentItems(items: ContentItem[]): NavigationItem[] {
+    if (!items) return [];
+    
+    // Sort items: files first, then directories
+    const sortedItems = [...items].sort((a, b) => {
+      // If one is a directory and the other is not, the file comes first
+      if (a.isDirectory !== b.isDirectory) {
+        return a.isDirectory ? 1 : -1; // Files (false) come before directories (true)
+      }
+      // If both are the same type, sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+    
+    return sortedItems.map(item => ({
+      ...item,
+      isOpen: false,
+      isLoading: false,
+      hasError: false,
+      childrenLoaded: false,
+      children: item.isDirectory ? [] : undefined
+    }));
   }
 
   trackByFn(index: number, item: NavigationItem): string {
