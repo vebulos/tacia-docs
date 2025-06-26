@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { RefreshService } from '@app/core/services/refresh/refresh.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink, RouterModule, ParamMap } from '@angular/router';
@@ -10,6 +10,7 @@ import { CommonModule } from '@angular/common';
 import { PathUtils } from '@app/core/utils/path.utils';
 import { FirstDocumentService } from '@app/core/services/first-document.service';
 import { HeadingsService } from '@app/core/services/headings.service';
+import { NotFound404Component } from '../404/404.component';
 import * as path from 'path';
 
 // Simple DOM parser to safely manipulate HTML
@@ -23,9 +24,9 @@ const serializeDocument = (doc: Document): string => {
 };
 
 @Component({
-  standalone: true,
-  imports: [CommonModule, RouterModule],
   selector: 'app-document',
+  standalone: true,
+  imports: [CommonModule, RouterModule, NotFound404Component],
   templateUrl: './document.component.html',
   styleUrls: ['./document.component.css']
 })
@@ -45,6 +46,11 @@ export class DocumentComponent implements OnInit, OnDestroy {
   loading = true;
   error: string | null = null;
   relatedDocuments: RelatedDocument[] = [];
+  showNotFound = false;
+  notFoundMessage = 'The requested page does not exist or has been moved.';
+  notFoundError: { message: string, originalUrl: string } | null = null;
+  
+  @ViewChild(NotFound404Component) notFoundComponent?: NotFound404Component;
   showRelatedDocuments = false;
   
   // Fragment click handler reference for cleanup
@@ -110,9 +116,14 @@ export class DocumentComponent implements OnInit, OnDestroy {
                 console.log('First document path found:', path);
                 this.router.navigate(path ? ['/', ...path.split('/')] : ['/']);
               } else {
-                // If no document is found, navigate to 404
+                // If no document is found, show 404 inline
                 console.warn(`No document found in directory: '${currentDir}'`);
-                this.router.navigate(['', '404']);
+                this.showNotFound = true;
+                this.notFoundError = {
+                  message: `No document found in the directory '${currentDir}'`,
+                  originalUrl: this.router.url
+                };
+                this.loading = false;
               }
               return of(null);
             })
@@ -161,8 +172,12 @@ export class DocumentComponent implements OnInit, OnDestroy {
                       (err?.message?.includes('404') ? 404 : null);
         
         if (status === 404 || (err?.error?.error === 'Document not found')) {
-          console.warn('Document not found, redirecting to 404 page');
-          this.router.navigate(['', '404']);
+          console.warn('Document not found, showing 404 inline');
+          this.showNotFound = true;
+          this.notFoundError = {
+            message: `The requested document was not found.`,
+            originalUrl: this.router.url
+          };
         } else {
           // For other errors, show an error message
           this.error = 'An error occurred while loading the document.';
@@ -417,13 +432,17 @@ export class DocumentComponent implements OnInit, OnDestroy {
                   (error?.message?.includes('404') ? 404 : null);
     
     if (status === 404 || (error?.error?.error === 'Document not found')) {
-      console.warn(`Document not found at path: '${path}', redirecting to 404 page`);
-      this.router.navigate(['/404'], { 
-        state: { 
-          originalUrl: this.router.url,
-          error: `The document "${path || 'unknown path'}" does not exist or has been moved.`
-        } 
-      });
+      console.warn(`Document not found at path: '${path}', showing 404`);
+      this.showNotFound = true;
+      this.notFoundError = {
+        message: `The document "${path || 'unknown path'}" does not exist or has been moved.`,
+        originalUrl: this.router.url
+      };
+      // Force update the not found component if it's already initialized
+      if (this.notFoundComponent) {
+        this.notFoundComponent.errorMessage = this.notFoundError.message;
+        this.notFoundComponent.originalUrl = this.notFoundError.originalUrl;
+      }
     } else {
       // For other errors, show an error message
       this.error = 'An error occurred while loading the document.';
@@ -877,5 +896,14 @@ export class DocumentComponent implements OnInit, OnDestroy {
 
   goHome(): void {
     this.router.navigate(['/']);
+  }
+  
+  // This method will be called by the not found component
+  onNotFoundAction(action: 'home' | 'reload'): void {
+    if (action === 'home') {
+      this.goHome();
+    } else if (action === 'reload') {
+      this.reloadDocument();
+    }
   }
 }

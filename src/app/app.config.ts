@@ -5,14 +5,14 @@ import { provideAnimations } from '@angular/platform-browser/animations';
 import { ContentService } from './core/services/content.service';
 import { SearchService } from './core/services/search/search.service';
 import { routes } from './app.routes';
-import { notFoundInterceptor } from './core/interceptors/not-found.interceptor';
+import { httpLoggingInterceptor } from './core/interceptors/http-logging.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }), 
     provideRouter(routes),
     provideHttpClient(
-      withInterceptors([notFoundInterceptor]),
+      withInterceptors([httpLoggingInterceptor]),
       withInterceptorsFromDi()
     ),
     provideAnimations(),

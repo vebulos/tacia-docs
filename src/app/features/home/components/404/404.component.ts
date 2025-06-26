@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 
@@ -10,20 +10,28 @@ import { RouterModule, ActivatedRoute, Router } from '@angular/router';
   styleUrls: ['./404.component.css']
 })
 export class NotFound404Component implements OnInit {
-  errorMessage: string | null = null;
-  originalUrl: string | null = null;
+  @Input() errorMessage: string | null = null;
+  @Input() originalUrl: string | null = null;
+  @Output() action = new EventEmitter<'home' | 'reload'>();
 
-  constructor(
-    private router: Router,
-    private route: ActivatedRoute
-  ) {}
+  constructor() {}
 
   ngOnInit(): void {
-    // Get error message and original URL from navigation state
-    const navigation = this.router.getCurrentNavigation();
-    if (navigation?.extras?.state) {
-      this.errorMessage = navigation.extras.state['error'] || null;
-      this.originalUrl = navigation.extras.state['originalUrl'] || null;
+    // Si les entrées ne sont pas fournies, on essaie de les récupérer depuis l'état de navigation
+    if ((!this.errorMessage || !this.originalUrl) && typeof window !== 'undefined') {
+      const navigation = window.history.state;
+      if (navigation) {
+        this.errorMessage = this.errorMessage || navigation.error || 'The requested page does not exist or has been moved.';
+        this.originalUrl = this.originalUrl || navigation.originalUrl || null;
+      }
     }
+  }
+
+  onGoHome(): void {
+    this.action.emit('home');
+  }
+
+  onReload(): void {
+    this.action.emit('reload');
   }
 }

@@ -7,8 +7,16 @@
     </div>
   </div>
 
+  <!-- 404 Not Found -->
+  <app-not-found-404
+    *ngIf="showNotFound && !loading && notFoundError"
+    [errorMessage]="notFoundError.message"
+    [originalUrl]="notFoundError.originalUrl"
+    (action)="onNotFoundAction($event)"
+  ></app-not-found-404>
+
   <!-- Error state -->
-  <div *ngIf="error && !loading" class="w-full bg-red-50 dark:bg-red-900/20 border-l-4 border-red-400 dark:border-red-600 p-4 rounded">
+  <div *ngIf="error && !loading && !showNotFound" class="w-full bg-red-50 dark:bg-red-900/20 border-l-4 border-red-400 dark:border-red-600 p-4 rounded">
     <div class="flex">
       <div class="flex-shrink-0">
         <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -27,7 +35,7 @@
   </div>
 
   <!-- Content -->
-  <div *ngIf="content && !loading && !error" class="w-full">
+  <div *ngIf="content && !loading && !error && !showNotFound" class="w-full">
     <div class="w-full px-8 py-8">
       <div class="prose dark:prose-invert w-full max-w-none" 
            [innerHTML]="content"

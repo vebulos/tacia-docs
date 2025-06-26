@@ -25,10 +25,6 @@ export function contentPathMatcher(
 
 export const HOME_ROUTES: Routes = [
   {
-    path: '404',
-    component: NotFound404Component
-  },
-  {
     path: '',
     loadComponent: () => import('./components/document/document.component').then(m => m.DocumentComponent)
   },
@@ -38,7 +34,6 @@ export const HOME_ROUTES: Routes = [
   },
   {
     path: '**',
-    redirectTo: '404',
-    pathMatch: 'full'
+    loadComponent: () => import('./components/document/document.component').then(m => m.DocumentComponent)
   }
 ];
