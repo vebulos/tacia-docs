@@ -38,8 +38,7 @@ export class FirstDocumentService {
     this.cachedPaths[cacheKey] = this.http.get<FirstDocumentResponse>(apiUrl, { params }).pipe(
       map(response => {
         if (response.path) {
-          // Ensure the path has .html extension
-          return response.path.endsWith('.html') ? response.path : `${response.path}.html`;
+          return PathUtils.removeFileExtension(response.path);
         }
         return null;
       }),

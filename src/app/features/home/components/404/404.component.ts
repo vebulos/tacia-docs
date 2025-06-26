@@ -12,12 +12,12 @@ import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 export class NotFound404Component implements OnInit {
   @Input() errorMessage: string | null = null;
   @Input() originalUrl: string | null = null;
-  @Output() action = new EventEmitter<'home' | 'reload'>();
+  @Output() action = new EventEmitter<'home'>();
 
   constructor() {}
 
   ngOnInit(): void {
-    // Si les entrées ne sont pas fournies, on essaie de les récupérer depuis l'état de navigation
+    // if the inputs are not provided, try to get them from the navigation state
     if ((!this.errorMessage || !this.originalUrl) && typeof window !== 'undefined') {
       const navigation = window.history.state;
       if (navigation) {
@@ -29,9 +29,5 @@ export class NotFound404Component implements OnInit {
 
   onGoHome(): void {
     this.action.emit('home');
-  }
-
-  onReload(): void {
-    this.action.emit('reload');
   }
 }
