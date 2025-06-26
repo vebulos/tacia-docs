@@ -1,7 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { HomeSearchComponent } from '../../../shared/components/search/search.component';
+import { ContentService } from '../../../core/services/content.service';
+import { ContentItem } from '../../../core/services/content.interface';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-header',
@@ -18,11 +21,16 @@ import { HomeSearchComponent } from '../../../shared/components/search/search.co
           </div>
 
           <!-- Main Navigation -->  
-          <nav class="hidden md:flex space-x-6">
-            <a routerLink="/docs" class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium">Documentation</a>
-            <a routerLink="/api" class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium">API</a>
-            <a routerLink="/tutorials" class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium">Tutorials</a>
-            <a routerLink="/community" class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium">Community</a>
+          <nav class="hidden md:flex space-x-6" *ngIf="mainNavItems.length > 0">
+            <a 
+              *ngFor="let item of mainNavItems"
+              [routerLink]="item.path"
+              routerLinkActive="text-blue-600 dark:text-blue-400"
+              [routerLinkActiveOptions]="{exact: true}"
+              class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium transition-colors duration-200"
+            >
+              {{ item.title || item.name }}
+            </a>
           </nav>
           
           <!-- Search Bar -->
@@ -76,9 +84,55 @@ import { HomeSearchComponent } from '../../../shared/components/search/search.co
   `,
   styles: []
 })
-export class HeaderComponent {
-
+export class HeaderComponent implements OnInit, OnDestroy {
   selectedVersion: string = 'latest';
+  mainNavItems: Array<ContentItem & { title: string }> = [];
+  private subscriptions = new Subscription();
+
+  constructor(
+    private contentService: ContentService,
+    private router: Router
+  ) {}
+
+  ngOnInit(): void {
+    this.loadMainNavigation();
+    this.checkDarkMode();
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+  }
+
+  private loadMainNavigation(): void {
+    this.subscriptions.add(
+      this.contentService.getContent('', true).subscribe({
+        next: (items) => {
+          if (items && Array.isArray(items)) {
+            // Filtrer et transformer les éléments pour la navigation principale
+            this.mainNavItems = items
+              .filter((item: ContentItem) => item.isDirectory) // Ne garder que les dossiers
+              .map((item: ContentItem) => ({
+                ...item,
+                title: (item as any).title || item.name,
+                path: item.path || `/${item.name}`
+              }));
+          }
+        },
+        error: (error) => {
+          console.error('Error loading main navigation:', error);
+        }
+      })
+    );
+  }
+
+  private checkDarkMode(): void {
+    const theme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    if (theme === 'dark' || (!theme && prefersDark)) {
+      document.documentElement.classList.add('dark');
+    }
+  }
 
   onVersionChange(event: Event): void {
     const select = event.target as HTMLSelectElement;
@@ -95,13 +149,5 @@ export class HeaderComponent {
     }
   }
 
-  ngOnInit() {
-    // Check for dark mode preference
-    const theme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    if (theme === 'dark' || (!theme && prefersDark)) {
-      document.documentElement.classList.add('dark');
-    }
-  }
+
 }
