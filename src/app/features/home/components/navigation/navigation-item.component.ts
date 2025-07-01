@@ -15,6 +15,7 @@ export interface NavigationItem extends ContentItem {
   hasError?: boolean;
   childrenLoaded?: boolean;
   children?: NavigationItem[];
+  parentPath?: string; // Chemin du répertoire parent pour les chemins relatifs
 }
 
 @Component({
@@ -129,6 +130,12 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
       next: (children: ContentItem[]) => {
         // Transform the children items to ensure consistent structure
         const transformedChildren = this.transformContentItems(children || []);
+        
+        // Set parentPath for each child
+        transformedChildren.forEach(child => {
+          child.parentPath = this.item.path;
+        });
+        
         this.item.children = transformedChildren;
         this.item.childrenLoaded = true;
         this.item.isLoading = false;
@@ -240,26 +247,61 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     }
     this.destroy$.next();
     this.destroy$.complete();
+    
+    // Reset the opening state if mouse leaves before opening completes
+    if (this.item.path) {
+      NavigationItemComponent.openingItems.delete(this.item.path);
+    }
   }
 
   /**
    * Get the navigation link with state for a navigation item
+   * Handles both relative and absolute paths correctly
    */
   getNavigationLink(item: NavigationItem): { link: string[], state: any } {
-    // Use the path which now includes the extension for files
-    const itemPath = item.path || '';
+    console.log('getNavigationLink - item:', JSON.parse(JSON.stringify(item)));
     
-    // Remove .md extension for the URL but keep it in the state
-    const displayPath = !item.isDirectory ? PathUtils.removeFileExtension(itemPath) : itemPath;
+    // Nettoyer les chemins des slashes en début/fin
+    const cleanPath = (p: string) => p ? p.replace(/^\/+|\/+$/g, '') : '';
     
-    // Build the base URL
-    const baseUrl = displayPath ? ['/', ...displayPath.split('/')] : ['/'];
+    // Récupérer et nettoyer les chemins
+    const parentPath = cleanPath(item.parentPath || '');
+    let itemPath = cleanPath(item.path || '');
+    
+    console.log('getNavigationLink - parentPath:', parentPath);
+    console.log('getNavigationLink - itemPath:', itemPath);
+    
+    // Pour les fichiers, on enlève l'extension .md
+    if (!item.isDirectory) {
+      itemPath = itemPath.replace(/\.md$/, '');
+    }
+    
+    // Construire le chemin final
+    let fullPath = '';
+    
+    if (!parentPath) {
+      fullPath = itemPath;
+    } else if (!itemPath) {
+      fullPath = parentPath;
+    } else {
+      // Vérifier si itemPath contient déjà parentPath
+      if (itemPath.startsWith(parentPath)) {
+        fullPath = itemPath;
+      } else {
+        fullPath = `${parentPath}/${itemPath}`;
+      }
+    }
+    
+    console.log('getNavigationLink - final path:', fullPath);
+    
+    // Split into segments and remove any empty segments
+    const pathSegments = fullPath.split('/').filter(segment => segment !== '');
     
     // Return the link and navigation state
     return {
-      link: baseUrl,
+      link: ['/', ...pathSegments], // Ensure we start with a single '/'
       state: {
-        path: itemPath // Keep the original path with extension in state
+        path: fullPath // Keep the full path in state
       }
     };
   }

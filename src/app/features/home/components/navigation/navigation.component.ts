@@ -229,27 +229,26 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   public getRootContentItems(skipCache: boolean = true, directory: string = ''): Observable<NavigationItem[]> {
+    console.log(`[NavigationComponent] getRootContentItems - directory: "${directory}"`);
+    
     return this.contentService.getContent(directory, skipCache).pipe(
-      tap(items => console.log(`[NavigationComponent] Received items for directory "${directory}":`, items?.length)),
+      tap(items => console.log(`[NavigationComponent] Received ${items?.length} items for directory "${directory}"`)),
       map((items: ContentItem[] = []) => {
         if (!Array.isArray(items)) {
           console.error('[NavigationComponent] Received invalid content items');
           return [];
         }
         
-        // Traitement des chemins
-        const processedItems = items.map(item => {
-          // Si nous sommes dans un sous-dossier, nous devons conserver le chemin complet
-          const fullPath = directory ? 
-            `${directory}${directory.endsWith('/') ? '' : '/'}${item.path}`.replace(/\/+/g, '/') : 
-            item.path;
-          return {
-            ...item,
-            path: fullPath
-          };
-        });
-
-        return this.transformContentItems(processedItems);
+        console.log(`[NavigationComponent] Processing ${items.length} items for directory "${directory}"`);
+        
+        // Transform items to navigation items with proper structure
+        const transformedItems = this.transformContentItems(items);
+        
+        // Add parentPath to each item
+        return transformedItems.map(item => ({
+          ...item,
+          parentPath: directory
+        }));
       }),
       catchError(error => {
         console.error('[NavigationComponent] Error loading root content:', error);
@@ -261,7 +260,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   /**
    * Transforms content items to navigation items with proper sorting and structure
-   * This should match the transformation logic in the parent NavigationComponent
+   * @param items The content items to transform
    */
   private transformContentItems(items: ContentItem[]): NavigationItem[] {
     if (!items) return [];
@@ -277,14 +276,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
     });
     
     return sortedItems.map(item => {
-      const isDirectory = item.isDirectory;
+      console.log(`  - Transforming item: ${item.path} (isDir: ${item.isDirectory})`);
       return {
         ...item,
-        isOpen: false, // Will be set by the subscription
+        isOpen: false,
         isLoading: false,
         hasError: false,
         childrenLoaded: false,
-        children: isDirectory ? [] : undefined
+        children: item.isDirectory ? [] : undefined
       };
     });
   }
