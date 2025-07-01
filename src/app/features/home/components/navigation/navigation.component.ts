@@ -44,19 +44,45 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Charger le contenu basé sur l'URL actuelle
+    // Load content immediately for the current URL
+    this.loadInitialContent();
+    
+    // Then subscribe to future navigation changes
+    this.setupNavigationListener();
+    
+    // Subscribe to refresh requests
+    this.setupRefreshListener();
+  }
+
+  /**
+   * Loads content for the current URL path
+   */
+  private loadInitialContent(): void {
+    const initialPath = this.getCurrentPathFromUrl();
+    console.log('Loading initial path:', initialPath);
+    this.loadContentForPath(initialPath);
+    this.updateActiveStates();
+  }
+
+  /**
+   * Sets up the navigation event listener
+   */
+  private setupNavigationListener(): void {
     this.router.events.pipe(
       filter((event): event is NavigationEnd => event instanceof NavigationEnd),
       takeUntil(this.destroy$)
     ).subscribe(event => {
-      const url = event.urlAfterRedirects || event.url;
-      // Extraire le chemin de l'URL (enlever le / au début si présent)
-      const path = url.startsWith('/') ? url.substring(1) : url;
+      const path = this.getPathFromNavigationEvent(event);
+      console.log('Navigation detected to path:', path);
       this.loadContentForPath(path);
       this.updateActiveStates();
     });
-    
-    // S'abonner aux demandes de rafraîchissement
+  }
+
+  /**
+   * Sets up the refresh listener
+   */
+  private setupRefreshListener(): void {
     this.refreshService.refreshRequested$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(() => {
@@ -64,9 +90,25 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this.refreshContent();
     });
   }
+
+  /**
+   * Extracts the current path from the router URL
+   */
+  private getCurrentPathFromUrl(): string {
+    const url = this.router.url;
+    return url.startsWith('/') ? url.substring(1) : url;
+  }
+
+  /**
+   * Extracts the path from a NavigationEnd event
+   */
+  private getPathFromNavigationEvent(event: NavigationEnd): string {
+    const url = event.urlAfterRedirects || event.url;
+    return url.startsWith('/') ? url.substring(1) : url;
+  }
   
   /**
-   * Charge le contenu pour un chemin spécifique
+   * Loads content for a specific path
    */
   private loadContentForPath(path: string): void {
     if (!path) {
@@ -74,7 +116,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Extraire le premier segment du chemin pour le dossier parent
+    // Extract the first segment of the path for the parent directory
     const segments = path.split('/');
     const parentPath = segments[0];
     
