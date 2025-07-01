@@ -35,8 +35,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private navigationState: NavigationStateService,
     private refreshService: RefreshService
   ) {
-    // Écouter les changements de catégorie active
-    this.navigationState.activeCategory$.subscribe(activePath => {
+    // Listen for active path changes
+    this.navigationState.activePath$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(activePath => {
       if (activePath) {
         this.scheduleCloseOtherCategories(activePath);
       }
@@ -73,7 +75,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$)
     ).subscribe(event => {
       const path = this.getPathFromNavigationEvent(event);
-      console.log('Navigation detected to path:', path);
+      this.activePath = path;
+      this.setActivePath(path);
       this.loadContentForPath(path);
       this.updateActiveStates();
     });
@@ -129,15 +132,19 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroy$.next();
-    this.destroy$.complete();
     this.clearAllHoverTimers();
-    this.navigationState.setActiveCategory(null);
+    this.navigationState.setActivePath(null);
     if (this.closeTimer) {
       clearTimeout(this.closeTimer);
     }
   }
 
-
+  /**
+   * Set the active path in the navigation state
+   */
+  private setActivePath(path: string | null): void {
+    this.navigationState.setActivePath(path);
+  }
 
   private scheduleCloseOtherCategories(activePath: string): void {
     if (this.closeTimer) {
@@ -172,24 +179,24 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
   
   /**
-   * Rafraîchit le contenu de la navigation en vidant d'abord le cache
+   * Refreshes the navigation content by first clearing the cache
    * @public
    */
   public refreshContent(): void {
     console.log('[NavigationComponent] Refreshing content for current directory:', this.currentPath);
     
-    // Vider le cache pour le répertoire actuel avant de recharger
+    // Clear cache for the current directory before reloading
     this.contentService.clearCache(this.currentPath).pipe(
       take(1)
     ).subscribe({
       next: () => {
         console.log(`[NavigationComponent] Cache cleared for directory "${this.currentPath}", loading fresh content`);
-        // Utiliser skipCache=true pour forcer une nouvelle requête
+        // Use skipCache=true to force a new request
         this.loadRootContent(true, this.currentPath);
       },
       error: (err) => {
         console.error('[NavigationComponent] Error clearing cache:', err);
-        // Charger quand même le contenu en cas d'erreur avec skipCache=true
+        // Still load content with skipCache=true in case of error
         this.loadRootContent(true, this.currentPath);
       }
     });
@@ -201,9 +208,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Charge le contenu pour un répertoire spécifique
-   * @param skipCache Indique si le cache doit être ignoré
-   * @param directory Le chemin du répertoire à charger (vide pour la racine)
+   * Loads content for a specific directory
+   * @param skipCache Whether to ignore the cache
+   * @param directory The directory path to load (empty for root)
    * @public
    */
   public loadRootContent(skipCache: boolean = true, directory: string = ''): void {

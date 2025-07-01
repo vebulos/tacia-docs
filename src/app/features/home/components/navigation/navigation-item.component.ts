@@ -15,7 +15,7 @@ export interface NavigationItem extends ContentItem {
   hasError?: boolean;
   childrenLoaded?: boolean;
   children?: NavigationItem[];
-  parentPath?: string; // Chemin du répertoire parent pour les chemins relatifs
+  parentPath?: string; // Parent directory path for relative paths
 }
 
 @Component({
@@ -87,9 +87,9 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     // Calculate the new open state
     const willBeOpen = forceOpen !== null ? forceOpen : !this.item.isOpen;
     
-    // Update the active category in the service
+    // Update the active path in the service
     if (willBeOpen) {
-      this.navigationState.setActiveCategory(this.item.path);
+      this.navigationState.setActivePath(this.item.path);
       
       // Open the category immediately
       if (!this.item.isOpen) {
@@ -102,7 +102,7 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
       // Close other categories after a delay
       this.scheduleCloseOtherCategories();
     } else {
-      this.navigationState.setActiveCategory(null);
+      this.navigationState.setActivePath(null);
       this.item.isOpen = false;
     }
   }
@@ -261,22 +261,22 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
   getNavigationLink(item: NavigationItem): { link: string[], state: any } {
     console.log('getNavigationLink - item:', JSON.parse(JSON.stringify(item)));
     
-    // Nettoyer les chemins des slashes en début/fin
+    // Clean paths by removing leading/trailing slashes
     const cleanPath = (p: string) => p ? p.replace(/^\/+|\/+$/g, '') : '';
     
-    // Récupérer et nettoyer les chemins
+    // Get and clean paths
     const parentPath = cleanPath(item.parentPath || '');
     let itemPath = cleanPath(item.path || '');
     
     console.log('getNavigationLink - parentPath:', parentPath);
     console.log('getNavigationLink - itemPath:', itemPath);
     
-    // Pour les fichiers, on enlève l'extension .md
+    // For files, remove the .md extension
     if (!item.isDirectory) {
       itemPath = itemPath.replace(/\.md$/, '');
     }
     
-    // Construire le chemin final
+    // Build the final path
     let fullPath = '';
     
     if (!parentPath) {
@@ -284,7 +284,7 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     } else if (!itemPath) {
       fullPath = parentPath;
     } else {
-      // Vérifier si itemPath contient déjà parentPath
+      // Check if itemPath already contains parentPath
       if (itemPath.startsWith(parentPath)) {
         fullPath = itemPath;
       } else {
