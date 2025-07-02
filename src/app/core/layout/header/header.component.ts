@@ -99,34 +99,4 @@ export class HeaderComponent implements OnInit, OnDestroy {
       localStorage.setItem('theme', 'dark');
     }
   }
-  
-  isActive(path: string): boolean {
-    console.log('-----------> URL:' + this.router.url);
-    console.log('-----------> PATH:' + path);  
-    return this.router.url.startsWith(path);
-  }
-  
-  navigateToItem(item: ContentItem, event: Event): void {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    if (item.isDirectory) {
-      // Si c'est un dossier, naviguer vers le premier document
-      this.firstDocumentService.getFirstDocumentPath(item.path || item.name).pipe(
-        take(1)
-      ).subscribe(firstDocPath => {
-        if (firstDocPath) {
-          this.router.navigateByUrl(firstDocPath);
-        } else {
-          // Si aucun document n'est trouvé, naviguer vers le dossier
-          this.router.navigate([item.path || item.name]);
-        }
-      });
-    } else {
-      // Si c'est un fichier, naviguer normalement
-      this.router.navigate([item.path]);
-    }
-  }
-
-
 }

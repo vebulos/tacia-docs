@@ -9,13 +9,11 @@
 
         <!-- Main Navigation -->  
         <nav class="hidden md:flex space-x-6" *ngIf="mainNavItems.length > 0">
-          <a 
+          <a
             *ngFor="let item of mainNavItems"
-            href="#"
-            (click)="navigateToItem(item, $event)"
-            [class.active]="isActive(item.path)"
-            [class.text-blue-600]="isActive(item.path)"
-            [class.dark:text-blue-400]="isActive(item.path)"
+            [routerLink]="item.path"
+            routerLinkActive="active text-blue-600 dark:text-blue-400"
+            [routerLinkActiveOptions]="{ exact: false }"
             class="cursor-pointer text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium transition-colors duration-200"
           >
             {{ item.title || item.name }}
