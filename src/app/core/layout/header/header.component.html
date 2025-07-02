@@ -11,8 +11,9 @@
         <nav class="hidden md:flex space-x-6" *ngIf="mainNavItems.length > 0">
           <a
             *ngFor="let item of mainNavItems"
-            [routerLink]="item.path"
-            routerLinkActive="active text-blue-600 dark:text-blue-400"
+            [routerLink]="item.sectionPath"
+            (click)="navigateToFirstDoc(item, $event)"
+            routerLinkActive="header-link-active"
             [routerLinkActiveOptions]="{ exact: false }"
             class="cursor-pointer text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium transition-colors duration-200"
           >

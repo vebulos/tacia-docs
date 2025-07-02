@@ -17,7 +17,8 @@ import { take } from 'rxjs/operators';
 })
 export class HeaderComponent implements OnInit, OnDestroy {
   selectedVersion: string = 'latest';
-  mainNavItems: Array<ContentItem & { title: string }> = [];
+  // Updated data structure to hold separate paths for state and navigation
+  mainNavItems: Array<ContentItem & { title: string; sectionPath: string; firstDocPath: string; }> = [];
   private subscriptions = new Subscription();
 
   constructor(
@@ -40,16 +41,18 @@ export class HeaderComponent implements OnInit, OnDestroy {
       this.contentService.getContent('', true).subscribe({
         next: (items) => {
           if (items && Array.isArray(items)) {
-            // Filtrer et transformer les éléments pour la navigation principale
             this.mainNavItems = items
-              .filter((item: ContentItem) => item.isDirectory) // Ne garder que les dossiers
-              .map((item: ContentItem) => ({
-                ...item,
-                title: (item as any).title || item.name,
-                path: item.path || `/${item.name}`
-              }));
+              .filter((item: ContentItem) => item.isDirectory)
+              .map((item: ContentItem) => {
+                const sectionPath = item.path || `/${item.name}`;
+                return {
+                  ...item,
+                  title: (item as any).title || item.name,
+                  sectionPath: sectionPath,
+                  firstDocPath: sectionPath, // Default to section path, will be updated
+                };
+              });
             
-            // Précharger les chemins des premiers documents pour chaque dossier
             this.preloadFirstDocuments(this.mainNavItems);
           }
         },
@@ -60,20 +63,26 @@ export class HeaderComponent implements OnInit, OnDestroy {
     );
   }
   
-  private preloadFirstDocuments(items: Array<ContentItem & { title: string }>): void {
+  private preloadFirstDocuments(items: Array<ContentItem & { sectionPath: string; firstDocPath: string; }>): void {
     items.forEach(item => {
       if (item.isDirectory) {
-        const directory = item.path || item.name;
-        this.firstDocumentService.getFirstDocumentPath(directory).pipe(
+        this.firstDocumentService.getFirstDocumentPath(item.sectionPath).pipe(
           take(1)
         ).subscribe(firstDocPath => {
           if (firstDocPath) {
-            // Mettre à jour le chemin de navigation pour pointer vers le premier document
-            item.path = firstDocPath;
+            // Set the specific path for direct navigation
+            item.firstDocPath = firstDocPath;
           }
         });
       }
     });
+  }
+
+  // Navigate to the first document of a section, used to override default routerLink behavior
+  navigateToFirstDoc(item: { firstDocPath: string }, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.router.navigateByUrl(item.firstDocPath);
   }
 
   private checkDarkMode(): void {
