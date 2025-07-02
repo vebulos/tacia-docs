@@ -6,11 +6,23 @@ import { describe, beforeEach, it, expect } from 'vitest';
 
 import { AppComponent } from './app.component';
 import { NotificationService } from './core/services/notification/notification.service';
+
+// Import real components to override them
 import { LayoutComponent } from './core/layout/layout.component';
+import { HeaderComponent } from './core/layout/header/header.component';
+import { FooterComponent } from './core/layout/footer/footer.component';
+import { NotificationComponent } from './core/services/notification/notification.component';
 
 // --- Mock Components ---
-@Component({ selector: 'app-layout', template: '', standalone: true })
-class MockLayoutComponent {}
+@Component({ selector: 'app-header', template: '', standalone: true })
+class MockHeaderComponent {}
+
+@Component({ selector: 'app-footer', template: '', standalone: true })
+class MockFooterComponent {}
+
+@Component({ selector: 'app-notification', template: '', standalone: true })
+class MockNotificationComponent {}
+
 
 // --- Mock Service ---
 class MockNotificationService {
@@ -23,19 +35,16 @@ describe('AppComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [
-        RouterTestingModule,
-        AppComponent, // Test the real AppComponent
-      ],
+      imports: [RouterTestingModule, AppComponent],
       providers: [
         { provide: NotificationService, useClass: MockNotificationService },
       ],
     })
-    .overrideComponent(AppComponent, {
-      remove: { imports: [LayoutComponent] },
-      add: { imports: [MockLayoutComponent] }
-    })
-    .compileComponents();
+      .overrideComponent(LayoutComponent, {
+        remove: { imports: [HeaderComponent, FooterComponent, NotificationComponent] },
+        add: { imports: [MockHeaderComponent, MockFooterComponent, MockNotificationComponent] },
+      })
+      .compileComponents();
 
     fixture = TestBed.createComponent(AppComponent);
     component = fixture.componentInstance;
