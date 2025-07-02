@@ -3,8 +3,10 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { HomeSearchComponent } from '../../../shared/components/search/search.component';
 import { ContentService } from '../../../core/services/content.service';
+import { FirstDocumentService } from '../../../core/services/first-document.service';
 import { ContentItem } from '../../../core/services/content.interface';
 import { Subscription } from 'rxjs';
+import { take } from 'rxjs/operators';
 
 @Component({
   selector: 'app-header',
@@ -24,10 +26,12 @@ import { Subscription } from 'rxjs';
           <nav class="hidden md:flex space-x-6" *ngIf="mainNavItems.length > 0">
             <a 
               *ngFor="let item of mainNavItems"
-              [routerLink]="item.path"
-              routerLinkActive="text-blue-600 dark:text-blue-400"
-              [routerLinkActiveOptions]="{exact: true}"
-              class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium transition-colors duration-200"
+              href="#"
+              (click)="navigateToItem(item, $event)"
+              [class.active]="isActive(item.path)"
+              [class.text-blue-600]="isActive(item.path)"
+              [class.dark:text-blue-400]="isActive(item.path)"
+              class="cursor-pointer text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium transition-colors duration-200"
             >
               {{ item.title || item.name }}
             </a>
@@ -91,7 +95,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   constructor(
     private contentService: ContentService,
-    private router: Router
+    private router: Router,
+    private firstDocumentService: FirstDocumentService
   ) {}
 
   ngOnInit(): void {
@@ -116,6 +121,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
                 title: (item as any).title || item.name,
                 path: item.path || `/${item.name}`
               }));
+            
+            // Précharger les chemins des premiers documents pour chaque dossier
+            this.preloadFirstDocuments(this.mainNavItems);
           }
         },
         error: (error) => {
@@ -123,6 +131,22 @@ export class HeaderComponent implements OnInit, OnDestroy {
         }
       })
     );
+  }
+  
+  private preloadFirstDocuments(items: Array<ContentItem & { title: string }>): void {
+    items.forEach(item => {
+      if (item.isDirectory) {
+        const directory = item.path || item.name;
+        this.firstDocumentService.getFirstDocumentPath(directory).pipe(
+          take(1)
+        ).subscribe(firstDocPath => {
+          if (firstDocPath) {
+            // Mettre à jour le chemin de navigation pour pointer vers le premier document
+            item.path = firstDocPath;
+          }
+        });
+      }
+    });
   }
 
   private checkDarkMode(): void {
@@ -146,6 +170,32 @@ export class HeaderComponent implements OnInit, OnDestroy {
     } else {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
+    }
+  }
+  
+  isActive(path: string): boolean {
+    return this.router.url.startsWith(path);
+  }
+  
+  navigateToItem(item: ContentItem, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (item.isDirectory) {
+      // Si c'est un dossier, naviguer vers le premier document
+      this.firstDocumentService.getFirstDocumentPath(item.path || item.name).pipe(
+        take(1)
+      ).subscribe(firstDocPath => {
+        if (firstDocPath) {
+          this.router.navigateByUrl(firstDocPath);
+        } else {
+          // Si aucun document n'est trouvé, naviguer vers le dossier
+          this.router.navigate([item.path || item.name]);
+        }
+      });
+    } else {
+      // Si c'est un fichier, naviguer normalement
+      this.router.navigate([item.path]);
     }
   }
 
