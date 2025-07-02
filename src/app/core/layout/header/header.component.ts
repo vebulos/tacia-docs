@@ -3,95 +3,28 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { HomeSearchComponent } from '../../../shared/components/search/search.component';
 import { ContentService } from '../../../core/services/content.service';
+import { FirstDocumentService } from '../../../core/services/first-document.service';
 import { ContentItem } from '../../../core/services/content.interface';
 import { Subscription } from 'rxjs';
+import { take } from 'rxjs/operators';
 
 @Component({
   selector: 'app-header',
   standalone: true,
   imports: [CommonModule, RouterModule, HomeSearchComponent],
-  template: `
-    <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-20 h-16">
-      <div class="w-full mx-auto px-4 sm:px-6 lg:px-8 h-16">
-        <div class="flex justify-between items-center h-16">
-          <div class="flex items-center">
-            <a routerLink="/" class="flex items-center">
-              <span class="text-xl font-bold text-gray-900 dark:text-white">TaciaDocs</span>
-            </a>
-          </div>
-
-          <!-- Main Navigation -->  
-          <nav class="hidden md:flex space-x-6" *ngIf="mainNavItems.length > 0">
-            <a 
-              *ngFor="let item of mainNavItems"
-              [routerLink]="item.path"
-              routerLinkActive="text-blue-600 dark:text-blue-400"
-              [routerLinkActiveOptions]="{exact: true}"
-              class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium transition-colors duration-200"
-            >
-              {{ item.title || item.name }}
-            </a>
-          </nav>
-          
-          <!-- Search Bar -->
-          <div class="flex-1 max-w-2xl mx-4">
-            <app-home-search></app-home-search>
-          </div>
-          
-          <div class="flex items-center space-x-4">
-            
-            <!-- Version Selector -->  
-            <div class="hidden md:block relative">
-             <select 
-                [value]="selectedVersion"
-                (change)="onVersionChange($event)"
-                class="appearance-none bg-transparent pr-8 py-1 pl-2 border border-gray-300 dark:border-gray-700 rounded text-sm text-gray-700 dark:text-gray-300"
-              >
-                <option value="latest">v1.0 (latest)</option>
-                <option value="v0.9">v0.9</option>
-                <option value="v0.8">v0.8</option>
-              </select>
-              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
-                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-              </div>
-            </div>
-          
-            <button 
-              (click)="toggleTheme()" 
-              class="p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              aria-label="Toggle dark mode">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-              </svg>
-            </button>
-            
-            <a 
-              href="https://github.com/mxc-foundation/mxc-docs" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              class="p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-              <span class="sr-only">GitHub</span>
-              <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-                <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd" />
-              </svg>
-            </a>
-          </div>
-        </div>
-      </div>
-    </header>
-  `,
-  styles: []
+  templateUrl: './header.component.html',
+  styleUrls: ['./header.component.css'],
 })
 export class HeaderComponent implements OnInit, OnDestroy {
   selectedVersion: string = 'latest';
-  mainNavItems: Array<ContentItem & { title: string }> = [];
+  // Updated data structure to hold separate paths for state and navigation
+  mainNavItems: Array<ContentItem & { title: string; sectionPath: string; firstDocPath: string; }> = [];
   private subscriptions = new Subscription();
 
   constructor(
     private contentService: ContentService,
-    private router: Router
+    private router: Router,
+    private firstDocumentService: FirstDocumentService
   ) {}
 
   ngOnInit(): void {
@@ -108,14 +41,19 @@ export class HeaderComponent implements OnInit, OnDestroy {
       this.contentService.getContent('', true).subscribe({
         next: (items) => {
           if (items && Array.isArray(items)) {
-            // Filtrer et transformer les éléments pour la navigation principale
             this.mainNavItems = items
-              .filter((item: ContentItem) => item.isDirectory) // Ne garder que les dossiers
-              .map((item: ContentItem) => ({
-                ...item,
-                title: (item as any).title || item.name,
-                path: item.path || `/${item.name}`
-              }));
+              .filter((item: ContentItem) => item.isDirectory)
+              .map((item: ContentItem) => {
+                const sectionPath = item.path || `/${item.name}`;
+                return {
+                  ...item,
+                  title: (item as any).title || item.name,
+                  sectionPath: sectionPath,
+                  firstDocPath: sectionPath, // Default to section path, will be updated
+                };
+              });
+            
+            this.preloadFirstDocuments(this.mainNavItems);
           }
         },
         error: (error) => {
@@ -123,6 +61,28 @@ export class HeaderComponent implements OnInit, OnDestroy {
         }
       })
     );
+  }
+  
+  private preloadFirstDocuments(items: Array<ContentItem & { sectionPath: string; firstDocPath: string; }>): void {
+    items.forEach(item => {
+      if (item.isDirectory) {
+        this.firstDocumentService.getFirstDocumentPath(item.sectionPath).pipe(
+          take(1)
+        ).subscribe(firstDocPath => {
+          if (firstDocPath) {
+            // Set the specific path for direct navigation
+            item.firstDocPath = firstDocPath;
+          }
+        });
+      }
+    });
+  }
+
+  // Navigate to the first document of a section, used to override default routerLink behavior
+  navigateToFirstDoc(item: { firstDocPath: string }, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.router.navigateByUrl(item.firstDocPath);
   }
 
   private checkDarkMode(): void {
@@ -148,6 +108,4 @@ export class HeaderComponent implements OnInit, OnDestroy {
       localStorage.setItem('theme', 'dark');
     }
   }
-
-
 }

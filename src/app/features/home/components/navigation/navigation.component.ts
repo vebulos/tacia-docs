@@ -1,16 +1,13 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
-import { Observable, of } from 'rxjs';
-import { take, catchError } from 'rxjs/operators';
+import { Observable, of, Subject } from 'rxjs';
+import { take, catchError, map, filter, takeUntil, tap } from 'rxjs/operators';
 import { NavigationStateService } from '../../services/navigation-state.service';
 import { PathUtils } from '@app/core/utils/path.utils';
 import { ContentService } from '../../../../core/services/content.service';
 import { ContentItem } from '../../../../core/services/content.interface';
-import { map, filter, takeUntil, tap } from 'rxjs/operators';
 import { NavigationItemComponent, NavigationItem } from './navigation-item.component';
-
-import { Subject } from 'rxjs';
 import { RefreshService } from '@app/core/services/refresh/refresh.service';
 
 @Component({
@@ -23,6 +20,7 @@ import { RefreshService } from '@app/core/services/refresh/refresh.service';
 export class NavigationComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private hoverTimers = new Map<string, any>();
+  private currentPath: string = '';
   
   contentStructure: NavigationItem[] = [];
   loading = true;
@@ -37,8 +35,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private navigationState: NavigationStateService,
     private refreshService: RefreshService
   ) {
-    // Listen for active category changes
-    this.navigationState.activeCategory$.subscribe(activePath => {
+    // Listen for active path changes
+    this.navigationState.activePath$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(activePath => {
       if (activePath) {
         this.scheduleCloseOtherCategories(activePath);
       }
@@ -46,17 +46,46 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.loadRootContent();
+    // Load content immediately for the current URL
+    this.loadInitialContent();
     
-    // Update active states on route changes
+    // Then subscribe to future navigation changes
+    this.setupNavigationListener();
+    
+    // Subscribe to refresh requests
+    this.setupRefreshListener();
+  }
+
+  /**
+   * Loads content for the current URL path
+   */
+  private loadInitialContent(): void {
+    const initialPath = this.getCurrentPathFromUrl();
+    console.log('Loading initial path:', initialPath);
+    this.loadContentForPath(initialPath);
+    this.updateActiveStates();
+  }
+
+  /**
+   * Sets up the navigation event listener
+   */
+  private setupNavigationListener(): void {
     this.router.events.pipe(
       filter((event): event is NavigationEnd => event instanceof NavigationEnd),
       takeUntil(this.destroy$)
-    ).subscribe(() => {
+    ).subscribe(event => {
+      const path = this.getPathFromNavigationEvent(event);
+      this.activePath = path;
+      this.setActivePath(path);
+      this.loadContentForPath(path);
       this.updateActiveStates();
     });
-    
-    // Subscribe to refresh requests
+  }
+
+  /**
+   * Sets up the refresh listener
+   */
+  private setupRefreshListener(): void {
     this.refreshService.refreshRequested$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(() => {
@@ -65,17 +94,57 @@ export class NavigationComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Extracts the current path from the router URL
+   */
+  private getCurrentPathFromUrl(): string {
+    const url = this.router.url;
+    return url.startsWith('/') ? url.substring(1) : url;
+  }
+
+  /**
+   * Extracts the path from a NavigationEnd event
+   */
+  private getPathFromNavigationEvent(event: NavigationEnd): string {
+    const url = event.urlAfterRedirects || event.url;
+    return url.startsWith('/') ? url.substring(1) : url;
+  }
+  
+  /**
+   * Loads content for a specific path
+   */
+  private loadContentForPath(path: string): void {
+    if (!path) {
+      this.loadRootContent();
+      return;
+    }
+
+    // Extract the first segment of the path for the parent directory
+    const segments = path.split('/');
+    const parentPath = segments[0];
+    
+    if (parentPath) {
+      this.loadRootContent(true, parentPath);
+    } else {
+      this.loadRootContent();
+    }
+  }
+
   ngOnDestroy(): void {
     this.destroy$.next();
-    this.destroy$.complete();
     this.clearAllHoverTimers();
-    this.navigationState.setActiveCategory(null);
+    this.navigationState.setActivePath(null);
     if (this.closeTimer) {
       clearTimeout(this.closeTimer);
     }
   }
 
-
+  /**
+   * Set the active path in the navigation state
+   */
+  private setActivePath(path: string | null): void {
+    this.navigationState.setActivePath(path);
+  }
 
   private scheduleCloseOtherCategories(activePath: string): void {
     if (this.closeTimer) {
@@ -110,25 +179,25 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
   
   /**
-   * Rafraîchit le contenu de la navigation en vidant d'abord le cache
+   * Refreshes the navigation content by first clearing the cache
    * @public
    */
   public refreshContent(): void {
-    console.log('[NavigationComponent] Refreshing content with cache clearing');
+    console.log('[NavigationComponent] Refreshing content for current directory:', this.currentPath);
     
-    // Vider le cache du contenu racine avant de recharger
-    this.contentService.clearCache('').pipe(
-      take(1) // Take only the first emission and complete
+    // Clear cache for the current directory before reloading
+    this.contentService.clearCache(this.currentPath).pipe(
+      take(1)
     ).subscribe({
       next: () => {
-        console.log('[NavigationComponent] Cache cleared, loading fresh content');
-        // Use skipCache=true to force a fresh request
-        this.loadRootContent(true);
+        console.log(`[NavigationComponent] Cache cleared for directory "${this.currentPath}", loading fresh content`);
+        // Use skipCache=true to force a new request
+        this.loadRootContent(true, this.currentPath);
       },
       error: (err) => {
         console.error('[NavigationComponent] Error clearing cache:', err);
-        // Still load the content in case of error with skipCache=true
-        this.loadRootContent(true);
+        // Still load content with skipCache=true in case of error
+        this.loadRootContent(true, this.currentPath);
       }
     });
   }
@@ -139,73 +208,54 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Charge le contenu racine de la documentation
-   * @param skipCache Indique si le cache doit être ignoré
+   * Loads content for a specific directory
+   * @param skipCache Whether to ignore the cache
+   * @param directory The directory path to load (empty for root)
    * @public
    */
-  public loadRootContent(skipCache: boolean = true): void {
+  public loadRootContent(skipCache: boolean = true, directory: string = ''): void {
     this.loading = true;
     this.error = null;
+    this.currentPath = directory;
     
-    console.log(`[NavigationComponent] Loading root content with skipCache=${skipCache}`);
-    console.log('[NavigationComponent] Calling contentService.getContent()');
-    this.contentService.getContent('', skipCache).pipe(
-      tap(items => console.log('[NavigationComponent] Received items from contentService:', items))
-    ).subscribe({
-      next: (items: ContentItem[]) => {
-        console.log('[NavigationComponent] ContentService response received, items count:', items?.length);
-        console.log('[NavigationComponent] First few items:', items?.slice(0, 3));
-        
-        if (!items || !Array.isArray(items)) {
-          console.error('[NavigationComponent] Received invalid root content items:', items);
-          items = [];
-        } else {
-          console.log('[NavigationComponent] Items structure:', JSON.stringify(items, null, 2).substring(0, 500) + '...');
-        }
-        
-        try {
-          // Ensure paths are properly formatted
-          const processedItems = items.map(item => ({
-            ...item,
-            path: item.path ? item.path.replace(/^content\//, '') : item.path
-          }));
-          
-          this.contentStructure = this.transformContentItems(processedItems);
-          
-          this.loading = false;
-          
-          // Update active states after loading
-          this.updateActiveStates();
-          
-          console.log('Root content loaded successfully:', this.contentStructure);
-        } catch (error) {
-          console.error('Error transforming root content items:', error);
-          this.handleChildLoadError({ path: '' } as NavigationItem, 'Failed to process content structure.');
-        }
+    console.log(`[NavigationComponent] Loading content for directory: "${directory}" with skipCache=${skipCache}`);
+    
+    this.getRootContentItems(skipCache, directory).subscribe({
+      next: (items) => {
+        this.contentStructure = items;
+        this.loading = false;
+        this.updateActiveStates();
+        console.log(`Content loaded successfully for directory: ${directory}`);
       },
-      error: (error: Error) => {
-        console.error('Failed to load root content:', error);
-        this.handleChildLoadError({ path: '' } as NavigationItem, 'Failed to load documentation structure. Please try again later.');
+      error: (error) => {
+        console.error(`Failed to load content for directory "${directory}":`, error);
+        this.handleChildLoadError({ path: directory } as NavigationItem, 'Failed to load content structure.');
+        this.loading = false;
       }
     });
   }
-  
-  public getRootContentItems(skipCache: boolean = true): Observable<NavigationItem[]> {
-    return this.contentService.getContent('', skipCache).pipe(
-      tap(items => console.log('[NavigationComponent] Received root items from contentService:', items?.length)),
+
+  public getRootContentItems(skipCache: boolean = true, directory: string = ''): Observable<NavigationItem[]> {
+    console.log(`[NavigationComponent] getRootContentItems - directory: "${directory}"`);
+    
+    return this.contentService.getContent(directory, skipCache).pipe(
+      tap(items => console.log(`[NavigationComponent] Received ${items?.length} items for directory "${directory}"`)),
       map((items: ContentItem[] = []) => {
         if (!Array.isArray(items)) {
-          console.error('[NavigationComponent] Received invalid root content items');
+          console.error('[NavigationComponent] Received invalid content items');
           return [];
         }
         
-        // Traitement des chemins
-        const processedItems = items.map(item => ({
+        console.log(`[NavigationComponent] Processing ${items.length} items for directory "${directory}"`);
+        
+        // Transform items to navigation items with proper structure
+        const transformedItems = this.transformContentItems(items);
+        
+        // Add parentPath to each item
+        return transformedItems.map(item => ({
           ...item,
-          path: item.path ? item.path.replace(/^content\//, '') : item.path
+          parentPath: directory
         }));
-  
-        return this.transformContentItems(processedItems);
       }),
       catchError(error => {
         console.error('[NavigationComponent] Error loading root content:', error);
@@ -217,7 +267,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   /**
    * Transforms content items to navigation items with proper sorting and structure
-   * This should match the transformation logic in the parent NavigationComponent
+   * @param items The content items to transform
    */
   private transformContentItems(items: ContentItem[]): NavigationItem[] {
     if (!items) return [];
@@ -233,14 +283,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
     });
     
     return sortedItems.map(item => {
-      const isDirectory = item.isDirectory;
+      console.log(`  - Transforming item: ${item.path} (isDir: ${item.isDirectory})`);
       return {
         ...item,
-        isOpen: false, // Will be set by the subscription
+        isOpen: false,
         isLoading: false,
         hasError: false,
         childrenLoaded: false,
-        children: isDirectory ? [] : undefined
+        children: item.isDirectory ? [] : undefined
       };
     });
   }
@@ -318,15 +368,23 @@ export class NavigationComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Handles errors that occur when loading child items
+   * @param parentItem The parent item that failed to load children
+   * @param error The error that occurred
+   */
   private handleChildLoadError(parentItem: NavigationItem, error: any): void {
-    parentItem.isLoading = false;
-    parentItem.hasError = true;
-    parentItem.children = []; // Ensure children is always an array
+    if (parentItem) {
+      parentItem.isLoading = false;
+      parentItem.hasError = true;
+      parentItem.children = []; // Ensure children is always an array
+    }
     
-    // If this is the root item, set the error message
-    if (parentItem.path === '') {
+    // If this is the root item or no parent item, set the error message
+    if (!parentItem || parentItem.path === '') {
       this.error = typeof error === 'string' ? error : 'An error occurred while loading content.';
       this.loading = false;
+      console.error('Error loading navigation content:', error);
     }
   }
 
@@ -346,7 +404,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Update active states based on current route
+  /**
+   * Updates the active states of navigation items based on the current route
+   */
   private updateActiveStates(): void {
     if (!this.router.navigated) return;
     

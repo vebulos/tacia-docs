@@ -1,0 +1,26 @@
+a.header-link-active {
+  position: relative;
+  /* Using a specific color for active state to stand out */
+  color: #2563EB; /* text-blue-600 */
+}
+
+/* Custom underline for the active link using a pseudo-element */
+a.header-link-active::after {
+  content: '';
+  position: absolute;
+  bottom: -8px; /* Adjust distance from text */
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #2563EB; /* bg-blue-600 */
+  border-radius: 1px;
+}
+
+/* Dark mode styles for the active link */
+.dark a.header-link-active {
+  color: #60A5FA; /* dark:text-blue-400 */
+}
+
+.dark a.header-link-active::after {
+  background-color: #60A5FA; /* dark:bg-blue-400 */
+}
