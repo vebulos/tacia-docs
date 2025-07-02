@@ -1,32 +1,20 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
-import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
 import { Component } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { describe, beforeEach, it, expect } from 'vitest';
 
 import { AppComponent } from './app.component';
-import { LayoutComponent } from './core/layout/layout.component';
-import { NotificationComponent } from './core/services/notification/notification.component';
 import { NotificationService } from './core/services/notification/notification.service';
-import { HeaderComponent } from './core/layout/header/header.component';
-import { FooterComponent } from './core/layout/footer/footer.component';
+import { LayoutComponent } from './core/layout/layout.component';
 
-// Mock pour le composant de notification
-@Component({
-  selector: 'app-notification',
-  template: '<div></div>',
-  standalone: true
-})
-class MockNotificationComponent {}
+// --- Mock Components ---
+@Component({ selector: 'app-layout', template: '', standalone: true })
+class MockLayoutComponent {}
 
-// Mock pour le service de notification
+// --- Mock Service ---
 class MockNotificationService {
   notifications$ = new BehaviorSubject<any[]>([]);
-  show() {}
-  dismiss() {}
-  clearAll() {}
 }
 
 describe('AppComponent', () => {
@@ -36,21 +24,16 @@ describe('AppComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [
-        CommonModule,
         RouterTestingModule,
-        AppComponent,
-        LayoutComponent,
-        HeaderComponent,
-        FooterComponent,
-        RouterOutlet
+        AppComponent, // Test the real AppComponent
       ],
       providers: [
-        { provide: NotificationService, useClass: MockNotificationService }
-      ]
+        { provide: NotificationService, useClass: MockNotificationService },
+      ],
     })
-    .overrideComponent(LayoutComponent, {
-      remove: { imports: [NotificationComponent] },
-      add: { imports: [MockNotificationComponent] }
+    .overrideComponent(AppComponent, {
+      remove: { imports: [LayoutComponent] },
+      add: { imports: [MockLayoutComponent] }
     })
     .compileComponents();
 

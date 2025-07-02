@@ -52,6 +52,10 @@ export default defineConfig({
       {
         find: '@',
         replacement: resolve(__dirname, 'src')
+      },
+      {
+        find: '@app',
+        replacement: resolve(__dirname, 'src/app')
       }
     ]
   }
