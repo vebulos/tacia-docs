@@ -1,32 +1,32 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
-import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
 import { Component } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { describe, beforeEach, it, expect } from 'vitest';
 
 import { AppComponent } from './app.component';
-import { LayoutComponent } from './core/layout/layout.component';
-import { NotificationComponent } from './core/services/notification/notification.component';
 import { NotificationService } from './core/services/notification/notification.service';
+
+// Import real components to override them
+import { LayoutComponent } from './core/layout/layout.component';
 import { HeaderComponent } from './core/layout/header/header.component';
 import { FooterComponent } from './core/layout/footer/footer.component';
+import { NotificationComponent } from './core/services/notification/notification.component';
 
-// Mock pour le composant de notification
-@Component({
-  selector: 'app-notification',
-  template: '<div></div>',
-  standalone: true
-})
+// --- Mock Components ---
+@Component({ selector: 'app-header', template: '', standalone: true })
+class MockHeaderComponent {}
+
+@Component({ selector: 'app-footer', template: '', standalone: true })
+class MockFooterComponent {}
+
+@Component({ selector: 'app-notification', template: '', standalone: true })
 class MockNotificationComponent {}
 
-// Mock pour le service de notification
+
+// --- Mock Service ---
 class MockNotificationService {
   notifications$ = new BehaviorSubject<any[]>([]);
-  show() {}
-  dismiss() {}
-  clearAll() {}
 }
 
 describe('AppComponent', () => {
@@ -35,24 +35,16 @@ describe('AppComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [
-        CommonModule,
-        RouterTestingModule,
-        AppComponent,
-        LayoutComponent,
-        HeaderComponent,
-        FooterComponent,
-        RouterOutlet
-      ],
+      imports: [RouterTestingModule, AppComponent],
       providers: [
-        { provide: NotificationService, useClass: MockNotificationService }
-      ]
+        { provide: NotificationService, useClass: MockNotificationService },
+      ],
     })
-    .overrideComponent(LayoutComponent, {
-      remove: { imports: [NotificationComponent] },
-      add: { imports: [MockNotificationComponent] }
-    })
-    .compileComponents();
+      .overrideComponent(LayoutComponent, {
+        remove: { imports: [HeaderComponent, FooterComponent, NotificationComponent] },
+        add: { imports: [MockHeaderComponent, MockFooterComponent, MockNotificationComponent] },
+      })
+      .compileComponents();
 
     fixture = TestBed.createComponent(AppComponent);
     component = fixture.componentInstance;

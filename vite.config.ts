@@ -1,15 +1,23 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'url';
 import { resolve } from 'path';
+import angular from '@analogjs/vite-plugin-angular';
 
 // Base configuration for Vitest
 export default defineConfig({
+  plugins: [
+    angular({
+      jit: true,
+      tsconfig: 'tsconfig.json',
+    }),
+  ],
   test: {
     // Base configuration
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./vitest.setup.ts'],
+    setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/*.spec.ts'],
+    testTimeout: 30000,
     
     // Code coverage configuration
     coverage: {
@@ -18,32 +26,42 @@ export default defineConfig({
       reportsDirectory: './coverage',
       exclude: [
         '**/node_modules/**',
+        '**/dist/**',
+        '**/coverage/**',
+        '**/e2e/**',
         '**/*.module.ts',
-        '**/test-setup.ts',
-        '**/*.spec.ts',
         '**/environments/**',
         '**/main.ts',
         '**/polyfills.ts',
         '**/test.ts',
-        '**/src/test.ts'
-      ]
+        '**/src/test.ts',
+        '**/src/environments/**',
+        '**/*.d.ts',
+        '**/src/**/*.spec.ts',
+        '**/src/**/*.spec.tsx',
+        '**/src/**/*.test.ts',
+        '**/src/**/*.test.tsx',
+        '**/src/**/test-*.ts',
+        '**/src/**/test-*.tsx',
+      ],
     },
-    
-    // Configuration for Angular dependencies
-    server: {
-      deps: {
-        inline: ['@angular/**']
-      }
-    },
-    
-    // Disable cache to avoid issues
-    cache: false,
     
     // Test configuration
-    testTimeout: 30000,
     clearMocks: true,
     mockReset: true,
-    restoreMocks: true
+    restoreMocks: true,
+    environmentOptions: {
+      jsdom: {
+        // Required for Angular testing
+        url: 'http://localhost:4200',
+      },
+    },
+    // Required for Angular component testing
+    server: {
+      deps: {
+        inline: ['@angular/*'],
+      },
+    }
   },
   
   // Alias configuration
@@ -52,6 +70,10 @@ export default defineConfig({
       {
         find: '@',
         replacement: resolve(__dirname, 'src')
+      },
+      {
+        find: '@app',
+        replacement: resolve(__dirname, 'src/app')
       }
     ]
   }
