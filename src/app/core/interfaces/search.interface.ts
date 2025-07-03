@@ -40,6 +40,10 @@ export interface SearchResult {
   matches: Array<{
     line: number;
     content: string;
+    isTag: boolean;
     highlighted: string;
   }>;
+  
+  /** Optional metadata for debugging and additional information */
+  metadata?: Record<string, any>;
 }
