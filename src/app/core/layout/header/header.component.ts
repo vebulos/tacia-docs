@@ -19,6 +19,26 @@ export class HeaderComponent implements OnInit, OnDestroy {
   selectedVersion: string = 'latest';
   // Updated data structure to hold separate paths for state and navigation
   mainNavItems: Array<ContentItem & { title: string; sectionPath: string; firstDocPath: string; }> = [];
+  
+  // Tags to display in the header
+  tags = [
+    { name: 'MXC', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+    { name: 'Blockchain', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+    { name: 'IoT', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
+    { name: 'DePIN', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
+    { name: 'M2M', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
+    { name: 'ZkEVM', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200' },
+  ];
+  
+  // Split tags into two rows
+  get firstRowTags() {
+    return this.tags.slice(0, Math.ceil(this.tags.length / 2));
+  }
+  
+  get secondRowTags() {
+    return this.tags.slice(Math.ceil(this.tags.length / 2));
+  }
+  
   private subscriptions = new Subscription();
 
   constructor(
