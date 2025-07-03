@@ -13,6 +13,7 @@ import { FirstDocumentService } from '@app/core/services/first-document.service'
 import { HeadingsService } from '@app/core/services/headings.service';
 import { NotFound404Component } from '../404/404.component';
 import * as path from 'path';
+import { LOG } from '@app/core/services/logging/bun-logger.service';
 
 // Simple DOM parser to safely manipulate HTML
 const parseHtml = (html: string): Document => {
@@ -82,12 +83,18 @@ export class DocumentComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    LOG.debug('Document component initialized', {
+      currentPath: this.route.snapshot.url.map(segment => segment.path).join('/') || '/',
+      hasFragment: !!this.route.snapshot.fragment
+    });
+    
     // Clean up any existing subscription
     if (this.subscription) {
       this.subscription.unsubscribe();
     }
     
     // Handle fragment navigation when component loads
+    LOG.debug('Handling fragment navigation', { fragment: this.route.snapshot.fragment });
     this.handleFragmentNavigation();
     
     // Initialize refresh service if not already done
@@ -99,7 +106,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
     this.refreshService.refreshRequested$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(() => {
-      console.log('Refresh requested, reloading document content...');
+      LOG.debug('Refresh requested, reloading document content');
       this.loadDocumentContent();
     });
     
@@ -114,15 +121,15 @@ export class DocumentComponent implements OnInit, OnDestroy {
           const currentPath = this.route.snapshot.url.map(segment => segment.path).join('/');
           const currentDir = currentPath ? path.dirname(currentPath) : '';
           
-          console.log(`No path provided, getting first document in directory: '${currentDir}'`);
+          LOG.debug('No path provided, getting first document in directory', { directory: currentDir });
           return this.firstDocumentService.getFirstDocumentPath(currentDir).pipe(
             switchMap(path => {
               if (path) {
-                console.log('First document path found:', path);
+                LOG.debug('First document path found:', { path });
                 this.router.navigate(path ? ['/', ...path.split('/')] : ['/']);
               } else {
                 // If no document is found, show 404 inline
-                console.warn(`No document found in directory: '${currentDir}'`);
+                LOG.warn('No documents found in directory', { directory: currentDir });
                 this.showNotFound = true;
                 this.notFoundError = {
                   message: `No document found in the directory '${currentDir}'`,
@@ -150,7 +157,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
           this._currentPath = fullPath;
         }
         
-        console.log('Loading markdown from path:', fullPath);
+        LOG.debug('Loading document content', { path: fullPath });
         this.loading = true;
         this.error = null;
         
@@ -170,14 +177,14 @@ export class DocumentComponent implements OnInit, OnDestroy {
         this.loading = false;
       },
       error: (err) => {
-        console.error('Error in document subscription:', err);
+        LOG.error('Error in document subscription:', { error: err });
         
         // Check if the error is a 404 (document not found)
         const status = err?.status || err?.originalError?.status || 
                       (err?.message?.includes('404') ? 404 : null);
         
         if (status === 404 || (err?.error?.error === 'Document not found')) {
-          console.warn('Document not found, showing 404 inline');
+          LOG.warn('Document not found, showing 404 inline');
           this.showNotFound = true;
           this.notFoundError = {
             message: `The requested document was not found.`,
@@ -224,7 +231,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
           },
           error: (error) => {
             // If error after cache clear, try to load without clearing cache
-            console.error('Error after cache clear, trying to load without clearing cache:', error);
+            LOG.error('Error after cache clear, trying to load without clearing cache:', { error });
             this.markdownService.getMarkdownFile(fullPath).subscribe({
               next: (response) => {
                 this.handleDocumentSuccess(response, fullPath);
@@ -240,7 +247,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
         });
       },
       error: (error) => {
-        console.error('Error clearing cache, trying to load anyway:', error);
+        LOG.error('Error clearing cache, trying to load anyway:', { error });
         this.markdownService.getMarkdownFile(fullPath).subscribe({
           next: (response) => {
             this.handleDocumentSuccess(response, fullPath);
@@ -281,7 +288,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
       // Force change detection
       this.cdr.detectChanges();
     } catch (error) {
-      console.error('Error processing document:', error);
+      LOG.error('Error processing document:', { error });
       this.error = 'An error occurred while processing the document.';
       this.loading = false;
       this.cdr.detectChanges();
@@ -300,7 +307,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
     try {
       // Extract tags from metadata if available
       this.tags = response.metadata?.tags || [];
-      console.log('Document tags:', this.tags);
+      LOG.debug('Document tags:', { tags: this.tags });
       
       // Update tags in the content service to share with other components
       this.contentService.updateCurrentTags(this.tags);
@@ -326,12 +333,12 @@ export class DocumentComponent implements OnInit, OnDestroy {
           if (contentElement) {
             this.extractHeadingsFromContent(contentElement);
           } else {
-            console.warn('Could not find .markdown-content element to extract headings');
+            LOG.warn('Could not find .markdown-content element to extract headings');
           }
         }, 0);
       }
     } catch (error) {
-      console.error('Error processing content:', error);
+      LOG.error('Error processing content:', { error });
       throw error;
     }
   }
@@ -376,7 +383,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
     
     const element = document.getElementById(fragment);
     if (!element) {
-      console.warn(`Element with ID '${fragment}' not found`);
+      LOG.warn(`Element with ID '${fragment}' not found`);
       return;
     }
     
@@ -437,7 +444,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
    * @param path The path of the document that failed to load
    */
   private handleDocumentLoadError(error: any, path: string): void {
-    console.error(`Error loading document at path '${path}':`, error);
+    LOG.error(`Error loading document at path '${path}':`, { error });
     
     // Check if the error is a 404 (document not found)
     // Handle both direct HTTP errors and wrapped errors from our service
@@ -445,7 +452,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
                   (error?.message?.includes('404') ? 404 : null);
     
     if (status === 404 || (error?.error?.error === 'Document not found')) {
-      console.warn(`Document not found at path: '${path}', showing 404`);
+      LOG.warn(`Document not found at path: '${path}', showing 404`);
       this.showNotFound = true;
       this.notFoundError = {
         message: `The document "${path || 'unknown path'}" does not exist or has been moved.`,
@@ -484,11 +491,11 @@ export class DocumentComponent implements OnInit, OnDestroy {
 
   private loadRelatedDocuments(documentPath: string): Observable<{ related: RelatedDocument[] }> {
     if (!documentPath) {
-      console.log('No document path provided for related documents');
+      LOG.warn('No document path provided for related documents');
       return of({ related: [] });
     }
     
-    console.log('Loading related documents for path:', documentPath);
+    LOG.debug('Loading related documents for path:', { path: documentPath });
     this.loadingRelated = true;
     this.relatedDocumentsError = null;
     
@@ -498,13 +505,13 @@ export class DocumentComponent implements OnInit, OnDestroy {
     return this.relatedDocumentsService.getRelatedDocuments(pathWithExtension, 5).pipe(
       tap({
         next: (response: { related: RelatedDocument[] }) => {
-          console.log('Received related documents:', response.related);
+          LOG.debug('Received related documents:', { related: response.related });
           this.relatedDocuments = response.related || [];
           this.showRelatedDocuments = this.relatedDocuments.length > 0;
           this.loadingRelated = false;
           this.relatedDocumentsChange.emit(this.relatedDocuments);
           
-          console.log('Updated related documents state:', {
+          LOG.debug('Updated related documents state:', {
             count: this.relatedDocuments.length,
             showRelated: this.showRelatedDocuments,
             loading: this.loadingRelated,
@@ -512,7 +519,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
           });
         },
         error: (error) => {
-          console.error('Error loading related documents:', error);
+          LOG.error('Error loading related documents:', { error });
           this.relatedDocumentsError = 'Failed to load related documents';
           this.loadingRelated = false;
           this.relatedDocuments = [];
@@ -521,7 +528,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
         }
       }),
       catchError(error => {
-        console.error('Error in related documents stream:', error);
+        LOG.error('Error in related documents stream:', { error });
         this.relatedDocumentsError = 'An error occurred while loading related documents.';
         this.loadingRelated = false;
         this.relatedDocuments = [];
@@ -673,7 +680,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
           }, 1500);
         });
       } else {
-        console.warn(`Could not find element with ID or fragment: ${fragment}`);
+        LOG.warn(`Could not find element with ID or fragment: ${fragment}`);
       }
     }, 100);
   }
@@ -710,7 +717,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
             // Let handleFragmentNavigation handle the scrolling and highlighting
             this.handleFragmentNavigation();
           }).catch(error => {
-            console.error('Navigation error:', error);
+            LOG.error('Navigation error:', { error });
             // Fallback to direct scrolling if navigation fails
             this.scrollToFragment(fragmentId);
           });
@@ -861,17 +868,19 @@ export class DocumentComponent implements OnInit, OnDestroy {
       
       return container.innerHTML;
     } catch (error) {
-      console.error('Error processing HTML links:', error);
+      LOG.error('Error processing HTML links:', { error });
       return html; // Return original HTML if processing fails
     }
   }
 
   ngOnDestroy(): void {
+    LOG.debug('Document component destroyed');
+    
     if (this.subscription) {
       this.subscription.unsubscribe();
     }
     
-    // Cleanup event listener
+    // Clean up the fragment click handler
     if (this.fragmentClickHandler) {
       this.elementRef.nativeElement.removeEventListener('click', this.fragmentClickHandler as EventListener);
       this.fragmentClickHandler = null;

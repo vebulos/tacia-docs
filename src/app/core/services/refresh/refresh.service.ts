@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 import { FirstDocumentService } from '../first-document.service';
+import { LOG } from '../logging/bun-logger.service';
 
 export enum RefreshType {
   NORMAL = 'normal',  // Standard refresh
@@ -32,7 +33,10 @@ export class RefreshService {
    * @param directory The directory to clear cache for (optional)
    */
   requestFullRefresh(directory?: string): void {
-    console.log(`[RefreshService] Requesting full refresh including cache clearing for directory: '${directory || 'root'}'`);
+    LOG.debug('Requesting full refresh including cache clearing', {
+      directory: directory || 'root',
+      refreshType: 'FULL'
+    });
     // Clear the FirstDocumentService cache for the specified directory
     this.firstDocumentService.clearCache(directory);
     // Emit a full refresh event
@@ -44,7 +48,10 @@ export class RefreshService {
    * @param directory The directory to clear cache for
    */
   refreshDirectory(directory: string): void {
-    console.log(`[RefreshService] Refreshing cache for directory: '${directory}'`);
+    LOG.debug('Refreshing cache for directory', {
+      directory,
+      refreshType: 'NORMAL'
+    });
     this.firstDocumentService.clearCache(directory);
     this.refreshRequested.next(RefreshType.NORMAL);
   }

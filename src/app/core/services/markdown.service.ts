@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy } from '@angular/core';
-
+import { LOG } from './logging/bun-logger.service';
 
 // Global configuration for supported markdown extensions (expand as needed)
 const SUPPORTED_MARKDOWN_EXTENSIONS = ['.md'];
@@ -46,7 +46,7 @@ export class MarkdownService implements OnDestroy {
     this.contentBasePath = '';
     // Initialize LRU cache with max 50 items and 5 minutes TTL by default
     this.cache = new LruCache<Observable<MarkdownApiResponse>>(50, 5 * 60 * 1000);
-    console.log('[MarkdownService] Initialized with backend-rendered markdown API');
+    LOG.info('MarkdownService initialized with backend-rendered markdown API');
   }
   
   /**
@@ -60,40 +60,51 @@ export class MarkdownService implements OnDestroy {
     // Encode each segment to handle spaces and special characters
     const encodedPath = normalizedPath.split('/').map(encodeURIComponent).join('/');
     const fullUrl = `${this.apiUrl}/${encodedPath}`;
-    console.log('[MarkdownService] Fetching:', fullUrl);
+    LOG.debug('Fetching markdown file', { url: fullUrl });
 
     // Check cache first if not forcing refresh
     if (!forceRefresh) {
       const cached = this.cache.get(normalizedPath);
       if (cached) {
         this.cacheHits++;
-        console.log(`[MarkdownService] Cache hit (${this.cacheHits} hits, ${this.cacheMisses} misses)`);
+        LOG.debug('Cache hit', { 
+          hits: this.cacheHits, 
+          misses: this.cacheMisses,
+          path: normalizedPath 
+        });
         return cached;
       }
     }
 
     // Fetch from backend API (returns { html, metadata, headings, path, name })
     const apiUrl = `${this.apiUrl}/${encodeURIComponent(normalizedPath)}`;
-    console.log(`[MarkdownService] Fetching from backend API: ${apiUrl}`);
+    LOG.debug('Fetching from backend API', { apiUrl });
     
     const request$ = this.http.get<MarkdownApiResponse>(apiUrl, {
       headers: { 'Cache-Control': 'no-cache' }
     }).pipe(
       tap(() => {
         this.cacheMisses++;
-        console.log(`[MarkdownService] Cache miss (${this.cacheHits} hits, ${this.cacheMisses} misses)`);
+        LOG.debug('Cache miss', { 
+          hits: this.cacheHits, 
+          misses: this.cacheMisses,
+          path: normalizedPath 
+        });
       }),
       tap(response => {
-        console.log(`[MarkdownService] Successfully loaded markdown from backend: ${response.path}`, {
-          response,
-          metadata: response.metadata,
-          tags: response.metadata?.tags,
+        LOG.debug('Successfully loaded markdown', {
+          path: response.path,
           hasMetadata: !!response.metadata,
           metadataKeys: response.metadata ? Object.keys(response.metadata) : []
         });
       }),
       catchError((error: HttpErrorResponse) => {
-        console.error(`[MarkdownService] Error loading markdown from ${apiUrl}:`, error.status, error.statusText);
+        LOG.error('Error loading markdown', {
+          url: apiUrl,
+          status: error.status,
+          statusText: error.statusText,
+          error: error.message
+        });
         
         // Create a more detailed error object that includes the status code
         const enhancedError = new Error(`Failed to load markdown: ${error.status} ${error.statusText}`);
@@ -128,18 +139,18 @@ export class MarkdownService implements OnDestroy {
           for (const ext of SUPPORTED_MARKDOWN_EXTENSIONS) {
             this.cache.delete(`${path}${ext}`);
           }
-          console.log(`[MarkdownService] Cleared cache for path: ${path} and all supported extensions`);
+          LOG.debug('Cleared cache for path', { path, extensions: SUPPORTED_MARKDOWN_EXTENSIONS });
         } else {
           // Clear the entire cache
           this.cache.clear();
           this.cacheHits = 0;
           this.cacheMisses = 0;
-          console.log('[MarkdownService] Cleared entire markdown cache');
+          LOG.info('Cleared entire markdown cache');
         }
         subscriber.next();
         subscriber.complete();
       } catch (error) {
-        console.error('[MarkdownService] Error clearing cache:', error);
+        LOG.error('Error clearing cache', { error });
         subscriber.error(error);
       }
     });
@@ -168,14 +179,17 @@ export class MarkdownService implements OnDestroy {
    */
   private cleanupOldCacheEntries(): void {
     // The LRU cache handles its own cleanup, but we can add additional logic here if needed
-    console.log(`[MarkdownService] Current cache size: ${this.cache.size}`);
+    LOG.debug('Current cache size', { size: this.cache.size });
     
     // If we're still over the limit, clear the entire cache
     if (this.cache.size >= this.maxCacheSize) {
-      console.log(`[MarkdownService] Cache size (${this.cache.size}) exceeds max (${this.maxCacheSize}), clearing cache`);
+      LOG.warn('Cache size exceeds maximum limit', { 
+        currentSize: this.cache.size, 
+        maxSize: this.maxCacheSize 
+      });
       this.clearCache().subscribe({
-        next: () => console.log('[MarkdownService] Cache cleared due to size limit'),
-        error: (err) => console.error('[MarkdownService] Error clearing cache during cleanup:', err)
+        next: () => LOG.info('Cache cleared due to size limit'),
+        error: (err) => LOG.error('Error clearing cache during cleanup', { error: err })
       });
     }
   }
@@ -210,8 +224,6 @@ export class MarkdownService implements OnDestroy {
     };
   }
 
-
-
   /**
    * Clean up resources when the service is destroyed
    */
@@ -219,6 +231,10 @@ export class MarkdownService implements OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     this.cache.clear();
-    console.log('[MarkdownService] Service destroyed and cache cleared');
+    LOG.info('MarkdownService destroyed and cache cleared', {
+      finalCacheSize: this.cache.size,
+      totalHits: this.cacheHits,
+      totalMisses: this.cacheMisses
+    });
   }
 }

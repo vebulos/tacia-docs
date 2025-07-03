@@ -3,6 +3,7 @@ import { interval, Subscription, timer } from 'rxjs';
 import { switchMap, tap } from 'rxjs/operators';
 import { SearchService } from './search.service';
 import { environment } from '../../../../environments/environment';
+import { LOG } from '../logging/bun-logger.service';
 
 interface SearchIndexConfig {
   enabled: boolean;
@@ -34,20 +35,32 @@ export class SearchIndexService implements OnDestroy {
       indexOnStartup: environment.search.index.indexOnStartup ?? DEFAULT_INDEX_CONFIG.indexOnStartup
     } : DEFAULT_INDEX_CONFIG;
     
-    console.log('[SearchIndex] Configuration loaded:', this.config);
+    LOG.info('Search index configuration loaded', { 
+      ...this.config,
+      // Don't log the full config object as it may contain sensitive info
+      intervalMinutes: Math.floor(this.config.interval / 60000) 
+    });
     
     if (this.config.enabled) {
       this.initializeIndexing();
+    } else {
+      LOG.warn('Search indexing is disabled in configuration');
     }
   }
 
   private initializeIndexing(): void {
-    console.log('[SearchIndex] Initializing index service');
+    LOG.debug('Initializing search index service', { 
+      indexOnStartup: this.config.indexOnStartup,
+      initialDelay: this.config.initialDelay,
+      interval: this.config.interval
+    });
     
     if (this.config.indexOnStartup) {
       // First indexing after initial delay
       timer(this.config.initialDelay).subscribe(() => {
-        console.log('[SearchIndex] Starting initial indexing');
+        LOG.info('Starting initial search index build', { 
+          delay: this.config.initialDelay 
+        });
         this.triggerIndexing();
       });
     }
@@ -55,24 +68,46 @@ export class SearchIndexService implements OnDestroy {
     // Schedule periodic indexing
     this.indexSubscription = interval(this.config.interval)
       .pipe(
-        tap(() => console.log('[SearchIndex] Starting scheduled indexing')),
+        tap(() => LOG.debug('Starting scheduled search index update')),
         switchMap(() => this.triggerIndexing())
       )
       .subscribe({
-        next: () => console.log('[SearchIndex] Scheduled indexing completed'),
-        error: err => console.error('[SearchIndex] Error during scheduled indexing:', err)
+        next: () => LOG.debug('Scheduled search index update completed'),
+        error: (error: any) => {
+          const errorMessage = error?.message || 'Unknown error';
+          const errorStack = error?.stack;
+          LOG.error('Error during scheduled search indexing', { 
+            error: errorMessage,
+            stack: errorStack
+          });
+        }
       });
   }
 
   // Manually trigger indexing
   async triggerIndexing(): Promise<void> {
-    console.log('[SearchIndex] Manual indexing triggered');
+    const startTime = Date.now();
+    LOG.debug('Manual search index rebuild triggered');
+    
     try {
       await this.searchService.rebuildIndex();
       this.lastIndexTime = new Date();
-      console.log('[SearchIndex] Indexing completed successfully');
-    } catch (error) {
-      console.error('[SearchIndex] Error during indexing:', error);
+      const duration = Date.now() - startTime;
+      
+      LOG.info('Search index rebuild completed successfully', {
+        durationMs: duration,
+        lastIndexTime: this.lastIndexTime.toISOString()
+      });
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      const errorMessage = error?.message || 'Unknown error';
+      const errorStack = error?.stack;
+      
+      LOG.error('Error during search index rebuild', { 
+        error: errorMessage,
+        durationMs: duration,
+        stack: errorStack
+      });
       throw error;
     }
   }
@@ -83,6 +118,7 @@ export class SearchIndexService implements OnDestroy {
 
   ngOnDestroy(): void {
     if (this.indexSubscription) {
+      LOG.debug('Cleaning up search index subscription');
       this.indexSubscription.unsubscribe();
     }
   }

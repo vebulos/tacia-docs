@@ -5,10 +5,11 @@ import { Observable, of, Subject } from 'rxjs';
 import { take, catchError, map, filter, takeUntil, tap } from 'rxjs/operators';
 import { NavigationStateService } from '../../services/navigation-state.service';
 import { PathUtils } from '@app/core/utils/path.utils';
-import { ContentService } from '../../../../core/services/content.service';
-import { ContentItem } from '../../../../core/services/content.interface';
+import { ContentService } from '@app/core/services/content.service';
+import { ContentItem } from '@app/core/services/content.interface';
 import { NavigationItemComponent, NavigationItem } from './navigation-item.component';
 import { RefreshService } from '@app/core/services/refresh/refresh.service';
+import { LOG } from '@app/core/services/logging/bun-logger.service';
 
 @Component({
   selector: 'app-navigation',
@@ -61,7 +62,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
    */
   private loadInitialContent(): void {
     const initialPath = this.getCurrentPathFromUrl();
-    console.log('Loading initial path:', initialPath);
+    LOG.debug('Loading initial navigation path', { 
+      path: initialPath || '/',
+      url: this.router.url 
+    });
     this.loadContentForPath(initialPath);
     this.updateActiveStates();
   }
@@ -89,7 +93,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.refreshService.refreshRequested$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(() => {
-      console.log('Refresh requested, reloading navigation content...');
+      LOG.debug('Refresh requested, reloading navigation content');
       this.refreshContent();
     });
   }
@@ -183,19 +187,28 @@ export class NavigationComponent implements OnInit, OnDestroy {
    * @public
    */
   public refreshContent(): void {
-    console.log('[NavigationComponent] Refreshing content for current directory:', this.currentPath);
+    LOG.debug('Refreshing navigation content', { 
+      directory: this.currentPath || 'root',
+      url: this.router.url
+    });
     
     // Clear cache for the current directory before reloading
     this.contentService.clearCache(this.currentPath).pipe(
       take(1)
     ).subscribe({
       next: () => {
-        console.log(`[NavigationComponent] Cache cleared for directory "${this.currentPath}", loading fresh content`);
+        LOG.debug('Cache cleared, loading fresh navigation content', { 
+          directory: this.currentPath || 'root' 
+        });
         // Use skipCache=true to force a new request
         this.loadRootContent(true, this.currentPath);
       },
       error: (err) => {
-        console.error('[NavigationComponent] Error clearing cache:', err);
+        LOG.error('Error clearing navigation cache', { 
+          directory: this.currentPath,
+          error: err.message || 'Unknown error',
+          stack: err.stack
+        });
         // Still load content with skipCache=true in case of error
         this.loadRootContent(true, this.currentPath);
       }
@@ -218,17 +231,28 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.error = null;
     this.currentPath = directory;
     
-    console.log(`[NavigationComponent] Loading content for directory: "${directory}" with skipCache=${skipCache}`);
+    LOG.debug('Loading directory content', {
+      directory: directory || 'root',
+      skipCache,
+      url: this.router.url
+    });
     
     this.getRootContentItems(skipCache, directory).subscribe({
       next: (items) => {
         this.contentStructure = items;
         this.loading = false;
         this.updateActiveStates();
-        console.log(`Content loaded successfully for directory: ${directory}`);
+        LOG.debug('Directory content loaded successfully', {
+          directory: directory || 'root',
+          itemCount: items?.length || 0
+        });
       },
       error: (error) => {
-        console.error(`Failed to load content for directory "${directory}":`, error);
+        LOG.error('Failed to load directory content', {
+          directory: directory || 'root',
+          error: error.message || 'Unknown error',
+          stack: error.stack
+        });
         this.handleChildLoadError({ path: directory } as NavigationItem, 'Failed to load content structure.');
         this.loading = false;
       }
@@ -236,17 +260,31 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   public getRootContentItems(skipCache: boolean = true, directory: string = ''): Observable<NavigationItem[]> {
-    console.log(`[NavigationComponent] getRootContentItems - directory: "${directory}"`);
+    LOG.debug('Fetching root content items', { 
+      directory: directory || 'root',
+      skipCache 
+    });
     
     return this.contentService.getContent(directory, skipCache).pipe(
-      tap(items => console.log(`[NavigationComponent] Received ${items?.length} items for directory "${directory}"`)),
+      tap(items => {
+        LOG.debug('Received content items', {
+          directory: directory || 'root',
+          itemCount: items?.length || 0
+        });
+      }),
       map((items: ContentItem[] = []) => {
         if (!Array.isArray(items)) {
-          console.error('[NavigationComponent] Received invalid content items');
+          LOG.error('Received invalid content items', { 
+            directory: directory || 'root',
+            receivedType: typeof items 
+          });
           return [];
         }
         
-        console.log(`[NavigationComponent] Processing ${items.length} items for directory "${directory}"`);
+        LOG.debug('Transforming content items', {
+          directory: directory || 'root',
+          itemCount: items.length
+        });
         
         // Transform items to navigation items with proper structure
         const transformedItems = this.transformContentItems(items);
@@ -258,7 +296,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
         }));
       }),
       catchError(error => {
-        console.error('[NavigationComponent] Error loading root content:', error);
+        LOG.error('Error loading root content', {
+          directory: directory || 'root',
+          error: error.message || 'Unknown error',
+          stack: error.stack
+        });
         return of([] as NavigationItem[]);
       })
     );
@@ -283,7 +325,12 @@ export class NavigationComponent implements OnInit, OnDestroy {
     });
     
     return sortedItems.map(item => {
-      console.log(`  - Transforming item: ${item.path} (isDir: ${item.isDirectory})`);
+      LOG.debug('Transforming navigation item', {
+        path: item.path,
+        isDirectory: item.isDirectory,
+        name: item.name
+      });
+      
       return {
         ...item,
         isOpen: false,
@@ -339,7 +386,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.contentService.getContent(path).subscribe({
       next: (items: ContentItem[]) => {
         if (!items || !Array.isArray(items)) {
-          console.warn(`Received invalid items for path ${path}:`, items);
+          LOG.warn('Received invalid items for path', { 
+            path,
+            receivedType: items === null ? 'null' : typeof items
+          });
           items = [];
         }
         
@@ -355,14 +405,28 @@ export class NavigationComponent implements OnInit, OnDestroy {
           // Update the view
           this.updateActiveStates();
           
-          console.log(`Loaded ${items.length} items for path ${path}`);
+          LOG.debug('Successfully loaded child items', {
+            parentPath: path,
+            childCount: items.length,
+            hasDirectories: items.some(i => i.isDirectory)
+          });
         } catch (error) {
-          console.error('Error transforming child items:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          LOG.error('Error transforming child items', {
+            parentPath: path,
+            error: errorMessage,
+            stack: errorStack
+          });
           this.handleChildLoadError(parentItem, error);
         }
       },
       error: (error: Error) => {
-        console.error(`Failed to load child items for path ${path}:`, error);
+        LOG.error('Failed to load child items', {
+          parentPath: path,
+          error: error.message || 'Unknown error',
+          stack: error.stack
+        });
         this.handleChildLoadError(parentItem, error);
       }
     });
@@ -382,9 +446,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
     
     // If this is the root item or no parent item, set the error message
     if (!parentItem || parentItem.path === '') {
-      this.error = typeof error === 'string' ? error : 'An error occurred while loading content.';
+      const errorMessage = typeof error === 'string' ? error : 'An error occurred while loading content.';
+      this.error = errorMessage;
       this.loading = false;
-      console.error('Error loading navigation content:', error);
+      
+      const errorObj = error instanceof Error ? error : undefined;
+      LOG.error('Error loading root navigation content', {
+        error: errorMessage,
+        stack: errorObj?.stack
+      });
     }
   }
 

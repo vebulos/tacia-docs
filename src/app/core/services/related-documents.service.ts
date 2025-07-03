@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { LOG } from './logging/bun-logger.service';
 
 export interface RelatedDocument {
   path: string;
@@ -20,10 +21,15 @@ export class RelatedDocumentsService {
   constructor(private http: HttpClient) {}
 
   getRelatedDocuments(documentPath: string, limit: number = 5): Observable<{ related: RelatedDocument[] }> {
-    console.log('getRelatedDocuments called with path:', documentPath, 'and limit:', limit);
+    LOG.debug('Getting related documents', { 
+      path: documentPath, 
+      limit,
+      hasPath: !!documentPath 
+    });
     
     if (!documentPath) {
-      console.error('No document path provided to getRelatedDocuments');
+      LOG.error('No document path provided to getRelatedDocuments');
+      return of({ related: [] });
     }
     
     // Remove leading slash if present and ensure .md extension
@@ -36,7 +42,13 @@ export class RelatedDocumentsService {
     }
     
     const apiUrl = `${this.baseUrl}/related`;
-    console.log('Making API call to:', `${apiUrl}?path=${encodeURIComponent(cleanPath)}&limit=${limit}`);
+    
+    LOG.debug('Making API request for related documents', { 
+      url: apiUrl,
+      path: cleanPath,
+      limit,
+      fullUrl: `${apiUrl}?path=${encodeURIComponent(cleanPath)}&limit=${limit}`.replace(/\?.*$/, '') // Clean URL for logs
+    });
     
     const headers = {
       'Accept': 'application/json'
@@ -56,11 +68,20 @@ export class RelatedDocumentsService {
       }
     ).pipe(
       tap(response => {
-        console.log('Related documents API response:', response);
-        console.log('Number of related documents:', response.related?.length || 0);
+        LOG.debug('Received related documents', { 
+          documentCount: response.related?.length || 0,
+          sampleDocuments: response.related?.slice(0, 3).map(doc => ({
+            path: doc.path,
+            commonTagsCount: doc.commonTagsCount
+          }))
+        });
       }),
       catchError((error: any) => {
-        console.error('API error:', error);
+        LOG.error('Error fetching related documents', { 
+          path: cleanPath,
+          error: error.message || 'Unknown error',
+          status: error.status
+        });
         return of({ related: [] });
       })
     );

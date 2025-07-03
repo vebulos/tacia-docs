@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { LOG } from '../logging/bun-logger.service';
 import { BehaviorSubject, Observable, of, forkJoin, firstValueFrom, throwError, from, concat } from 'rxjs';
 import { map, catchError, switchMap, tap, finalize, concatMap, delay, toArray } from 'rxjs/operators';
 import { MarkdownService } from '../markdown.service';
@@ -68,16 +69,16 @@ export class SearchService {
     private contentService: ContentService,
     private storageService: StorageService
   ) {
-    console.log('[SearchService] Constructor called');
+    LOG.debug('SearchService constructor called');
     this.loadRecentSearches();
     this.loadSearchIndexFromStorage();
     
     // Check if we need to rebuild the index
     if (this.shouldRebuildIndex()) {
-      console.log('[SearchService] Index is outdated or missing, rebuilding...');
+      LOG.info('Index is outdated or missing, rebuilding...');
       this.initializeSearchIndex().subscribe();
     } else {
-      console.log('[SearchService] Using cached search index');
+      LOG.debug('Using cached search index');
       this.indexReady = true;
     }
   }
@@ -90,16 +91,16 @@ export class SearchService {
    * @deprecated Use refreshIndex() for Observable-based approach
    */
   async rebuildIndex(): Promise<void> {
-    console.log('[SearchService] Rebuilding index...');
+    LOG.info('Rebuilding search index...');
     this.isLoading.next(true);
     this.error.next(null);
     
     try {
       await firstValueFrom(this.initializeSearchIndex());
-      console.log('[SearchService] Index rebuilt successfully');
+      LOG.info('Index rebuilt successfully');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error while rebuilding index';
-      console.error('[SearchService] Error rebuilding index:', errorMsg);
+      LOG.error('Error rebuilding index', { error: errorMsg });
       this.error.next(`Error rebuilding index: ${errorMsg}`);
       throw err;
     } finally {
@@ -112,16 +113,16 @@ export class SearchService {
    * @returns Observable that completes when the index is refreshed
    */
   refreshIndex(): Observable<void> {
-    console.log('[SearchService] Refreshing index...');
+    LOG.info('Refreshing search index...');
     this.isLoading.next(true);
     this.error.next(null);
     
     return this.initializeSearchIndex().pipe(
       tap({
-        next: () => console.log('[SearchService] Index refreshed successfully'),
+        next: () => LOG.info('Index refreshed successfully'),
         error: (err) => {
           const errorMsg = err instanceof Error ? err.message : 'Unknown error while refreshing index';
-          console.error('[SearchService] Error refreshing index:', errorMsg);
+          LOG.error('Error refreshing index', { error: errorMsg });
           this.error.next(`Error refreshing index: ${errorMsg}`);
         }
       }),
@@ -135,11 +136,11 @@ export class SearchService {
    * @returns Observable that completes when the index is ready
    */
   private initializeSearchIndex(): Observable<void> {
-    console.log('[SearchService] Initializing search index...');
+    LOG.debug('Initializing search index...');
     
     if (!this.contentService) {
       const errorMsg = 'Content service is not injected!';
-      console.error('[SearchService]', errorMsg);
+      LOG.error('Content service not available', { error: errorMsg });
       this.error.next(errorMsg);
       return throwError(() => new Error(errorMsg));
     }
@@ -150,22 +151,24 @@ export class SearchService {
     return this.contentService.getContentStructure().pipe(
       tap({
         next: (contentItems) => {
-          console.log(`[SearchService] Indexing ${contentItems.length} content items`);
+          LOG.info(`Indexing ${contentItems.length} content items`);
           this.contentCache = contentItems;
         },
-        error: (err) => console.error('[SearchService] Error getting content structure:', err)
+        error: (err) => {
+          LOG.error('Error getting content structure', { error: err });
+        }
       }),
       switchMap((contentItems) => this.indexContent(contentItems)),
       tap({
         next: () => {
-          console.log('[SearchService] Indexing completed successfully');
+          LOG.info('Indexing completed successfully');
           this.indexReady = true;
           
           // Save the index to storage
           this.saveSearchIndexToStorage();
         },
         error: (err) => {
-          console.error('[SearchService] Error during indexing:', err);
+          LOG.error('Error during indexing', { error: err });
           this.error.next('Error while indexing content');
         }
       }),
@@ -182,11 +185,11 @@ export class SearchService {
       next: (storedIndex) => {
         if (storedIndex && storedIndex.length > 0) {
           this.searchIndex = storedIndex;
-          console.log(`[SearchService] Loaded ${storedIndex.length} items from cached index`);
+          LOG.info(`Loaded ${storedIndex.length} items from cached index`);
         }
       },
       error: (err) => {
-        console.error('[SearchService] Error loading search index from storage:', err);
+        LOG.error('Error loading search index from storage', { error: err });
         this.searchIndex = [];
       }
     });
@@ -196,11 +199,13 @@ export class SearchService {
       next: (timestamp) => {
         if (timestamp) {
           this.lastIndexTimestamp = timestamp;
-          console.log(`[SearchService] Index timestamp: ${new Date(timestamp).toLocaleString()}`);
+          LOG.debug('Index timestamp loaded', { 
+            timestamp: new Date(timestamp).toISOString() 
+          });
         }
       },
       error: (err) => {
-        console.error('[SearchService] Error loading timestamp from storage:', err);
+        LOG.error('Error loading timestamp from storage', { error: err });
         this.lastIndexTimestamp = 0;
       }
     });
@@ -216,15 +221,15 @@ export class SearchService {
     // Save the search index to storage with a TTL of 24 hours
     this.storageService.set(this.searchIndexKey, this.searchIndex, this.indexTTL).subscribe({
       next: () => {
-        console.log(`[SearchService] Saved ${this.searchIndex.length} items to index cache`);
+        LOG.info(`Saved ${this.searchIndex.length} items to index cache`);
         
         // Save the timestamp after the index is successfully saved
         this.storageService.set(this.indexTimestampKey, now).subscribe({
-          next: () => console.log(`[SearchService] Updated index timestamp: ${new Date(now).toLocaleString()}`),
-          error: (err) => console.error('[SearchService] Error saving timestamp:', err)
+          next: () => LOG.debug('Updated index timestamp', { timestamp: new Date(now).toISOString() }),
+          error: (err) => LOG.error('Error saving timestamp', { error: err })
         });
       },
-      error: (err) => console.error('[SearchService] Error saving search index to storage:', err)
+      error: (err) => LOG.error('Error saving search index to storage', { error: err })
     });
   }
   
@@ -241,7 +246,10 @@ export class SearchService {
     const now = Date.now();
     const indexAge = now - this.lastIndexTimestamp;
     if (indexAge > this.indexTTL) {
-      console.log(`[SearchService] Index is ${Math.round(indexAge / (60 * 60 * 1000))} hours old, rebuilding`);
+      LOG.info('Index is outdated, rebuilding', { 
+        ageHours: Math.round(indexAge / (60 * 60 * 1000)),
+        maxAgeHours: Math.round(this.indexTTL / (60 * 60 * 1000))
+      });
       return true;
     }
     
@@ -253,7 +261,7 @@ export class SearchService {
    * @param items Content items to index
    */
   private indexContent(items: ContentItem[]): Observable<void> {
-    console.log('[SearchService] Indexing content...');
+    LOG.debug('Starting content indexing process');
     
     // First, load all content recursively
     return this.loadAllContentRecursively(items).pipe(
@@ -267,13 +275,14 @@ export class SearchService {
         );
         
         if (itemsToIndex.length === 0) {
-          console.warn('[SearchService] No valid markdown files found to index');
+          LOG.warn('No valid markdown files found to index');
           return of(undefined);
         }
         
-        console.log(`[SearchService] Indexing ${itemsToIndex.length} markdown files`);
-        
-        console.log(`[SearchService] Starting batch indexing of ${itemsToIndex.length} files with batch size ${this.batchSize}`);
+        LOG.info('Starting markdown file indexing', { 
+          fileCount: itemsToIndex.length,
+          batchSize: this.batchSize 
+        });
         
         // Track progress
         let processedCount = 0;
@@ -294,12 +303,19 @@ export class SearchService {
               tap(() => {
                 // Log progress every 5 items or for the first/last item
                 if (index === 0 || index === itemsToIndex.length - 1 || index % 5 === 0) {
-                  console.log(`[SearchService] Processing ${index + 1}/${itemsToIndex.length} (${Math.round((index + 1) / itemsToIndex.length * 100)}%)`);
+                  LOG.debug('Indexing progress', { 
+                    current: index + 1, 
+                    total: itemsToIndex.length,
+                    percentage: Math.round((index + 1) / itemsToIndex.length * 100)
+                  });
                 }
               }),
               switchMap(item => this.indexMarkdownFile(item).pipe(
                 catchError(err => {
-                  console.error(`[SearchService] Error indexing ${item.path}:`, err);
+                  LOG.error('Error indexing file', { 
+                path: item.path, 
+                error: err.message || 'Unknown error' 
+              });
                   errorCount++;
                   return of(null);
                 })
@@ -316,7 +332,11 @@ export class SearchService {
           // Collect all results
           toArray(),
           tap(() => {
-            console.log(`[SearchService] Batch indexing completed: ${successCount} successful, ${errorCount} failed, ${processedCount} total`);
+            LOG.info('Batch indexing completed', {
+              successful: successCount,
+              failed: errorCount,
+              total: processedCount
+            });
           }),
           map(() => {}) // Convert to Observable<void>
         );
@@ -360,7 +380,7 @@ export class SearchService {
    */
   private flattenContentItems(items: ContentItem[]): ContentItem[] {
     if (!items || !Array.isArray(items)) {
-      console.warn('[SearchService] No items to flatten or invalid items array');
+      LOG.warn('No items to flatten or invalid items array');
       return [];
     }
     
@@ -388,7 +408,7 @@ export class SearchService {
    */
   private indexMarkdownFile(item: ContentItem): Observable<SearchResult> {
     if (!item?.path) {
-      console.warn('[SearchService] Invalid item or missing path for indexing');
+      LOG.warn('Invalid item or missing path for indexing');
       return throwError(() => new Error('Invalid item or missing path for indexing'));
     }
 
@@ -397,10 +417,11 @@ export class SearchService {
     
     // Extract tags from metadata
     const tags = item.metadata?.['tags'] || [];
-    console.log(`[SearchService] Indexing file: ${item.path}`, {
+    LOG.debug('Indexing file', {
+      path: item.path,
       title,
-      metadata: item.metadata,
-      extractedTags: tags
+      hasMetadata: !!item.metadata,
+      tagCount: tags.length
     });
     
     // Create the search result with basic information
@@ -414,11 +435,12 @@ export class SearchService {
       metadata: item.metadata // Include full metadata for debugging
     };
     
-    console.log(`[SearchService] Created search result for ${item.path} with metadata:`, {
+    LOG.debug('Created search result', {
+      path: item.path,
       hasMetadata: !!item.metadata,
       metadataKeys: item.metadata ? Object.keys(item.metadata) : [],
       hasTags: !!tags && tags.length > 0,
-      tags: tags
+      tagCount: tags.length
     });
 
     // Only process markdown files
@@ -429,24 +451,20 @@ export class SearchService {
     // Clean and format the path
     const cleanPath = item.path.startsWith('/') ? item.path.substring(1) : item.path;
     
-    console.log(`[SearchService] Loading markdown file: ${cleanPath}`);
-    
-    // Load the markdown file content
-    console.log(`[SearchService] Loading markdown file for indexing: ${cleanPath}`, {
-      itemMetadata: item.metadata,
-      itemTags: item.metadata?.tags,
+    LOG.debug('Loading markdown file for indexing', {
+      path: cleanPath,
+      hasMetadata: !!item.metadata,
       hasTags: !!item.metadata?.tags,
-      itemKeys: item.metadata ? Object.keys(item.metadata) : []
+      tagCount: item.metadata?.tags?.length || 0
     });
     
     return this.markdownService.getMarkdownFile(cleanPath).pipe(
       map(markdownFile => {
-        console.log(`[SearchService] Successfully loaded markdown file: ${cleanPath}`, {
-          markdownFile,
-          metadata: markdownFile.metadata,
-          tags: markdownFile.metadata?.tags,
+        LOG.debug('Successfully loaded markdown file', {
+          path: cleanPath,
           hasMetadata: !!markdownFile.metadata,
-          metadataKeys: markdownFile.metadata ? Object.keys(markdownFile.metadata) : []
+          hasTags: !!markdownFile.metadata?.tags,
+          tagCount: markdownFile.metadata?.tags?.length || 0
         });
         
         // Extract text content from HTML for full-text search
@@ -455,11 +473,15 @@ export class SearchService {
         
         // Update tags from the markdown file metadata if available
         if (markdownFile.metadata?.tags?.length) {
-          console.log(`[SearchService] Updating tags from markdown metadata:`, markdownFile.metadata.tags);
+          LOG.debug('Updating tags from markdown metadata', { 
+            tagCount: markdownFile.metadata.tags.length 
+          });
           searchResult.tags = markdownFile.metadata.tags;
         } else if (item.metadata?.tags?.length) {
           // Fallback to item metadata if markdown file metadata doesn't have tags
-          console.log(`[SearchService] Using tags from item metadata:`, item.metadata.tags);
+          LOG.debug('Using tags from item metadata', { 
+            tagCount: item.metadata.tags.length 
+          });
           searchResult.tags = item.metadata.tags;
         }
         
@@ -471,7 +493,10 @@ export class SearchService {
         return searchResult;
       }),
       catchError(error => {
-        console.error(`[SearchService] Error loading markdown file ${item.path}:`, error);
+        LOG.error('Error loading markdown file', { 
+          path: item.path, 
+          error: error.message || 'Unknown error' 
+        });
         
         // If we can't load the content, try to create a basic preview from metadata
         if (!searchResult.preview) {
@@ -533,10 +558,10 @@ export class SearchService {
       const savedSearches = localStorage.getItem(this.recentSearchesKey);
       if (savedSearches) {
         this.recentSearches = JSON.parse(savedSearches);
-        console.log(`[SearchService] Loaded ${this.recentSearches.length} recent searches`);
+        LOG.debug('Loaded recent searches', { count: this.recentSearches.length });
       }
     } catch (err) {
-      console.error('[SearchService] Error loading recent searches:', err);
+      LOG.error('Error loading recent searches', { error: err });
       this.recentSearches = [];
     }
   }
@@ -548,7 +573,7 @@ export class SearchService {
     try {
       localStorage.setItem(this.recentSearchesKey, JSON.stringify(this.recentSearches));
     } catch (error) {
-      console.error('[SearchService] Error saving recent searches:', error);
+      LOG.error('Error saving recent searches', { error });
     }
   }
 
@@ -622,29 +647,36 @@ export class SearchService {
     // Check if this is a tag search (starts with #)
     const isTagSearch = queryLower.startsWith('#');
     
-    console.log(`[SearchService] Search query: ${queryLower}, isTagSearch: ${isTagSearch}`);
+    LOG.debug('Processing search query', { 
+      query: queryLower, 
+      isTagSearch,
+      queryLength: queryLower.length 
+    });
     
-    // Log the current search index for debugging
-    console.log('[SearchService] Current search index items:', this.searchIndex.map(item => ({
-      path: item.path,
-      title: item.title,
-      tags: item.tags,
-      hasTags: !!item.tags && item.tags.length > 0,
-      metadata: item.metadata, // Include full metadata for debugging
-      hasMetadata: !!item.metadata,
-      metadataKeys: item.metadata ? Object.keys(item.metadata) : []
-    })));
+    // Log search index stats
+    LOG.debug('Search index stats', {
+      totalItems: this.searchIndex.length,
+      itemsWithTags: this.searchIndex.filter(item => item.tags && item.tags.length > 0).length,
+      itemsWithMetadata: this.searchIndex.filter(item => item.metadata).length,
+      totalTags: new Set(
+        this.searchIndex.flatMap(item => 
+          (item.tags || []).map(tag => getTagValue(tag).toLowerCase())
+        )
+      ).size
+    });
     
-    // Log the first few items with tags for debugging
+    // Log sample of items with tags
     const itemsWithTags = this.searchIndex.filter(item => item.tags && item.tags.length > 0);
-    console.log(`[SearchService] Found ${itemsWithTags.length} items with tags:`, 
-      itemsWithTags.slice(0, 5).map(item => ({
-        path: item.path,
-        title: item.title,
-        tags: item.tags,
-        metadata: item.metadata
-      }))
-    );
+    if (itemsWithTags.length > 0) {
+      LOG.debug('Sample of items with tags', {
+        totalItemsWithTags: itemsWithTags.length,
+        sample: itemsWithTags.slice(0, 3).map(item => ({
+          path: item.path,
+          title: item.title,
+          tagCount: item.tags ? item.tags.length : 0
+        }))
+      });
+    }
     
     // Process the query terms
     let tagTerms: string[] = [];
@@ -688,8 +720,12 @@ export class SearchService {
         textTerms.push(currentTerm.toLowerCase());
       }
       
-      console.log(`[SearchService] Tags to search:`, tagTerms);
-      console.log(`[SearchService] Text terms to search:`, textTerms);
+      LOG.debug('Search terms', { 
+        tagTerms,
+        textTerms,
+        totalTagTerms: tagTerms.length,
+        totalTextTerms: textTerms.length
+      });
       
       // If there are no tags or text terms, return empty results
       if (tagTerms.length === 0 && textTerms.length === 0) {
@@ -697,8 +733,10 @@ export class SearchService {
         return of([]);
       }
       
-      // Log all available tags in the index for debugging
-      console.log(`[SearchService] Processing search with tags:`, tagTerms, 'and text terms:', textTerms);
+      LOG.debug('Processing search with terms', { 
+        tagTerms,
+        textTerms
+      });
       
       const allTags = new Set<string>();
       const allTagsWithDocuments: Record<string, string[]> = {};
@@ -723,24 +761,31 @@ export class SearchService {
         }
       });
       
-      // Log all available tags and document counts
-      console.log(`[SearchService] All available tags in index (${allTags.size}):`, 
-        Array.from(allTags).sort().map(tag => ({
-          tag,
-          count: allTagsWithDocuments[tag]?.length || 0,
-          documents: allTagsWithDocuments[tag]?.slice(0, 3) || []
-        })));
+      // Log tag statistics
+      const tagStatistics = Array.from(allTags).sort().map(tag => ({
+        tag,
+        count: allTagsWithDocuments[tag]?.length || 0
+      }));
       
-      console.log(`[SearchService] All available tags in index (${allTags.size}):`, Array.from(allTags).sort());
+      LOG.debug('Tag statistics', {
+        totalUniqueTags: allTags.size,
+        mostCommonTags: tagStatistics
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5) // Top 5 most common tags
+      });
       
-      // Log documents for each search term
-      queryTerms.forEach((term: string) => {
+      // Log search term matches
+      const termMatches = queryTerms.map(term => {
         const normalizedTerm = term.toLowerCase();
         const exists = allTags.has(normalizedTerm);
-        console.log(`[SearchService] Tag '${normalizedTerm}' exists in index: ${exists}`);
-        console.log(`[SearchService] Documents with tag '${normalizedTerm}':`, 
-          allTagsWithDocuments[normalizedTerm] || []);
+        return {
+          term: normalizedTerm,
+          exists,
+          documentCount: exists ? (allTagsWithDocuments[normalizedTerm]?.length || 0) : 0
+        };
       });
+      
+      LOG.debug('Search term matches', { termMatches });
       
       // Log documents that have all the requested tags
       if (tagTerms.length > 0) {
@@ -751,14 +796,15 @@ export class SearchService {
           );
         });
         
-        console.log(`[SearchService] Found ${docsWithAllTags.length} documents with ALL tags:`, 
-          docsWithAllTags.map(d => ({
+        LOG.debug('Documents matching all tags', {
+          matchingDocumentCount: docsWithAllTags.length,
+          requiredTags: tagTerms,
+          sampleDocuments: docsWithAllTags.slice(0, 3).map(d => ({
             path: d.path,
             title: d.title,
-            tags: d.tags,
-            normalizedTags: d.tags?.map(t => getTagValue(t).toLowerCase()) || []
+            tagCount: d.tags?.length || 0
           }))
-        );
+        });
       }
     } else {
       // For regular search, split by spaces
@@ -772,7 +818,12 @@ export class SearchService {
       return of([]);
     }
     
-    console.log(`[SearchService] Processing ${this.searchIndex.length} items in search index`);
+    LOG.debug('Processing search against index', {
+      totalItems: this.searchIndex.length,
+      searchType: isTagSearch ? 'tag' : 'fulltext',
+      tagTermCount: tagTerms.length,
+      textTermCount: textTerms.length
+    });
     
     // Process each item in the search index
     const results = this.searchIndex
@@ -817,7 +868,7 @@ export class SearchService {
             // Higher score for exact matches
             termScore += exactMatch ? 30 : 15;
             isFound = true;
-            console.log(`[SearchService] Found ${exactMatch ? 'exact' : 'partial'} matching tag '${normalizedTerm}' in item ${item.path}`);
+            LOG.debug(`Found ${exactMatch ? 'exact' : 'partial'} matching tag '${normalizedTerm}' in item ${item.path}`);
           }
           
           return { score: termScore, isFound };
@@ -871,7 +922,7 @@ export class SearchService {
         const totalScore = allTermScores.reduce((sum, term) => sum + (term.score || 0), 0);
         
         // Log the results of the term matching for debugging
-        console.log(`[SearchService] Item ${item.path} - All terms found: ${allTermsFound}`, {
+        LOG.debug(`Item ${item.path} - All terms found: ${allTermsFound}`, {
           title: item.title,
           path: item.path,
           totalTerms: allTerms.length,
@@ -924,12 +975,15 @@ export class SearchService {
 
         // Skip items that don't match all required terms
         if (!allTermsFound) {
-          console.log(`[SearchService] Excluding item ${item.path} - missing terms`);
+          LOG.debug('Excluding item', {
+            path: item.path,
+            reason: 'Missing terms'
+          });
           return null;
         }
         
         // Log the final score for the item
-        console.log(`[SearchService] Item ${item.path} - Total score: ${totalScore}`, {
+        LOG.debug(`Item ${item.path} - Total score: ${totalScore}`, {
           title: item.title,
           path: item.path,
           tags: item.tags,
@@ -993,7 +1047,7 @@ export class SearchService {
         if (item === null) return false;
         
         // Log filtered items for debugging
-        console.log(`[SearchService] Including item in results:`, {
+        LOG.debug('Including item in results', {
           path: item.path,
           title: item.title,
           score: item.score,
@@ -1022,19 +1076,21 @@ export class SearchService {
       }) as SearchResult[];
     
     // Log all results before limiting
-    console.log(`[SearchService] All matching items (${results.length}):`, results.map(r => ({
-      path: r.path,
-      title: r.title,
-      score: r.score,
-      tags: r.tags,
-      preview: r.preview?.substring(0, 100) + '...'
-    })));
+    LOG.debug('All matching items', {
+      query,
+      matchCount: results.length,
+      sample: results.slice(0, 3).map(r => r.path)
+    });
     
     // Limit results
     const maxResults = environment.search?.maxResults || 50;
     const limitedResults = results.slice(0, maxResults);
     
-    console.log(`[SearchService] Returning ${limitedResults.length} of ${results.length} results`);
+    LOG.debug('Returning results', {
+      query,
+      resultCount: limitedResults.length,
+      topScores: limitedResults.slice(0, 3).map(r => r.score)
+    });
     
     this.isLoading.next(false);
     this.searchResults.next(limitedResults);
@@ -1058,7 +1114,7 @@ export class SearchService {
     try {
       localStorage.removeItem(this.recentSearchesKey);
     } catch (error) {
-      console.error('[SearchService] Error clearing recent searches:', error);
+      LOG.error('Error clearing recent searches', error);
     }
   }
 
@@ -1073,7 +1129,7 @@ export class SearchService {
     
     return this.initializeSearchIndex().pipe(
       catchError(error => {
-        console.error('[SearchService] Error ensuring index is ready:', error);
+        LOG.error('Error ensuring index is ready', error);
         return throwError(() => new Error('Failed to initialize search index'));
       })
     );
