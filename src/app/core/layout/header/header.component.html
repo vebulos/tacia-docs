@@ -25,7 +25,7 @@
         <!-- Search Bar - Centered with equal spacing -->
         <div class="flex-1 flex justify-center">
           <div class="w-full max-w-2xl mx-6">
-            <app-home-search></app-home-search>
+            <app-home-search #searchComponent></app-home-search>
           </div>
         </div>
         
@@ -34,7 +34,10 @@
           <!-- Tags container -->
           <div class="flex flex-wrap gap-x-2 gap-y-1">
             <ng-container *ngFor="let tag of visibleTags">
-              <span class="font-medium {{tag.textColor}} hover:underline cursor-pointer transition-colors duration-200">
+              <span 
+                (click)="onTagClick(tag.name, $event)"
+                class="font-medium {{tag.textColor}} hover:underline cursor-pointer transition-colors duration-200"
+              >
                 #{{tag.name}}
               </span>
             </ng-container>

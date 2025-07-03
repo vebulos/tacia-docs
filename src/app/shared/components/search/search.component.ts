@@ -250,6 +250,31 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Adds a term to the current search query
+   * @param term The term to add to the search
+   */
+  addSearchTerm(term: string): void {
+    if (!term) return;
+    
+    const currentValue = this.searchControl.value || '';
+    const terms = currentValue.split(' ').filter(t => t.trim() !== '');
+    
+    // Add the term if it's not already in the search
+    if (!terms.includes(term)) {
+      terms.push(term);
+      const newSearch = terms.join(' ');
+      this.searchControl.setValue(newSearch);
+      // Trigger search
+      this.searchService.search(newSearch);
+    }
+    
+    // Focus the search input
+    if (this.searchInput?.nativeElement) {
+      this.searchInput.nativeElement.focus();
+    }
+  }
+
+  /**
    * Refreshes the search index
    */
   refreshIndex(event: Event): void {

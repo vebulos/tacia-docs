@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
@@ -25,6 +25,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
   // Updated data structure to hold separate paths for state and navigation
   mainNavItems: Array<ContentItem & { title: string; sectionPath: string; firstDocPath: string; }> = [];
   
+  // Reference to the search component
+  @ViewChild('searchComponent') searchComponent!: HomeSearchComponent;
+
   // Tags to display in the header  // Tags data with text colors for light/dark mode
   tags: { name: string; textColor: string }[] = [];
   visibleTags: { name: string; textColor: string }[] = [];
@@ -88,6 +91,22 @@ export class HeaderComponent implements OnInit, OnDestroy {
   toggleTagDropdown(event: Event) {
     event.stopPropagation();
     this.showTagDropdown = !this.showTagDropdown;
+  }
+
+  /**
+   * Handles tag click event
+   * @param tagName The name of the clicked tag
+   * @param event The click event
+   */
+  onTagClick(tagName: string, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (this.searchComponent) {
+      // Add '#' at the beginning of the tag if not already present
+      const searchTerm = tagName.startsWith('#') ? tagName : `#${tagName}`;
+      this.searchComponent.addSearchTerm(searchTerm);
+    }
   }
   
   // Close dropdown when clicking outside
