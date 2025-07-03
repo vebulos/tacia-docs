@@ -46,23 +46,25 @@
             <ng-container *ngIf="hiddenTags.length > 0">
               <div class="relative">
                 <button 
-                  (click)="toggleTagDropdown($event)" 
+                  (mouseenter)="showTagDropdown = true"
                   class="font-medium text-gray-600 dark:text-gray-300 hover:underline cursor-pointer"
                 >
                   ...
                 </button>
                 
-                <!-- Dropdown menu -->
+                <!-- Dropdown menu with larger hover area -->
                 <div 
                   *ngIf="showTagDropdown"
+                  (mouseenter)="showTagDropdown = true"
+                  (mouseleave)="showTagDropdown = false"
                   class="absolute z-10 mt-1 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 py-1"
                 >
                   <div class="py-1 max-h-60 overflow-y-auto">
                     <ng-container *ngFor="let tag of hiddenTags">
                       <a 
                         href="#"
-                        class="block px-4 py-2 text-sm {{tag.textColor}} hover:bg-gray-100 dark:hover:bg-gray-700"
-                        (click)="$event.preventDefault(); showTagDropdown = false"
+                        class="block px-4 py-2 text-sm {{tag.textColor}} hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                        (click)="onTagClick(tag.name, $event); showTagDropdown = false"
                       >
                         #{{tag.name}}
                       </a>

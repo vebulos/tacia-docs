@@ -87,12 +87,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.showTagDropdown = false;
   }
   
-  // Toggle tag dropdown
-  toggleTagDropdown(event: Event) {
-    event.stopPropagation();
-    this.showTagDropdown = !this.showTagDropdown;
-  }
-
   /**
    * Handles tag click event
    * @param tagName The name of the clicked tag
