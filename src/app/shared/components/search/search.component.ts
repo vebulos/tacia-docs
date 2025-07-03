@@ -5,7 +5,8 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, takeUntil, tap } from 'rxjs/operators';
-import { SearchService, SearchResult } from '@app/core/services/search/search.service';
+import { SearchService } from '@app/core/services/search/search.service';
+import { SearchResult } from '@app/core/interfaces/search.interface';
 import { NotificationService } from '@app/core/services/notification/notification.service';
 import { environment } from '../../../../environments/environment';
 

@@ -15,20 +15,31 @@ export interface SearchConfig<T> {
 }
 
 /**
- * Search result
+ * Represents a search result item with content and match information
  */
-export interface SearchResult<T> {
-  // The matching item
-  item: T;
-  // Match score (0 = perfect, 1 = no match)
-  score?: number;
-  // Match details
-  matches?: Array<{
-    indices: [number, number][];
-    key?: string;
-    refIndex?: number;
-    value?: string;
+export interface SearchResult {
+  /** Full path including parent directories and .md extension for files */
+  path: string;
+  
+  /** Display title of the document */
+  title: string;
+  
+  /** Short preview text */
+  preview: string;
+  
+  /** Relevance score for search results */
+  score: number;
+  
+  /** Raw content of the document for full-text search */
+  content?: string;
+  
+  /** Array of tags for categorization and filtering */
+  tags?: string[];
+  
+  /** Array of matches with line numbers and highlighted content */
+  matches: Array<{
+    line: number;
+    content: string;
+    highlighted: string;
   }>;
-  // Unique identifier of the item (optional)
-  id?: string | number;
 }

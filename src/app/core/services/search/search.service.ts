@@ -3,37 +3,11 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { BehaviorSubject, Observable, of, forkJoin, firstValueFrom, throwError, from, concat } from 'rxjs';
 import { map, catchError, switchMap, tap, finalize, concatMap, delay, toArray } from 'rxjs/operators';
 import { MarkdownService } from '../markdown.service';
+import { SearchResult } from '../../interfaces/search.interface';
 import { ContentItem } from '../content.interface';
 import { ContentService } from '../content.service';
 import { environment } from '../../../../environments/environment';
 import { StorageService } from '../storage.service';
-
-/**
- * Represents a search result item with content and match information
- */
-export interface SearchResult {
-  /** Full path including parent directories and .md extension for files */
-  path: string;
-  
-  /** Display title of the document */
-  title: string;
-  
-  /** Short preview text */
-  preview: string;
-  
-  /** Relevance score for search results */
-  score: number;
-  
-  /** Raw content of the document for full-text search */
-  content?: string;
-  
-  /** Array of matches with line numbers and highlighted content */
-  matches: Array<{
-    line: number;
-    content: string;
-    highlighted: string;
-  }>;
-}
 
 @Injectable({
   providedIn: 'root'
@@ -404,6 +378,7 @@ export class SearchService {
       path: item.path, // Path already includes the .md extension for files
       title: title,
       preview: item.metadata?.['description'] || '',
+      tags: item.metadata?.['tags'] || [], // Include tags from metadata
       score: 0,
       matches: []
     };
@@ -564,6 +539,11 @@ export class SearchService {
    * @param query Search term to look for in titles, paths, previews, and content
    * @returns Observable of search results sorted by relevance
    */
+  /**
+   * Search the indexed content with support for both full-text and tag-based search
+   * @param query Search term to look for in titles, paths, previews, content, or tags
+   * @returns Observable of search results sorted by relevance
+   */
   search(query: string): Observable<SearchResult[]> {
     if (!query || !query.trim()) {
       return of([]);
@@ -576,7 +556,20 @@ export class SearchService {
     this.addToRecentSearches(query);
     
     const queryLower = query.trim().toLowerCase();
-    const queryTerms = queryLower.split(/\s+/).filter(term => term.length > 0);
+    
+    // Check if this is a tag search (starts with #)
+    const isTagSearch = queryLower.startsWith('#');
+    
+    // Process the query terms
+    let queryTerms: string[];
+    if (isTagSearch) {
+      // For tag search, extract tags after # and split by spaces/commas
+      const tagQuery = queryLower.substring(1).trim();
+      queryTerms = tagQuery.split(/[\s,]+/).filter(term => term.length > 0);
+    } else {
+      // For regular search, split by spaces
+      queryTerms = queryLower.split(/\s+/).filter(term => term.length > 0);
+    }
     
     if (queryTerms.length === 0) {
       this.isLoading.next(false);
@@ -593,41 +586,53 @@ export class SearchService {
         
         // Track which terms are found and their individual scores
         const termScores = queryTerms.map(term => {
-          let score = 0;
+          let termScore = 0;
           let isFound = false;
           
-          // Check if term appears in any field
-          const inTitle = titleLower.includes(term);
-          const inPath = pathLower.includes(term);
-          const inPreview = previewLower.includes(term);
-          const inContent = contentLower.includes(term);
-          
-          // Term must be present in at least one field to be considered found
-          isFound = inTitle || inPath || inPreview || inContent;
-          
-          if (isFound) {
-            // Exact match in title (highest priority)
-            if (titleLower === term) score += 100;
+          if (isTagSearch) {
+            // For tag search, only check against tags
+            const inTags = item.tags?.some(tag => tag.toLowerCase() === term) || false;
+            if (inTags) {
+              termScore += 20; // Higher weight for exact tag match
+              isFound = true;
+            }
+          } else {
+            // For regular search, check all fields including tags
+            const inTitle = titleLower.includes(term);
+            const inPath = pathLower.includes(term);
+            const inPreview = previewLower.includes(term);
+            const inContent = contentLower.includes(term);
+            const inTags = item.tags?.some(tag => tag.toLowerCase().includes(term)) || false;
             
-            // Term appears in title
-            if (inTitle) score += 10;
+            isFound = inTitle || inPath || inPreview || inContent || inTags;
             
-            // Term appears in path
-            if (inPath) score += 5;
-            
-            // Term appears in preview
-            if (inPreview) score += 3;
-            
-            // Term appears in content
-            if (inContent) {
-              score += 1;
-              // Additional points for multiple occurrences in content
-              const occurrences = (contentLower.match(new RegExp(term, 'g')) || []).length;
-              score += Math.min(occurrences, 5); // Cap at 5 additional points
+            if (isFound) {
+              // Exact match in title (highest priority)
+              if (titleLower === term) termScore += 100;
+              
+              // Term appears in title
+              if (inTitle) termScore += 10;
+              
+              // Term appears in path
+              if (inPath) termScore += 5;
+              
+              // Term appears in preview
+              if (inPreview) termScore += 3;
+              
+              // Term appears in content
+              if (inContent) {
+                termScore += 1;
+                // Additional points for multiple occurrences in content
+                const occurrences = (contentLower.match(new RegExp(term, 'g')) || []).length;
+                termScore += Math.min(occurrences, 5);
+              }
+              
+              // Term appears in tags
+              if (inTags) termScore += 15; // Higher weight for tag matches
             }
           }
           
-          return { score, isFound };
+          return { score: termScore, isFound };
         });
         
         // Check if all terms were found
@@ -639,12 +644,16 @@ export class SearchService {
         }
         
         // Calculate total score (sum of all term scores)
-        const totalScore = termScores.reduce((sum, term) => sum + term.score, 0);
+        const totalScore = termScores.reduce((sum, term) => sum + (term.score || 0), 0);
         
         // Generate preview with highlighted terms
         let preview = item.preview;
-        if (item.content) {
-          // Find the first occurrence of any search term in the content
+        
+        if (isTagSearch && item.tags) {
+          // For tag searches, show the tags in the preview
+          preview = `Tags: ${item.tags.join(', ')}`;
+        } else if (item.content) {
+          // For regular searches, show content preview with highlighted terms
           const firstMatch = queryTerms
             .map(term => ({
               term,
