@@ -17,6 +17,10 @@ import { take } from 'rxjs/operators';
   styleUrls: ['./header.component.css'],
 })
 export class HeaderComponent implements OnInit, OnDestroy {
+  // Méthode pour arrondir vers le haut
+  ceil(value: number): number {
+    return Math.ceil(value);
+  }
   selectedVersion: string = 'latest';
   // Updated data structure to hold separate paths for state and navigation
   mainNavItems: Array<ContentItem & { title: string; sectionPath: string; firstDocPath: string; }> = [];
@@ -28,7 +32,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
   showTagDropdown = false;
   
   // Maximum number of tags to show before adding "..."
-  private maxVisibleTags = 3;
+  private maxVisibleTags = 5;
+  public Math = Math;
   
   // Colors for tags (will cycle through these colors)
   private tagColors = [
