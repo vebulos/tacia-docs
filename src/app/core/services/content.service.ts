@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, of, throwError, timer } from 'rxjs';
+import { BehaviorSubject, Observable, of, throwError, timer } from 'rxjs';
 import { catchError, map, retryWhen, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { StorageService } from './storage.service';
 import { environment } from '../../../environments/environment';
@@ -19,11 +19,22 @@ export class ContentService {
   private readonly cacheKey = (path: string) => `content_${path || 'root'}`;
   private loadingStates = new Map<string, Observable<ContentItem[]>>();
   private config: any;
+  
+  // BehaviorSubject to share current document tags
+  private currentTagsSubject = new BehaviorSubject<string[]>([]);
+  currentTags$ = this.currentTagsSubject.asObservable();
+  
+  // Method to update current tags
+  updateCurrentTags(tags: string[]): void {
+    this.currentTagsSubject.next(tags || []);
+  }
 
   constructor(
     private http: HttpClient,
     private storage: StorageService
   ) {
+    // Initialize with empty tags
+    this.updateCurrentTags([]);
     this.config = environment?.content || {};
     console.log('[ContentService] Initialized with config:', this.config);
   }

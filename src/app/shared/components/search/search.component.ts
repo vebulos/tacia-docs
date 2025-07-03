@@ -5,7 +5,8 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, takeUntil, tap } from 'rxjs/operators';
-import { SearchService, SearchResult } from '@app/core/services/search/search.service';
+import { SearchService } from '@app/core/services/search/search.service';
+import { SearchResult } from '@app/core/interfaces/search.interface';
 import { NotificationService } from '@app/core/services/notification/notification.service';
 import { environment } from '../../../../environments/environment';
 
@@ -243,6 +244,31 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
     this.activeResultIndex = -1;
     
     // Focus the input after clearing
+    if (this.searchInput?.nativeElement) {
+      this.searchInput.nativeElement.focus();
+    }
+  }
+
+  /**
+   * Adds a term to the current search query
+   * @param term The term to add to the search
+   */
+  addSearchTerm(term: string): void {
+    if (!term) return;
+    
+    const currentValue = this.searchControl.value || '';
+    const terms = currentValue.split(' ').filter(t => t.trim() !== '');
+    
+    // Add the term if it's not already in the search
+    if (!terms.includes(term)) {
+      terms.push(term);
+      const newSearch = terms.join(' ');
+      this.searchControl.setValue(newSearch);
+      // Trigger search
+      this.searchService.search(newSearch);
+    }
+    
+    // Focus the search input
     if (this.searchInput?.nativeElement) {
       this.searchInput.nativeElement.focus();
     }

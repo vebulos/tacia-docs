@@ -1,7 +1,8 @@
 <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-20 h-16">
     <div class="w-full mx-auto px-4 sm:px-6 lg:px-8 h-16">
-      <div class="flex justify-between items-center h-16">
-        <div class="flex items-center">
+      <div class="flex items-center h-16">
+        <!-- Logo -->
+        <div class="flex-shrink-0 w-[13rem] flex justify-start">
           <a routerLink="/" class="flex items-center">
             <span class="text-xl font-bold text-gray-900 dark:text-white">TaciaDocs</span>
           </a>
@@ -21,9 +22,56 @@
           </a>
         </nav>
         
-        <!-- Search Bar -->
-        <div class="flex-1 max-w-2xl mx-4">
-          <app-home-search></app-home-search>
+        <!-- Search Bar - Centered with equal spacing -->
+        <div class="flex-1 flex justify-center">
+          <div class="w-full max-w-2xl mx-6">
+            <app-home-search #searchComponent></app-home-search>
+          </div>
+        </div>
+        
+        <!-- Tags section - Fixed width with consistent spacing -->
+        <div class="flex flex-col space-y-0.5 text-xs w-[13rem] flex-shrink-0">
+          <!-- Tags container -->
+          <div class="flex flex-wrap gap-x-2 gap-y-1">
+            <ng-container *ngFor="let tag of visibleTags">
+              <span 
+                (click)="onTagClick(tag.name, $event)"
+                class="font-medium {{tag.textColor}} hover:underline cursor-pointer transition-colors duration-200"
+              >
+                #{{tag.name}}
+              </span>
+            </ng-container>
+
+            <!-- Show more button if there are hidden tags -->
+            <ng-container *ngIf="hiddenTags.length > 0">
+              <div class="relative">
+                <button 
+                  (click)="toggleTagDropdown($event)" 
+                  class="font-medium text-gray-600 dark:text-gray-300 hover:underline cursor-pointer"
+                >
+                  ...
+                </button>
+                
+                <!-- Dropdown menu -->
+                <div 
+                  *ngIf="showTagDropdown"
+                  class="absolute z-10 mt-1 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 py-1"
+                >
+                  <div class="py-1 max-h-60 overflow-y-auto">
+                    <ng-container *ngFor="let tag of hiddenTags">
+                      <a 
+                        href="#"
+                        class="block px-4 py-2 text-sm {{tag.textColor}} hover:bg-gray-100 dark:hover:bg-gray-700"
+                        (click)="$event.preventDefault(); showTagDropdown = false"
+                      >
+                        #{{tag.name}}
+                      </a>
+                    </ng-container>
+                  </div>
+                </div>
+              </div>
+            </ng-container>
+          </div>
         </div>
         
         <div class="flex items-center space-x-4">

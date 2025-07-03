@@ -3,37 +3,33 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { BehaviorSubject, Observable, of, forkJoin, firstValueFrom, throwError, from, concat } from 'rxjs';
 import { map, catchError, switchMap, tap, finalize, concatMap, delay, toArray } from 'rxjs/operators';
 import { MarkdownService } from '../markdown.service';
+import { SearchResult } from '../../interfaces/search.interface';
 import { ContentItem } from '../content.interface';
+
+// Type pour les tags qui peuvent être soit des strings soit des objets avec une propriété name
+type TagType = string | { name: string; [key: string]: any };
+
+// Type pour les résultats de recherche
+type SearchResultType = {
+  title: string;
+  path: string;
+  matches: { line: number; content: string; isTag: boolean; highlighted: string }[];
+};
+
+// Fonction utilitaire pour extraire la valeur d'un tag
+function getTagValue(tag: any): string {
+  if (typeof tag === 'string') {
+    return tag;
+  }
+  if (tag && typeof tag === 'object' && 'name' in tag) {
+    return (tag as { name: string }).name || '';
+  }
+  return '';
+}
+
 import { ContentService } from '../content.service';
 import { environment } from '../../../../environments/environment';
 import { StorageService } from '../storage.service';
-
-/**
- * Represents a search result item with content and match information
- */
-export interface SearchResult {
-  /** Full path including parent directories and .md extension for files */
-  path: string;
-  
-  /** Display title of the document */
-  title: string;
-  
-  /** Short preview text */
-  preview: string;
-  
-  /** Relevance score for search results */
-  score: number;
-  
-  /** Raw content of the document for full-text search */
-  content?: string;
-  
-  /** Array of matches with line numbers and highlighted content */
-  matches: Array<{
-    line: number;
-    content: string;
-    highlighted: string;
-  }>;
-}
 
 @Injectable({
   providedIn: 'root'
@@ -399,14 +395,31 @@ export class SearchService {
     // Use metadata.title if available, otherwise extract from path
     const title = item.metadata?.['title'] || item.name || item.path.split('/').pop() || 'Untitled';
     
+    // Extract tags from metadata
+    const tags = item.metadata?.['tags'] || [];
+    console.log(`[SearchService] Indexing file: ${item.path}`, {
+      title,
+      metadata: item.metadata,
+      extractedTags: tags
+    });
+    
     // Create the search result with basic information
     const searchResult: SearchResult = {
       path: item.path, // Path already includes the .md extension for files
       title: title,
       preview: item.metadata?.['description'] || '',
+      tags: tags, // Include tags from metadata
       score: 0,
-      matches: []
+      matches: [],
+      metadata: item.metadata // Include full metadata for debugging
     };
+    
+    console.log(`[SearchService] Created search result for ${item.path} with metadata:`, {
+      hasMetadata: !!item.metadata,
+      metadataKeys: item.metadata ? Object.keys(item.metadata) : [],
+      hasTags: !!tags && tags.length > 0,
+      tags: tags
+    });
 
     // Only process markdown files
     if (!item.path.endsWith('.md')) {
@@ -419,12 +432,36 @@ export class SearchService {
     console.log(`[SearchService] Loading markdown file: ${cleanPath}`);
     
     // Load the markdown file content
+    console.log(`[SearchService] Loading markdown file for indexing: ${cleanPath}`, {
+      itemMetadata: item.metadata,
+      itemTags: item.metadata?.tags,
+      hasTags: !!item.metadata?.tags,
+      itemKeys: item.metadata ? Object.keys(item.metadata) : []
+    });
+    
     return this.markdownService.getMarkdownFile(cleanPath).pipe(
       map(markdownFile => {
-        console.log(`[SearchService] Successfully loaded markdown file: ${cleanPath}`);
+        console.log(`[SearchService] Successfully loaded markdown file: ${cleanPath}`, {
+          markdownFile,
+          metadata: markdownFile.metadata,
+          tags: markdownFile.metadata?.tags,
+          hasMetadata: !!markdownFile.metadata,
+          metadataKeys: markdownFile.metadata ? Object.keys(markdownFile.metadata) : []
+        });
+        
         // Extract text content from HTML for full-text search
         const textContent = this.extractTextFromHtml(markdownFile.html);
         searchResult.content = textContent;
+        
+        // Update tags from the markdown file metadata if available
+        if (markdownFile.metadata?.tags?.length) {
+          console.log(`[SearchService] Updating tags from markdown metadata:`, markdownFile.metadata.tags);
+          searchResult.tags = markdownFile.metadata.tags;
+        } else if (item.metadata?.tags?.length) {
+          // Fallback to item metadata if markdown file metadata doesn't have tags
+          console.log(`[SearchService] Using tags from item metadata:`, item.metadata.tags);
+          searchResult.tags = item.metadata.tags;
+        }
         
         // If we don't have a preview from metadata, create one from content
         if (!searchResult.preview) {
@@ -564,6 +601,11 @@ export class SearchService {
    * @param query Search term to look for in titles, paths, previews, and content
    * @returns Observable of search results sorted by relevance
    */
+  /**
+   * Search the indexed content with support for both full-text and tag-based search
+   * @param query Search term to look for in titles, paths, previews, content, or tags
+   * @returns Observable of search results sorted by relevance
+   */
   search(query: string): Observable<SearchResult[]> {
     if (!query || !query.trim()) {
       return of([]);
@@ -576,12 +618,161 @@ export class SearchService {
     this.addToRecentSearches(query);
     
     const queryLower = query.trim().toLowerCase();
-    const queryTerms = queryLower.split(/\s+/).filter(term => term.length > 0);
     
-    if (queryTerms.length === 0) {
+    // Check if this is a tag search (starts with #)
+    const isTagSearch = queryLower.startsWith('#');
+    
+    console.log(`[SearchService] Search query: ${queryLower}, isTagSearch: ${isTagSearch}`);
+    
+    // Log the current search index for debugging
+    console.log('[SearchService] Current search index items:', this.searchIndex.map(item => ({
+      path: item.path,
+      title: item.title,
+      tags: item.tags,
+      hasTags: !!item.tags && item.tags.length > 0,
+      metadata: item.metadata, // Include full metadata for debugging
+      hasMetadata: !!item.metadata,
+      metadataKeys: item.metadata ? Object.keys(item.metadata) : []
+    })));
+    
+    // Log the first few items with tags for debugging
+    const itemsWithTags = this.searchIndex.filter(item => item.tags && item.tags.length > 0);
+    console.log(`[SearchService] Found ${itemsWithTags.length} items with tags:`, 
+      itemsWithTags.slice(0, 5).map(item => ({
+        path: item.path,
+        title: item.title,
+        tags: item.tags,
+        metadata: item.metadata
+      }))
+    );
+    
+    // Process the query terms
+    let tagTerms: string[] = [];
+    let textTerms: string[] = [];
+    let queryTerms: string[] = [];
+    
+    if (isTagSearch) {
+      // Split the query into tags, handling both #tag1 #tag2 and #tag1 tag2 formats
+      const parts = queryLower.split(/(\s+)/);
+      let currentTerm = '';
+      
+      for (const part of parts) {
+        if (part.trim() === '') continue;
+        
+        if (part.startsWith('#')) {
+          // If we have a current term that's not a tag, add it to text terms
+          if (currentTerm) {
+            textTerms.push(currentTerm.toLowerCase());
+            currentTerm = '';
+          }
+          
+          // Add the tag (without the #)
+          const tag = part.substring(1).trim();
+          if (tag) {
+            tagTerms.push(tag.toLowerCase());
+          }
+        } else if (part.trim().includes(' ')) {
+          // If the part contains spaces, it's a text term
+          const trimmedPart = part.trim();
+          if (trimmedPart) {
+            textTerms.push(trimmedPart.toLowerCase());
+          }
+        } else {
+          // Otherwise, it might be part of a tag or a text term
+          currentTerm = currentTerm ? `${currentTerm} ${part}` : part;
+        }
+      }
+      
+      // Add any remaining current term to text terms
+      if (currentTerm) {
+        textTerms.push(currentTerm.toLowerCase());
+      }
+      
+      console.log(`[SearchService] Tags to search:`, tagTerms);
+      console.log(`[SearchService] Text terms to search:`, textTerms);
+      
+      // If there are no tags or text terms, return empty results
+      if (tagTerms.length === 0 && textTerms.length === 0) {
+        this.isLoading.next(false);
+        return of([]);
+      }
+      
+      // Log all available tags in the index for debugging
+      console.log(`[SearchService] Processing search with tags:`, tagTerms, 'and text terms:', textTerms);
+      
+      const allTags = new Set<string>();
+      const allTagsWithDocuments: Record<string, string[]> = {};
+      
+      // First pass: collect all tags and their documents
+      this.searchIndex.forEach(item => {
+        if (item.tags) {
+          // Normalize tags during collection
+          item.tags.forEach(tagObj => {
+            // Use the utility function to get tag value
+            const tagValue = getTagValue(tagObj);
+              
+            const normalizedTag = tagValue.toLowerCase().trim();
+            if (normalizedTag) {  // Only process non-empty tags
+              allTags.add(normalizedTag);
+              if (!allTagsWithDocuments[normalizedTag]) {
+                allTagsWithDocuments[normalizedTag] = [];
+              }
+              allTagsWithDocuments[normalizedTag].push(item.path);
+            }
+          });
+        }
+      });
+      
+      // Log all available tags and document counts
+      console.log(`[SearchService] All available tags in index (${allTags.size}):`, 
+        Array.from(allTags).sort().map(tag => ({
+          tag,
+          count: allTagsWithDocuments[tag]?.length || 0,
+          documents: allTagsWithDocuments[tag]?.slice(0, 3) || []
+        })));
+      
+      console.log(`[SearchService] All available tags in index (${allTags.size}):`, Array.from(allTags).sort());
+      
+      // Log documents for each search term
+      queryTerms.forEach((term: string) => {
+        const normalizedTerm = term.toLowerCase();
+        const exists = allTags.has(normalizedTerm);
+        console.log(`[SearchService] Tag '${normalizedTerm}' exists in index: ${exists}`);
+        console.log(`[SearchService] Documents with tag '${normalizedTerm}':`, 
+          allTagsWithDocuments[normalizedTerm] || []);
+      });
+      
+      // Log documents that have all the requested tags
+      if (tagTerms.length > 0) {
+        const docsWithAllTags = this.searchIndex.filter(item => {
+          const itemTags = new Set(item.tags?.map(t => getTagValue(t).toLowerCase()) || []);
+          return tagTerms.every(term => 
+            Array.from(itemTags).some(tag => tag.includes(term))
+          );
+        });
+        
+        console.log(`[SearchService] Found ${docsWithAllTags.length} documents with ALL tags:`, 
+          docsWithAllTags.map(d => ({
+            path: d.path,
+            title: d.title,
+            tags: d.tags,
+            normalizedTags: d.tags?.map(t => getTagValue(t).toLowerCase()) || []
+          }))
+        );
+      }
+    } else {
+      // For regular search, split by spaces
+      queryTerms = queryLower.split(/\s+/).filter((term: string) => term.length > 0);
+      textTerms = queryTerms;
+      tagTerms = [];
+    }
+    
+    if (tagTerms.length === 0 && textTerms.length === 0) {
       this.isLoading.next(false);
       return of([]);
     }
+    
+    console.log(`[SearchService] Processing ${this.searchIndex.length} items in search index`);
     
     // Process each item in the search index
     const results = this.searchIndex
@@ -590,68 +781,182 @@ export class SearchService {
         const pathLower = item.path.toLowerCase();
         const previewLower = item.preview.toLowerCase();
         const contentLower = item.content?.toLowerCase() || '';
+        const itemTags = new Set(item.tags?.map(t => getTagValue(t).toLowerCase()) || []);
+        
+        // If no search terms, include all items
+        if (tagTerms.length === 0 && textTerms.length === 0) {
+          return {
+            ...item,
+            score: 0,
+            preview: item.preview,
+            matches: []
+          };
+        }
         
         // Track which terms are found and their individual scores
-        const termScores = queryTerms.map(term => {
-          let score = 0;
+        const tagScores = tagTerms.map(term => {
+          let termScore = 0;
           let isFound = false;
           
-          // Check if term appears in any field
+          // For tag search, only check against tags
+          const normalizedTerm = term.trim().toLowerCase();
+          
+          // Check for exact match first, then partial match (case insensitive)
+          const exactMatch = Array.from(itemTags).some(tag => 
+            tag === normalizedTerm
+          );
+          
+          // Only check for partial matches if no exact match found
+          const partialMatch = !exactMatch && Array.from(itemTags).some(tag => 
+            tag.includes(normalizedTerm)
+          );
+          
+          const inTags = exactMatch || partialMatch;
+          
+          if (inTags) {
+            // Higher score for exact matches
+            termScore += exactMatch ? 30 : 15;
+            isFound = true;
+            console.log(`[SearchService] Found ${exactMatch ? 'exact' : 'partial'} matching tag '${normalizedTerm}' in item ${item.path}`);
+          }
+          
+          return { score: termScore, isFound };
+        });
+        
+        // Check text terms in content
+        const textTermScores = textTerms.map(term => {
+          let termScore = 0;
+          let isFound = false;
+          
           const inTitle = titleLower.includes(term);
           const inPath = pathLower.includes(term);
           const inPreview = previewLower.includes(term);
           const inContent = contentLower.includes(term);
           
-          // Term must be present in at least one field to be considered found
           isFound = inTitle || inPath || inPreview || inContent;
           
           if (isFound) {
             // Exact match in title (highest priority)
-            if (titleLower === term) score += 100;
+            if (titleLower === term) termScore += 100;
             
             // Term appears in title
-            if (inTitle) score += 10;
+            if (inTitle) termScore += 10;
             
             // Term appears in path
-            if (inPath) score += 5;
+            if (inPath) termScore += 5;
             
             // Term appears in preview
-            if (inPreview) score += 3;
+            if (inPreview) termScore += 3;
             
             // Term appears in content
             if (inContent) {
-              score += 1;
+              termScore += 1;
               // Additional points for multiple occurrences in content
               const occurrences = (contentLower.match(new RegExp(term, 'g')) || []).length;
-              score += Math.min(occurrences, 5); // Cap at 5 additional points
+              termScore += Math.min(occurrences, 5);
             }
           }
           
-          return { score, isFound };
+          return { score: termScore, isFound };
         });
         
-        // Check if all terms were found
-        const allTermsFound = termScores.every(term => term.isFound);
+        // Combine tag and text term scores
+        const allTermScores = [...tagScores, ...textTermScores];
+        const allTerms = [...tagTerms, ...textTerms];
         
-        // If not all terms are present, exclude this item from results
+        // Check if all required terms were found
+        const allTermsFound = allTermScores.every(term => term.isFound);
+        
+        // Calculate total score (sum of all term scores)
+        const totalScore = allTermScores.reduce((sum, term) => sum + (term.score || 0), 0);
+        
+        // Log the results of the term matching for debugging
+        console.log(`[SearchService] Item ${item.path} - All terms found: ${allTermsFound}`, {
+          title: item.title,
+          path: item.path,
+          totalTerms: allTerms.length,
+          foundTerms: allTermScores.filter(t => t.isFound).length,
+          termScores: allTermScores.map((t, i) => ({
+            term: allTerms[i],
+            isFound: t.isFound,
+            score: t.score,
+            // Add more details about why a term wasn't found
+            details: !t.isFound ? {
+              hasTags: !!item.tags && item.tags.length > 0,
+              itemTags: item.tags || [],
+              normalizedItemTags: item.tags ? item.tags.map(t => t.trim().toLowerCase()) : [],
+              searchTerm: allTerms[i].toLowerCase(),
+              // Check if the term exists in any tags at all (even if not in this item)
+              termExistsInIndex: this.searchIndex.some(si => 
+                si.tags?.some(tag => 
+                  getTagValue(tag).toLowerCase().includes(allTerms[i].toLowerCase())
+                )
+              )
+            } : undefined
+          })),
+          hasTags: !!item.tags && item.tags.length > 0,
+          itemTags: item.tags || [],
+          // Show a sample of items that do have all the terms (for debugging)
+          sampleMatchingItems: this.searchIndex
+            .filter(si => {
+              // Check if item has all required tags
+              const hasAllTags = tagTerms.length === 0 || tagTerms.every(term => 
+                si.tags?.some(tag => 
+                  getTagValue(tag).toLowerCase().includes(term.toLowerCase())
+                )
+              );
+              
+              // Check if item contains all text terms
+              const hasAllTextTerms = textTerms.length === 0 || 
+                (si.content && textTerms.every(term => 
+                  si.content!.toLowerCase().includes(term.toLowerCase())
+                ));
+              
+              return hasAllTags && hasAllTextTerms;
+            })
+            .slice(0, 3)
+            .map(si => ({
+              path: si.path,
+              title: si.title,
+              tags: si.tags
+            }))
+        });
+
+        // Skip items that don't match all required terms
         if (!allTermsFound) {
+          console.log(`[SearchService] Excluding item ${item.path} - missing terms`);
           return null;
         }
         
-        // Calculate total score (sum of all term scores)
-        const totalScore = termScores.reduce((sum, term) => sum + term.score, 0);
+        // Log the final score for the item
+        console.log(`[SearchService] Item ${item.path} - Total score: ${totalScore}`, {
+          title: item.title,
+          path: item.path,
+          tags: item.tags,
+          termScores: allTermScores.map((t, i) => ({
+            term: allTerms[i],
+            score: t.score,
+            isFound: t.isFound
+          }))
+        });
         
         // Generate preview with highlighted terms
         let preview = item.preview;
-        if (item.content) {
-          // Find the first occurrence of any search term in the content
-          const firstMatch = queryTerms
-            .map(term => ({
+        
+        if (tagTerms.length > 0 && item.tags) {
+          // For tag searches, show the tags in the preview
+          const tagValues = item.tags.map(tag => getTagValue(tag));
+          preview = `Tags: ${tagValues.join(', ')}`;
+        } else if (item.content) {
+          const contentLower = item.content.toLowerCase();
+          // For regular searches, show content preview with highlighted terms
+          const firstMatch = allTerms
+            .map((term: string) => ({
               term,
               index: contentLower.indexOf(term)
             }))
-            .filter(match => match.index >= 0)
-            .sort((a, b) => a.index - b.index)[0];
+            .filter((match: { index: number }) => match.index >= 0)
+            .sort((a: { index: number }, b: { index: number }) => a.index - b.index)[0];
           
           if (firstMatch) {
             const start = Math.max(0, firstMatch.index - 50);
@@ -663,7 +968,7 @@ export class SearchService {
             if (end < item.content.length) snippet = `${snippet}...`;
             
             // Highlight search terms in the snippet
-            queryTerms.forEach(term => {
+            [...tagTerms, ...textTerms].forEach(term => {
               const regex = new RegExp(`(${this.escapeRegExp(term)})`, 'gi');
               snippet = snippet.replace(regex, '<mark>$1</mark>');
             });
@@ -676,32 +981,65 @@ export class SearchService {
           ...item,
           score: totalScore,
           preview: preview,
-          matches: queryTerms.map(term => ({
+          matches: [...tagTerms, ...textTerms].map(term => ({
             line: 0, // Line numbers not available without parsing
             content: term,
-            highlighted: `<mark>${term}</mark>`
+            isTag: tagTerms.includes(term),
+            highlighted: `<mark>${term}${tagTerms.includes(term) ? ' (tag)' : ''}</mark>`
           }))
         };
       })
-      .filter((item): item is SearchResult => item !== null) // Filter out nulls and ensure type safety
+      .filter((item): item is NonNullable<typeof item> => {
+        if (item === null) return false;
+        
+        // Log filtered items for debugging
+        console.log(`[SearchService] Including item in results:`, {
+          path: item.path,
+          title: item.title,
+          score: item.score,
+          tags: item.tags,
+          hasContent: !!item.content
+        });
+        
+        return true;
+      })
       .sort((a, b) => {
         // Sort by score (descending)
         if (a.score !== b.score) return b.score - a.score;
         
-        // If scores are equal, prefer shorter paths (more specific matches)
+        // For tag searches, prioritize items with more matching tags
+        if (isTagSearch) {
+          const aTagCount = a.tags?.length || 0;
+          const bTagCount = b.tags?.length || 0;
+          if (aTagCount !== bTagCount) return bTagCount - aTagCount;
+        }
+        
+        // Then prefer shorter paths (more specific matches)
         if (a.path.length !== b.path.length) return a.path.length - b.path.length;
         
         // Finally, sort alphabetically by title
         return a.title.localeCompare(b.title);
-      });
+      }) as SearchResult[];
+    
+    // Log all results before limiting
+    console.log(`[SearchService] All matching items (${results.length}):`, results.map(r => ({
+      path: r.path,
+      title: r.title,
+      score: r.score,
+      tags: r.tags,
+      preview: r.preview?.substring(0, 100) + '...'
+    })));
     
     // Limit results
-    const limitedResults = results.slice(0, environment.search?.maxResults || 50);
+    const maxResults = environment.search?.maxResults || 50;
+    const limitedResults = results.slice(0, maxResults);
+    
+    console.log(`[SearchService] Returning ${limitedResults.length} of ${results.length} results`);
     
     this.isLoading.next(false);
     this.searchResults.next(limitedResults);
     
-    return of(limitedResults);
+    return of(limitedResults as SearchResult[]);
   }
 
   /**

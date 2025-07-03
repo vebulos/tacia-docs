@@ -259,7 +259,7 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
    * Handles both relative and absolute paths correctly
    */
   getNavigationLink(item: NavigationItem): { link: string[], state: any } {
-    console.log('getNavigationLink - item:', JSON.parse(JSON.stringify(item)));
+    //console.log('getNavigationLink - item:', JSON.parse(JSON.stringify(item)));
     
     // Clean paths by removing leading/trailing slashes
     const cleanPath = (p: string) => p ? p.replace(/^\/+|\/+$/g, '') : '';
@@ -268,8 +268,8 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     const parentPath = cleanPath(item.parentPath || '');
     let itemPath = cleanPath(item.path || '');
     
-    console.log('getNavigationLink - parentPath:', parentPath);
-    console.log('getNavigationLink - itemPath:', itemPath);
+    //console.log('getNavigationLink - parentPath:', parentPath);
+    //console.log('getNavigationLink - itemPath:', itemPath);
     
     // For files, remove the .md extension
     if (!item.isDirectory) {
@@ -292,7 +292,7 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
       }
     }
     
-    console.log('getNavigationLink - final path:', fullPath);
+    //console.log('getNavigationLink - final path:', fullPath);
     
     // Split into segments and remove any empty segments
     const pathSegments = fullPath.split('/').filter(segment => segment !== '');

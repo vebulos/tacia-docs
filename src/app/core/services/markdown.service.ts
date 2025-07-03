@@ -84,7 +84,13 @@ export class MarkdownService implements OnDestroy {
         console.log(`[MarkdownService] Cache miss (${this.cacheHits} hits, ${this.cacheMisses} misses)`);
       }),
       tap(response => {
-        console.log(`[MarkdownService] Successfully loaded markdown from backend: ${response.path}`);
+        console.log(`[MarkdownService] Successfully loaded markdown from backend: ${response.path}`, {
+          response,
+          metadata: response.metadata,
+          tags: response.metadata?.tags,
+          hasMetadata: !!response.metadata,
+          metadataKeys: response.metadata ? Object.keys(response.metadata) : []
+        });
       }),
       catchError((error: HttpErrorResponse) => {
         console.error(`[MarkdownService] Error loading markdown from ${apiUrl}:`, error.status, error.statusText);
