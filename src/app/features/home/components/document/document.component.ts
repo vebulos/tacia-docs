@@ -49,6 +49,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
   showNotFound = false;
   notFoundMessage = 'The requested page does not exist or has been moved.';
   notFoundError: { message: string, originalUrl: string } | null = null;
+  tags: string[] = [];
   
   @ViewChild(NotFound404Component) notFoundComponent?: NotFound404Component;
   showRelatedDocuments = false;
@@ -292,6 +293,10 @@ export class DocumentComponent implements OnInit, OnDestroy {
     }
     
     try {
+      // Extract tags from metadata if available
+      this.tags = response.metadata?.tags || [];
+      console.log('Document tags:', this.tags);
+      
       // Create a temporary div to manipulate the HTML
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = response.html;
