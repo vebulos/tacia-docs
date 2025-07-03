@@ -28,7 +28,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   showTagDropdown = false;
   
   // Maximum number of tags to show before adding "..."
-  private maxVisibleTags = 8;
+  private maxVisibleTags = 3;
   
   // Colors for tags (will cycle through these colors)
   private tagColors = [
