@@ -2,7 +2,7 @@
     <div class="w-full mx-auto px-4 sm:px-6 lg:px-8 h-16">
       <div class="flex items-center h-16">
         <!-- Logo -->
-        <div class="flex-shrink-0 mr-6">
+        <div class="flex-shrink-0 w-[13rem] flex justify-start">
           <a routerLink="/" class="flex items-center">
             <span class="text-xl font-bold text-gray-900 dark:text-white">TaciaDocs</span>
           </a>
@@ -22,15 +22,15 @@
           </a>
         </nav>
         
-        <!-- Search Bar - Centered with fixed width -->
-        <div class="flex-1 flex justify-center px-4">
-          <div class="w-full max-w-2xl">
+        <!-- Search Bar - Centered with equal spacing -->
+        <div class="flex-1 flex justify-center">
+          <div class="w-full max-w-2xl mx-6">
             <app-home-search></app-home-search>
           </div>
         </div>
         
-        <!-- Tags section - Fixed width to prevent layout shift -->
-        <div class="flex flex-col space-y-0.5 text-xs w-[13rem] flex-shrink-0 ml-4">
+        <!-- Tags section - Fixed width with consistent spacing -->
+        <div class="flex flex-col space-y-0.5 text-xs w-[13rem] flex-shrink-0">
           <!-- Tags container -->
           <div class="flex flex-wrap gap-x-2 gap-y-1">
             <ng-container *ngFor="let tag of visibleTags">
