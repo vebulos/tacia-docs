@@ -3,6 +3,7 @@ import { RefreshService } from '@app/core/services/refresh/refresh.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink, RouterModule, ParamMap } from '@angular/router';
 import { MarkdownService, MarkdownApiResponse } from '@app/core/services/markdown.service';
+import { ContentService } from '@app/core/services/content.service';
 import { RelatedDocumentsService, type RelatedDocument } from '@app/core/services/related-documents.service';
 import { tap, takeUntil, catchError, switchMap } from 'rxjs/operators';
 import { Subject, Subscription, of, Observable, forkJoin } from 'rxjs';
@@ -63,6 +64,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private firstDocumentService: FirstDocumentService;
   private headingsService = inject(HeadingsService);
+  private contentService: ContentService;
 
   constructor(
     private route: ActivatedRoute,
@@ -72,9 +74,11 @@ export class DocumentComponent implements OnInit, OnDestroy {
     private sanitizer: DomSanitizer,
     private refreshService: RefreshService,
     private cdr: ChangeDetectorRef,
-    firstDocumentService: FirstDocumentService
+    firstDocumentService: FirstDocumentService,
+    contentService: ContentService
   ) {
     this.firstDocumentService = firstDocumentService;
+    this.contentService = contentService;
   }
 
   ngOnInit(): void {
@@ -287,6 +291,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
   /**
    * Handles document content after it's loaded
    */
+
   private processContent(response: MarkdownApiResponse, fullPath: string): void {
     if (!response || !response.html) {
       throw new Error('No content in response');
@@ -296,6 +301,9 @@ export class DocumentComponent implements OnInit, OnDestroy {
       // Extract tags from metadata if available
       this.tags = response.metadata?.tags || [];
       console.log('Document tags:', this.tags);
+      
+      // Update tags in the content service to share with other components
+      this.contentService.updateCurrentTags(this.tags);
       
       // Create a temporary div to manipulate the HTML
       const tempDiv = document.createElement('div');
