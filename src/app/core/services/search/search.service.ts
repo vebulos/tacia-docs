@@ -763,6 +763,8 @@ export class SearchService {
     } else {
       // For regular search, split by spaces
       queryTerms = queryLower.split(/\s+/).filter((term: string) => term.length > 0);
+      textTerms = queryTerms;
+      tagTerms = [];
     }
     
     if (tagTerms.length === 0 && textTerms.length === 0) {
