@@ -44,9 +44,11 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
   private notificationService = inject(NotificationService);
   private refreshService = inject(RefreshService);
   private searchConfig: any;
+  private documentKeyDownListener: ((event: KeyboardEvent) => void) | null = null;
 
   constructor() {
     this.searchConfig = environment?.search || DEFAULT_SEARCH_CONFIG;
+    this.setupGlobalShortcuts();
   }
 
   ngOnInit(): void {
@@ -61,10 +63,54 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.cleanupGlobalShortcuts();
+  }
+
+  /**
+   * Sets focus on the search input field
+   */
+  focusSearch(): void {
+    if (this.searchInput?.nativeElement) {
+      this.searchInput.nativeElement.focus();
+      this.searchInput.nativeElement.select();
+      this.isFocused = true;
+      this.showRecentSearches = true;
+    }
+  }
+
+  /**
+   * Configure global keyboard shortcuts
+   */
+  private setupGlobalShortcuts(): void {
+    // Use bind to maintain 'this' context
+    this.documentKeyDownListener = this.handleKeyDown.bind(this);
+    document.addEventListener('keydown', this.documentKeyDownListener);
+  }
+
+  /**
+   * Clean up event listeners
+   */
+  private cleanupGlobalShortcuts(): void {
+    if (this.documentKeyDownListener) {
+      document.removeEventListener('keydown', this.documentKeyDownListener);
+    }
+  }
+
+  /**
+   * Global keyboard event handler
+   */
+  private handleKeyDown(event: KeyboardEvent): void {
+    // Check if Ctrl+F or Cmd+F is pressed
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+      // Prevent browser's default search dialog from opening
+      event.preventDefault();
+      // Focus the search input field
+      this.focusSearch();
+    }
   }
 
   private setupSearch(): void {
-    // Load recent searches
+    // Load recent searches from the search service
     this.recentSearches = this.searchService.getRecentSearches();
   }
 
@@ -234,8 +280,10 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
 
   /**
    * Clears the search input and results
+   * @param event Optional event that triggered the clear
+   * @param keepFocus If true, keeps focus on the input (default: true)
    */
-  clearSearch(event?: Event): void {
+  clearSearch(event?: Event, keepFocus: boolean = true): void {
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -246,9 +294,14 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
     this.showRecentSearches = this.recentSearches.length > 0;
     this.activeResultIndex = -1;
     
-    // Focus the input after clearing
+    // Handle focus based on the keepFocus parameter
     if (this.searchInput?.nativeElement) {
-      this.searchInput.nativeElement.focus();
+      if (keepFocus) {
+        this.searchInput.nativeElement.focus();
+      } else {
+        this.searchInput.nativeElement.blur();
+        this.isFocused = false;
+      }
     }
   }
 
@@ -318,40 +371,38 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
   }
 
   @HostListener('document:keydown', ['$event'])
-  onKeyDown(event: any): void {
-    // Accept any event, check if it's a keyboard event
-    if (event && event.key === 'Enter') {
-      // Your existing logic here
-    }
-  
+  onKeyDown(event: KeyboardEvent): void {
     if (!this.isFocused) return;
     
+    // Only process keys we care about
+    if (!['Escape', 'ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
+      return;
+    }
+    
+    // Prevent default behavior for all managed keys
+    event.preventDefault();
+    event.stopPropagation();
+    
     switch (event.key) {
+      case 'Escape':
+        this.clearSearch(event, false);
+        break;
+        
+      case 'ArrowDown':
+        this.handleArrowNavigation(1);
+        break;
+        
+      case 'ArrowUp':
+        this.handleArrowNavigation(-1);
+        break;
+        
       case 'Enter':
-        event.preventDefault();
         if (this.activeResultIndex >= 0) {
-          if (this.searchResults.length > 0 && this.activeResultIndex < this.searchResults.length) {
-            this.selectResult(this.searchResults[this.activeResultIndex]);
-          } else if (this.recentSearches.length > 0) {
-            const recentIndex = this.activeResultIndex - this.searchResults.length;
-            if (recentIndex >= 0 && recentIndex < this.recentSearches.length) {
-              this.selectRecentSearch(this.recentSearches[recentIndex]);
-            }
-          }
+          this.navigateToSelectedResult();
         } else if (this.searchControl.value) {
           // Trigger search on enter if there's a query but no active selection
           this.searchService.search(this.searchControl.value);
         }
-        break;
-      
-      case 'Escape':
-        event.preventDefault();
-        this.clearSearch();
-        break;
-        
-      case 'ArrowDown':
-      case 'ArrowUp':
-        // Handled by the (keydown.arrowdown) and (keydown.arrowup) events on the input
         break;
         
       default:
@@ -466,7 +517,11 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
     }
   }
 
-  navigateResults(direction: number): void {
+  /**
+   * Handle arrow key navigation in search results
+   * @param direction 1 for down, -1 for up
+   */
+  private handleArrowNavigation(direction: number): void {
     if (this.isLoading) return;
     
     const totalItems = this.searchResults.length + (this.showRecentSearches ? this.recentSearches.length : 0);
@@ -482,37 +537,56 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
     } else {
       // Calculate new index with wrapping
       let newIndex = this.activeResultIndex + direction;
+      
+      // Handle wrapping
       if (newIndex < 0) {
         newIndex = totalItems - 1;
       } else if (newIndex >= totalItems) {
         newIndex = 0;
       }
+      
       this.activeResultIndex = newIndex;
     }
     
+    // Scroll to make the active result visible
     this.scrollToActiveResult();
   }
-
+  
+  /**
+   * Scroll to make the active search result visible
+   */
+  /**
+   * Scroll to make the active search result visible
+   * @public to be accessible from template
+   */
   public scrollToActiveResult(): void {
     if (this.activeResultIndex < 0 || !this.searchResultsElement?.nativeElement) return;
     
-    const activeElement = document.getElementById(
-      this.activeResultIndex < this.searchResults.length 
-        ? `search-result-${this.activeResultIndex}`
-        : `recent-search-${this.activeResultIndex - this.searchResults.length}`
-    );
-    
-    if (activeElement) {
-      activeElement.scrollIntoView({
-        block: 'nearest',
-        behavior: 'smooth'
-      });
-      
-      // Focus the element for better keyboard navigation
-      (activeElement as HTMLElement).focus();
+    const resultElements = this.searchResultsElement.nativeElement.querySelectorAll('.search-result-item');
+    if (resultElements.length > 0 && this.activeResultIndex < resultElements.length) {
+      const activeElement = resultElements[this.activeResultIndex] as HTMLElement;
+      if (activeElement) {
+        activeElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
+        });
+        // Focus the element for better keyboard navigation
+        activeElement.focus();
+      }
     }
   }
 
+  /**
+   * Public method to handle arrow navigation from template
+   * @param direction 1 for down, -1 for up
+   */
+  public navigateResults(direction: number): void {
+    this.handleArrowNavigation(direction);
+  }
+
+  /**
+   * Navigate to the selected search result or recent search
+   */
   private navigateToSelectedResult(): void {
     if (this.activeResultIndex < 0) return;
 
@@ -529,6 +603,10 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Handle successful search results
+   * @param results Array of search results
+   */
   private handleSearchResults(results: SearchResult[]): void {
     this.searchResults = results || [];
     this.isLoading = false;
@@ -543,6 +621,10 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Handle search errors
+   * @param error Error that occurred during search
+   */
   private handleSearchError(error: Error): void {
     const errorMessage = error?.message || 'An error occurred while searching';
     LOG.error('Search error', {
