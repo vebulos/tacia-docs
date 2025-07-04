@@ -36,15 +36,6 @@
 
   <!-- Content -->
   <div *ngIf="content && !loading && !error && !showNotFound" class="w-full">
-    <div class="w-full px-8 py-4 flex justify-end">
-      <button 
-        (click)="toggleTheme()" 
-        class="px-4 py-2 text-sm font-medium rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200"
-        [title]="currentTheme === 'leger' ? 'Switch to default theme' : 'Switch to Leger theme'"
-      >
-        {{ currentTheme === 'leger' ? 'Default Theme' : 'Leger Theme' }}
-      </button>
-    </div>
     <div class="w-full px-8 py-4">
       <!-- Document Content -->
       <div [class]="'prose dark:prose-invert w-full max-w-none ' + (currentTheme === 'leger' ? 'leger-theme' : 'markdown-content')" 

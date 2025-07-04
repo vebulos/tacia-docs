@@ -8,6 +8,7 @@ import { FirstDocumentService } from '../../../core/services/first-document.serv
 import { ContentItem } from '../../../core/services/content.interface';
 import { Subscription } from 'rxjs';
 import { take } from 'rxjs/operators';
+import { ThemeService } from '@app/core/services/theme.service';
 
 @Component({
   selector: 'app-header',
@@ -51,17 +52,56 @@ export class HeaderComponent implements OnInit, OnDestroy {
   ];
   
   private subscriptions = new Subscription();
-
+  // Initialize dark mode from localStorage or system preference
+  private isDarkMode = this.checkSystemDarkMode();
+  currentTheme: 'default' | 'leger' = 'default';
+  
+  // Check system dark mode preference
+  private checkSystemDarkMode(): boolean {
+    const savedDarkMode = localStorage.getItem('darkMode');
+    if (savedDarkMode !== null) {
+      return savedDarkMode === 'true';
+    }
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  
   constructor(
-    private contentService: ContentService,
     private router: Router,
     private route: ActivatedRoute,
-    private firstDocumentService: FirstDocumentService
-  ) {
+    private contentService: ContentService,
+    private firstDocumentService: FirstDocumentService,
+    private themeService: ThemeService
+  ) {}
+
+  ngOnInit(): void {
+    // Subscribe to theme changes
+    const themeSubscription = this.themeService.currentTheme$.subscribe(theme => {
+      this.currentTheme = theme as 'default' | 'leger';
+    });
+
     // Subscribe to content service for tag updates
-    this.contentService.currentTags$.subscribe(tags => {
+    const tagsSubscription = this.contentService.currentTags$.subscribe(tags => {
       this.updateTags(tags);
     });
+
+    // Add subscriptions to the subscription list
+    this.subscriptions.add(themeSubscription);
+    this.subscriptions.add(tagsSubscription);
+
+    // Load main navigation
+    this.loadMainNavigation();
+    this.checkDarkMode();
+    
+    // Initial tags update in case we missed any updates
+    const initialTagsSubscription = this.contentService.currentTags$
+      .pipe(take(1))
+      .subscribe(tags => {
+        if (tags && tags.length > 0) {
+          this.updateTags(tags);
+        }
+      });
+    
+    this.subscriptions.add(initialTagsSubscription);
   }
 
   /**
@@ -103,29 +143,13 @@ export class HeaderComponent implements OnInit, OnDestroy {
     }
   }
   
-  // Close dropdown when clicking outside
+  // Method to handle outside clicks for dropdown
   @HostListener('document:click', ['$event'])
-  onClickOutside(event: Event) {
+  onClickOutside(event: Event): void {
     const target = event.target as HTMLElement;
     if (!target.closest('.tags-dropdown')) {
       this.showTagDropdown = false;
     }
-  }
-
-  ngOnInit(): void {
-    this.loadMainNavigation();
-    this.checkDarkMode();
-    
-    // Initial tags update in case we missed any updates
-    this.contentService.currentTags$.pipe(take(1)).subscribe(tags => {
-      if (tags && tags.length > 0) {
-        this.updateTags(tags);
-      }
-    });
-  }
-
-  ngOnDestroy(): void {
-    this.subscriptions.unsubscribe();
   }
 
   private loadMainNavigation(): void {
@@ -178,11 +202,11 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   private checkDarkMode(): void {
-    const theme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    if (theme === 'dark' || (!theme && prefersDark)) {
+    // Apply dark mode based on current state
+    if (this.isDarkMode) {
       document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
     }
   }
 
@@ -191,13 +215,19 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.selectedVersion = select.value;
   }
 
-  toggleTheme() {
-    if (document.documentElement.classList.contains('dark')) {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    } else {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    }
+  toggleDarkMode(): void {
+    this.isDarkMode = !this.isDarkMode;
+    // Save preference to localStorage
+    localStorage.setItem('darkMode', this.isDarkMode.toString());
+    // Apply the change
+    this.checkDarkMode();
+  }
+  
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
+  }
+  
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
   }
 }

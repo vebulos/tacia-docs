@@ -11,6 +11,7 @@ import { CommonModule } from '@angular/common';
 import { PathUtils } from '@app/core/utils/path.utils';
 import { FirstDocumentService } from '@app/core/services/first-document.service';
 import { HeadingsService } from '@app/core/services/headings.service';
+import { ThemeService } from '@app/core/services/theme.service';
 import { NotFound404Component } from '../404/404.component';
 import * as path from 'path';
 import { LOG } from '@app/core/services/logging/bun-logger.service';
@@ -69,11 +70,11 @@ export class DocumentComponent implements OnInit, OnDestroy {
   private firstDocumentService: FirstDocumentService;
   private headingsService = inject(HeadingsService);
   private contentService: ContentService;
-  private themeLink: HTMLLinkElement | null = null;
+  private themeService: ThemeService;
   currentTheme: Theme = 'default';
-
+  
   constructor(
-    private route: ActivatedRoute,
+    route: ActivatedRoute,
     private router: Router,
     private markdownService: MarkdownService,
     private relatedDocumentsService: RelatedDocumentsService,
@@ -81,46 +82,28 @@ export class DocumentComponent implements OnInit, OnDestroy {
     private refreshService: RefreshService,
     private cdr: ChangeDetectorRef,
     firstDocumentService: FirstDocumentService,
-    contentService: ContentService
+    contentService: ContentService,
+    themeService: ThemeService
   ) {
     this.firstDocumentService = firstDocumentService;
     this.contentService = contentService;
-  }
-
-  private loadTheme(theme: Theme): void {
-    // Remove existing theme link if it exists
-    if (this.themeLink) {
-      document.head.removeChild(this.themeLink);
-      this.themeLink = null;
-    }
-
-    // Always load a theme stylesheet
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = `assets/themes/${theme}.css`;
-    document.head.appendChild(link);
-    this.themeLink = link;
+    this.themeService = themeService;
     
-    this.currentTheme = theme;
-    localStorage.setItem('markdown-theme', theme);
-  }
-
-  private loadSavedTheme(): void {
-    const savedTheme = localStorage.getItem('markdown-theme') as Theme | null;
-    if (savedTheme) {
-      this.loadTheme(savedTheme);
-    }
+    // Subscribe to theme changes
+    this.themeService.currentTheme$.subscribe(theme => {
+      this.currentTheme = theme as Theme;
+    });
   }
 
   toggleTheme(): void {
-    const newTheme = this.currentTheme === 'default' ? 'leger' : 'default';
-    this.loadTheme(newTheme);
+    this.themeService.toggleTheme();
   }
 
+  private route = inject(ActivatedRoute);
+  
   ngOnInit(): void {
-    this.loadSavedTheme();
     LOG.debug('Document component initialized', {
-      currentPath: this.route.snapshot.url.map(segment => segment.path).join('/') || '/',
+      currentPath: this.route.snapshot.url.map((segment: any) => segment.path).join('/') || '/',
       hasFragment: !!this.route.snapshot.fragment
     });
     
@@ -907,17 +890,12 @@ export class DocumentComponent implements OnInit, OnDestroy {
       LOG.error('Error processing HTML links:', { error });
       return html; // Return original HTML if processing fails
     }
+    
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
-  ngOnDestroy(): void {
-    // Clean up theme
-    if (this.themeLink && this.themeLink.parentNode) {
-      this.themeLink.parentNode.removeChild(this.themeLink);
-      this.themeLink = null;
-    }
-    
-    LOG.debug('Document component destroyed');
-    
+  ngOnDestroy(): void {    
     if (this.subscription) {
       this.subscription.unsubscribe();
     }
@@ -930,33 +908,11 @@ export class DocumentComponent implements OnInit, OnDestroy {
     
     this.destroy$.next();
     this.destroy$.complete();
+    
+    LOG.debug('Document component destroyed');
   }
 
-  private handleFragmentClick(event: MouseEvent): void {
-    const target = event?.target as HTMLElement;
-    const link = target?.closest('a[data-fragment]') as HTMLAnchorElement;
-    
-    if (link) {
-      event.preventDefault();
-      const fragment = link.getAttribute('data-fragment');
-      
-      if (fragment) {
-        this.router.navigate([], {
-          fragment,
-          replaceUrl: true
-        }).then(() => {
-          // Try multiple ways to find the target element
-          const element = document.getElementById(fragment) ||
-                         document.getElementById(encodeURIComponent(fragment)) ||
-                         document.getElementById(decodeURIComponent(fragment));
-          
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth' });
-          }
-        });
-      }
-    }
-  }
+  // Fragment handling is now managed by fragmentClickHandler in processHtmlLinks
 
   goHome(): void {
     this.router.navigate(['/']);
