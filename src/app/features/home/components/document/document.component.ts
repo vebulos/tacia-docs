@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject, ChangeDetectorRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject, ChangeDetectorRef, ViewChild, Renderer2 } from '@angular/core';
 import { RefreshService } from '@app/core/services/refresh/refresh.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink, RouterModule, ParamMap } from '@angular/router';
@@ -14,6 +14,8 @@ import { HeadingsService } from '@app/core/services/headings.service';
 import { NotFound404Component } from '../404/404.component';
 import * as path from 'path';
 import { LOG } from '@app/core/services/logging/bun-logger.service';
+
+type Theme = 'default' | 'github';
 
 // Simple DOM parser to safely manipulate HTML
 const parseHtml = (html: string): Document => {
@@ -62,10 +64,13 @@ export class DocumentComponent implements OnInit, OnDestroy {
   relatedDocumentsError: string | null = null;
 
   private elementRef = inject(ElementRef);
+  private renderer = inject(Renderer2);
   private destroy$ = new Subject<void>();
   private firstDocumentService: FirstDocumentService;
   private headingsService = inject(HeadingsService);
   private contentService: ContentService;
+  private themeLink: HTMLLinkElement | null = null;
+  currentTheme: Theme = 'default';
 
   constructor(
     private route: ActivatedRoute,
@@ -82,7 +87,39 @@ export class DocumentComponent implements OnInit, OnDestroy {
     this.contentService = contentService;
   }
 
+  private loadTheme(theme: Theme): void {
+    // Remove existing theme if any
+    if (this.themeLink && this.themeLink.parentNode) {
+      this.themeLink.parentNode.removeChild(this.themeLink);
+      this.themeLink = null;
+    }
+
+    if (theme === 'github') {
+      const link = this.renderer.createElement('link') as HTMLLinkElement;
+      link.rel = 'stylesheet';
+      link.href = 'assets/themes/github.css';
+      this.renderer.appendChild(document.head, link);
+      this.themeLink = link;
+    }
+    
+    this.currentTheme = theme;
+    localStorage.setItem('markdown-theme', theme);
+  }
+
+  private loadSavedTheme(): void {
+    const savedTheme = localStorage.getItem('markdown-theme') as Theme | null;
+    if (savedTheme) {
+      this.loadTheme(savedTheme);
+    }
+  }
+
+  toggleTheme(): void {
+    const newTheme = this.currentTheme === 'default' ? 'github' : 'default';
+    this.loadTheme(newTheme);
+  }
+
   ngOnInit(): void {
+    this.loadSavedTheme();
     LOG.debug('Document component initialized', {
       currentPath: this.route.snapshot.url.map(segment => segment.path).join('/') || '/',
       hasFragment: !!this.route.snapshot.fragment
@@ -874,6 +911,12 @@ export class DocumentComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // Clean up theme
+    if (this.themeLink && this.themeLink.parentNode) {
+      this.themeLink.parentNode.removeChild(this.themeLink);
+      this.themeLink = null;
+    }
+    
     LOG.debug('Document component destroyed');
     
     if (this.subscription) {
