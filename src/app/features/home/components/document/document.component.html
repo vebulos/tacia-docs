@@ -47,7 +47,7 @@
     </div>
     <div class="w-full px-8 py-4">
       <!-- Document Content -->
-      <div [class]="'prose dark:prose-invert w-full max-w-none ' + (currentTheme === 'github' ? 'github-theme' : '')" 
+      <div [class]="'prose dark:prose-invert w-full max-w-none ' + (currentTheme === 'github' ? 'github-theme' : 'markdown-content')" 
            [innerHTML]="content"
            (click)="onContentClick($event)">
       </div>

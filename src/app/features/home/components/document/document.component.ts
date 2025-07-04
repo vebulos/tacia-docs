@@ -88,19 +88,18 @@ export class DocumentComponent implements OnInit, OnDestroy {
   }
 
   private loadTheme(theme: Theme): void {
-    // Remove existing theme if any
-    if (this.themeLink && this.themeLink.parentNode) {
-      this.themeLink.parentNode.removeChild(this.themeLink);
+    // Remove existing theme link if it exists
+    if (this.themeLink) {
+      document.head.removeChild(this.themeLink);
       this.themeLink = null;
     }
 
-    if (theme === 'github') {
-      const link = this.renderer.createElement('link') as HTMLLinkElement;
-      link.rel = 'stylesheet';
-      link.href = 'assets/themes/github.css';
-      this.renderer.appendChild(document.head, link);
-      this.themeLink = link;
-    }
+    // Always load a theme stylesheet
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `assets/themes/${theme}.css`;
+    document.head.appendChild(link);
+    this.themeLink = link;
     
     this.currentTheme = theme;
     localStorage.setItem('markdown-theme', theme);
