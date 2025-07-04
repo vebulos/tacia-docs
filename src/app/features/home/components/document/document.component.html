@@ -36,9 +36,9 @@
 
   <!-- Content -->
   <div *ngIf="content && !loading && !error && !showNotFound" class="w-full">
-    <div class="w-full px-8 py-8">
+    <div [class]="'w-full px-8 py-4 ' + (currentTheme === 'leger' ? 'leger-theme-container' : '')">
       <!-- Document Content -->
-      <div class="prose dark:prose-invert w-full max-w-none" 
+      <div [class]="'prose dark:prose-invert w-full max-w-none ' + (currentTheme === 'leger' ? 'leger-theme' : 'markdown-content')" 
            [innerHTML]="content"
            (click)="onContentClick($event)">
       </div>

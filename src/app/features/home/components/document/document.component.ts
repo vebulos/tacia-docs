@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject, ChangeDetectorRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject, ChangeDetectorRef, ViewChild, Renderer2 } from '@angular/core';
 import { RefreshService } from '@app/core/services/refresh/refresh.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink, RouterModule, ParamMap } from '@angular/router';
@@ -11,9 +11,12 @@ import { CommonModule } from '@angular/common';
 import { PathUtils } from '@app/core/utils/path.utils';
 import { FirstDocumentService } from '@app/core/services/first-document.service';
 import { HeadingsService } from '@app/core/services/headings.service';
+import { ThemeService } from '@app/core/services/theme.service';
 import { NotFound404Component } from '../404/404.component';
 import * as path from 'path';
 import { LOG } from '@app/core/services/logging/bun-logger.service';
+
+type Theme = 'default' | 'leger';
 
 // Simple DOM parser to safely manipulate HTML
 const parseHtml = (html: string): Document => {
@@ -62,13 +65,16 @@ export class DocumentComponent implements OnInit, OnDestroy {
   relatedDocumentsError: string | null = null;
 
   private elementRef = inject(ElementRef);
+  private renderer = inject(Renderer2);
   private destroy$ = new Subject<void>();
   private firstDocumentService: FirstDocumentService;
   private headingsService = inject(HeadingsService);
   private contentService: ContentService;
-
+  private themeService: ThemeService;
+  currentTheme: Theme = 'default';
+  
   constructor(
-    private route: ActivatedRoute,
+    route: ActivatedRoute,
     private router: Router,
     private markdownService: MarkdownService,
     private relatedDocumentsService: RelatedDocumentsService,
@@ -76,15 +82,28 @@ export class DocumentComponent implements OnInit, OnDestroy {
     private refreshService: RefreshService,
     private cdr: ChangeDetectorRef,
     firstDocumentService: FirstDocumentService,
-    contentService: ContentService
+    contentService: ContentService,
+    themeService: ThemeService
   ) {
     this.firstDocumentService = firstDocumentService;
     this.contentService = contentService;
+    this.themeService = themeService;
+    
+    // Subscribe to theme changes
+    this.themeService.currentTheme$.subscribe(theme => {
+      this.currentTheme = theme as Theme;
+    });
   }
 
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
+  }
+
+  private route = inject(ActivatedRoute);
+  
   ngOnInit(): void {
     LOG.debug('Document component initialized', {
-      currentPath: this.route.snapshot.url.map(segment => segment.path).join('/') || '/',
+      currentPath: this.route.snapshot.url.map((segment: any) => segment.path).join('/') || '/',
       hasFragment: !!this.route.snapshot.fragment
     });
     
@@ -871,11 +890,12 @@ export class DocumentComponent implements OnInit, OnDestroy {
       LOG.error('Error processing HTML links:', { error });
       return html; // Return original HTML if processing fails
     }
+    
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
-  ngOnDestroy(): void {
-    LOG.debug('Document component destroyed');
-    
+  ngOnDestroy(): void {    
     if (this.subscription) {
       this.subscription.unsubscribe();
     }
@@ -888,33 +908,11 @@ export class DocumentComponent implements OnInit, OnDestroy {
     
     this.destroy$.next();
     this.destroy$.complete();
+    
+    LOG.debug('Document component destroyed');
   }
 
-  private handleFragmentClick(event: MouseEvent): void {
-    const target = event?.target as HTMLElement;
-    const link = target?.closest('a[data-fragment]') as HTMLAnchorElement;
-    
-    if (link) {
-      event.preventDefault();
-      const fragment = link.getAttribute('data-fragment');
-      
-      if (fragment) {
-        this.router.navigate([], {
-          fragment,
-          replaceUrl: true
-        }).then(() => {
-          // Try multiple ways to find the target element
-          const element = document.getElementById(fragment) ||
-                         document.getElementById(encodeURIComponent(fragment)) ||
-                         document.getElementById(decodeURIComponent(fragment));
-          
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth' });
-          }
-        });
-      }
-    }
-  }
+  // Fragment handling is now managed by fragmentClickHandler in processHtmlLinks
 
   goHome(): void {
     this.router.navigate(['/']);
