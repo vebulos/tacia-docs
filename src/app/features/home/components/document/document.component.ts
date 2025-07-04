@@ -13,7 +13,7 @@ import { FirstDocumentService } from '@app/core/services/first-document.service'
 import { HeadingsService } from '@app/core/services/headings.service';
 import { ThemeService } from '@app/core/services/theme.service';
 import { NotFound404Component } from '../404/404.component';
-import * as path from 'path';
+// Utilisation de PathUtils pour la manipulation des chemins
 import { LOG } from '@app/core/services/logging/bun-logger.service';
 
 type Theme = 'default' | 'leger';
@@ -138,7 +138,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
         if (!fullPath) {
           // If no path is provided, try to get the first document from the current directory
           const currentPath = this.route.snapshot.url.map(segment => segment.path).join('/');
-          const currentDir = currentPath ? path.dirname(currentPath) : '';
+          const currentDir = currentPath ? PathUtils.dirname(currentPath) : '';
           
           LOG.debug('No path provided, getting first document in directory', { directory: currentDir });
           return this.firstDocumentService.getFirstDocumentPath(currentDir).pipe(
