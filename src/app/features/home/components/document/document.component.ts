@@ -15,7 +15,7 @@ import { NotFound404Component } from '../404/404.component';
 import * as path from 'path';
 import { LOG } from '@app/core/services/logging/bun-logger.service';
 
-type Theme = 'default' | 'github';
+type Theme = 'default' | 'leger';
 
 // Simple DOM parser to safely manipulate HTML
 const parseHtml = (html: string): Document => {
@@ -113,7 +113,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
   }
 
   toggleTheme(): void {
-    const newTheme = this.currentTheme === 'default' ? 'github' : 'default';
+    const newTheme = this.currentTheme === 'default' ? 'leger' : 'default';
     this.loadTheme(newTheme);
   }
 
