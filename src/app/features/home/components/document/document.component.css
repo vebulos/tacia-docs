@@ -4,4 +4,12 @@
   height: 100%;
 }
 
+/* Dark mode for Leger theme */
+:host-context(.dark) .leger-theme-container {
+  background-color: #0d1117;
+  margin: 0 -16px;
+  padding: 16px;
+  width: calc(100% + 32px);
+}
+
 /* Additional component-specific styles can be added here */
