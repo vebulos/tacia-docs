@@ -1,5 +1,6 @@
 import { environment } from '../../../environments/environment';
 import { Observable } from 'rxjs';
+import { LOG } from '../services/logging/bun-logger.service';
 
 /**
  * Utility for managing paths in a centralized way
@@ -53,7 +54,7 @@ export class PathUtils {
    */
   static buildApiPath(path: string): string {
     // Return the path as-is, without modification
-    console.log('[PathUtils] Building API path for:', path);
+    LOG.debug('Building API path', { path });
     return path;
   }
   

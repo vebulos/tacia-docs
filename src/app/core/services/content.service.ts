@@ -6,6 +6,7 @@ import { StorageService } from './storage.service';
 import { environment } from '../../../environments/environment';
 import { ContentItem } from './content.interface';
 import { PathUtils } from '../utils/path.utils';
+import { LOG } from './logging/bun-logger.service';
 
 export interface CacheItem<T> {
   data: T;
@@ -36,7 +37,13 @@ export class ContentService {
     // Initialize with empty tags
     this.updateCurrentTags([]);
     this.config = environment?.content || {};
-    console.log('[ContentService] Initialized with config:', this.config);
+    LOG.info('ContentService initialized', { 
+      config: {
+        ...this.config,
+        // Don't log sensitive info like API keys
+        apiKey: this.config.apiKey ? '***' : undefined
+      } 
+    });
   }
 
   /**
@@ -50,7 +57,7 @@ export class ContentService {
     
     // If skipCache is true, we don't check loading states
     if (!skipCache && this.loadingStates.has(cacheKey)) {
-      console.log(`[ContentService] Returning existing loading state for path: ${path}`);
+      LOG.debug('Returning existing loading state', { path });
       return this.loadingStates.get(cacheKey)!;
     }
 
@@ -59,14 +66,20 @@ export class ContentService {
     
     // Check cache only if skipCache is false
     if (!skipCache) {
-      console.log(`[ContentService] Checking cache for path: ${path}`);
+      LOG.debug('Checking cache', { path });
       cached$ = this.storage.get<CacheItem<ContentItem[]>>(cacheKey).pipe(
         map(cachedData => {
           if (cachedData) {
-            const now = Date.now();
-            const isExpired = now > cachedData.expires;
+            const isExpired = Date.now() > cachedData.expires;
+            LOG.debug('Cache status', {
+              path,
+              hasCache: true,
+              isExpired,
+              expiresIn: `${Math.max(0, Math.round((cachedData.expires - Date.now()) / 1000))}s`,
+              cacheSize: JSON.stringify(cachedData.data).length
+            });
+            
             if (!isExpired) {
-              console.log(`[ContentService] Using cached data for path: ${path}`);
               return cachedData.data;
             }
           }
@@ -75,7 +88,7 @@ export class ContentService {
         catchError(() => of<ContentItem[] | null>(null))
       );
     } else {
-      console.log(`[ContentService] Skipping cache for path: ${path}`);
+      LOG.debug('Skipping cache', { path });
     }
     
     // Create the request observable when cache is not available or skipped
@@ -87,7 +100,7 @@ export class ContentService {
         }
         
         // Fetch from source when no valid cache exists
-        console.log(`[ContentService] Fetching fresh content for path: ${path}`);
+        LOG.debug('Fetching fresh content', { path });
         return this.fetchContent(path).pipe(
           // Cache the result with expiration
           tap(items => {
@@ -101,7 +114,7 @@ export class ContentService {
       }),
       // Handle any errors during content loading
       catchError(error => {
-        console.error('Error loading content:', error);
+        LOG.error('Error loading content', { error });
         return throwError(() => error);
       }),
       // Clean up loading state when complete or on error
@@ -111,6 +124,11 @@ export class ContentService {
       // Share the observable to prevent duplicate requests
       shareReplay(1)
     );
+
+    LOG.debug('Loading state check', {
+      path,
+      hasLoadingState: this.loadingStates.has(cacheKey)
+    });
 
     // Store the observable to track loading state
     this.loadingStates.set(cacheKey, request$);
@@ -148,33 +166,55 @@ export class ContentService {
     // Encode the path to handle spaces and special characters
     const encodedPath = encodeURIComponent(path);
     
-    console.log(`[ContentService] Fetching content structure for path: ${path}`);
+    LOG.debug('Fetching content structure', { path });
     
     // Use the new URL format with path in the URL only
     const url = `http://localhost:4201/api/content/${path || ''}`;
-    console.log(`[ContentService] Making request to URL: ${url}`);
+    LOG.debug('Making API request', { 
+      path,
+      url: url.replace(/\?.*$/, '') // Remove query params from URL in logs
+    });
     
     return this.http.get<{path: string, items: ContentItem[], count: number}>(url).pipe(
       tap(response => {
-        console.log(`[ContentService] Raw API response for path ${path}:`, response);
+        LOG.debug('Received API response', { 
+          path,
+          itemCount: response?.items?.length || 0,
+          hasItems: !!(response?.items?.length)
+        });
       }),
       map(response => {
         const items = response?.items || [];
-        console.log(`[ContentService] Successfully fetched ${items.length} items for path: ${path}`);
         if (items.length > 0) {
-          console.log('[ContentService] First item structure:', JSON.stringify(items[0], null, 2));
+          const firstItem = items[0];
+          LOG.debug('Successfully fetched items', { 
+            path,
+            itemCount: items.length,
+            firstItem: {
+              name: firstItem.name,
+              path: firstItem.path,
+              isDirectory: firstItem.isDirectory,
+              hasMetadata: !!firstItem.metadata,
+              hasTags: !!(firstItem.metadata?.tags && firstItem.metadata.tags.length > 0)
+            }
+          });
         } else {
-          console.warn('[ContentService] No items returned from API for path:', path);
+          LOG.warn('No items returned from API', { path });
         }
         return this.transformStructure(items, path);
       }),
       catchError((error: HttpErrorResponse) => {
         // Log detailed error information
-        console.error(`[ContentService] Error fetching content for path: ${path}`, error);
+        LOG.error('Error fetching content', { 
+          path, 
+          status: error.status,
+          statusText: error.statusText,
+          message: error.message 
+        });
         
         // Handle 404 specifically for non-existent paths
         if (error.status === 404) {
-          console.warn(`[ContentService] Content not found for path: ${path}`);
+          LOG.warn('Content not found', { path });
           // Return empty array to prevent breaking the UI
           return of([]);
         }
@@ -198,7 +238,10 @@ export class ContentService {
           const retryAttempts = this.config.maxRetries || 3;
           const retryDelay = this.config.retryDelay || 1000;
           
-          console.log(`[ContentService] Retry attempt ${count + 1}/${retryAttempts} for path: ${path}`);
+          LOG.warn(`Retry attempt ${count + 1}/${retryAttempts}`, { 
+            path,
+            error: error.message || 'Unknown error' 
+          });
           
           if (count >= retryAttempts - 1) {
             return throwError(() => error);
@@ -216,17 +259,17 @@ export class ContentService {
    * @returns Array of transformed ContentItem objects
    */
   private transformStructure(items: any[], parentPath: string = ''): ContentItem[] {
-    console.log('[ContentService] Transforming items:', { items, parentPath });
+    LOG.debug('Transforming items:', { items, parentPath });
     if (!items) {
-      console.error('[ContentService] transformStructure called with null/undefined items');
+      LOG.error('[ContentService] transformStructure called with null/undefined items');
       return [];
     }
     if (!Array.isArray(items)) {
-      console.error('[ContentService] transformStructure called with non-array items:', items);
+      LOG.error('[ContentService] transformStructure called with non-array items:', items);
       return [];
     }
 
-    return items.map(item => {
+    const transformedItems = items.map(item => {
       const isDirectory = item.isDirectory ?? false;
       let path = item.path || item.name;
       
@@ -263,6 +306,15 @@ export class ContentService {
       
       return transformedItem;
     });
+
+    LOG.debug('Processed items', {
+      path: parentPath || '/',
+      itemCount: transformedItems.length,
+      hasDirectories: transformedItems.some(item => item.isDirectory),
+      hasFiles: transformedItems.some(item => !item.isDirectory)
+    });
+    
+    return transformedItems;
   }
 
   /**

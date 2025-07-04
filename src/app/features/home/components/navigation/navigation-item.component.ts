@@ -7,6 +7,7 @@ import { animate, state, style, transition, trigger } from '@angular/animations'
 import { Subject, takeUntil, take } from 'rxjs';
 import { PathUtils } from '@app/core/utils/path.utils';
 import { NavigationStateService } from '../../services/navigation-state.service';
+import { LOG } from '@app/core/services/logging/bun-logger.service';
 
 // Extend the ContentItem with navigation-specific properties
 export interface NavigationItem extends ContentItem {
@@ -80,7 +81,10 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     
     // If the category is in the process of opening, prevent it from being closed
     if (NavigationItemComponent.openingItems.has(this.item.path) && forceOpen === false) {
-      console.log('Preventing close during opening:', this.item.path);
+      LOG.debug('Preventing close during opening', {
+        path: this.item.path,
+        itemName: this.item.name
+      });
       return;
     }
     
@@ -141,7 +145,12 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
         this.item.isLoading = false;
       },
       error: (error: any) => {
-        console.error('Error loading children:', error);
+        LOG.error('Error loading navigation item children', {
+          parentPath: this.item.path,
+          parentName: this.item.name,
+          error: error.message || 'Unknown error',
+          stack: error.stack
+        });
         this.item.hasError = true;
         this.item.isLoading = false;
       }
@@ -206,7 +215,10 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     
     // Mark this category as currently opening
     if (this.item.path) {
-      console.log('Marking as opening:', this.item.path);
+      LOG.debug('Marking navigation item as opening', {
+        path: this.item.path,
+        name: this.item.name
+      });
       NavigationItemComponent.openingItems.add(this.item.path);
     }
 
@@ -218,7 +230,10 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
       // After a short delay, reset the opening state
       setTimeout(() => {
         if (this.item.path) {
-          console.log('Unmarking as opening:', this.item.path);
+          LOG.debug('Unmarking navigation item as opening', {
+            path: this.item.path,
+            name: this.item.name
+          });
           NavigationItemComponent.openingItems.delete(this.item.path);
         }
       }, 1000); // Longer delay to prevent accidental clicks
@@ -259,7 +274,11 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
    * Handles both relative and absolute paths correctly
    */
   getNavigationLink(item: NavigationItem): { link: string[], state: any } {
-    //console.log('getNavigationLink - item:', JSON.parse(JSON.stringify(item)));
+    LOG.debug('Building navigation link', {
+      itemName: item.name,
+      isDirectory: item.isDirectory,
+      originalPath: item.path
+    });
     
     // Clean paths by removing leading/trailing slashes
     const cleanPath = (p: string) => p ? p.replace(/^\/+|\/+$/g, '') : '';
@@ -268,8 +287,11 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     const parentPath = cleanPath(item.parentPath || '');
     let itemPath = cleanPath(item.path || '');
     
-    //console.log('getNavigationLink - parentPath:', parentPath);
-    //console.log('getNavigationLink - itemPath:', itemPath);
+    LOG.debug('Navigation link path details', {
+      parentPath,
+      itemPath: itemPath,
+      isDirectory: item.isDirectory
+    });
     
     // For files, remove the .md extension
     if (!item.isDirectory) {
@@ -292,7 +314,10 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
       }
     }
     
-    //console.log('getNavigationLink - final path:', fullPath);
+    LOG.debug('Final navigation path', {
+      fullPath,
+      segmentCount: fullPath.split('/').filter(Boolean).length
+    });
     
     // Split into segments and remove any empty segments
     const pathSegments = fullPath.split('/').filter(segment => segment !== '');

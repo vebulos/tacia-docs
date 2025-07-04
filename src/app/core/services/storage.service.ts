@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { from, Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
+import { LOG } from './logging/bun-logger.service';
 
 declare global {
   interface Window {
@@ -61,13 +62,23 @@ export class StorageService {
             window.localforage.LOCALSTORAGE
           ]
         });
-        console.log('[StorageService] Using localforage with IndexedDB/WebSQL');
+        LOG.info('Using localforage with IndexedDB/WebSQL', {
+          storageType: 'IndexedDB/WebSQL',
+          storeName: 'content_cache'
+        });
       } catch (error) {
-        console.warn('[StorageService] Failed to initialize localforage, falling back to localStorage', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      LOG.warn('Failed to initialize localforage, falling back to localStorage', {
+        error: errorMessage,
+        stack: errorStack
+      });
         this.store = this.createFallbackStorage();
       }
     } else {
-      console.warn('[StorageService] localforage not available, using localStorage fallback');
+      LOG.warn('localforage not available, using localStorage fallback', {
+        reason: this.isLocalForageAvailable ? 'Initialization error' : 'localforage not detected'
+      });
       this.store = this.createFallbackStorage();
     }
   }
@@ -87,7 +98,13 @@ export class StorageService {
           const item = localStorage.getItem(service.PREFIX + key);
           return Promise.resolve(item ? JSON.parse(item) : null);
         } catch (error) {
-          console.error('Error reading from localStorage:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          LOG.error('Error reading from localStorage', {
+            key: service.PREFIX + key,
+            error: errorMessage,
+            stack: errorStack
+          });
           return Promise.resolve(null);
         }
       },
@@ -96,7 +113,13 @@ export class StorageService {
           localStorage.setItem(service.PREFIX + key, JSON.stringify(value));
           return Promise.resolve(value);
         } catch (error) {
-          console.error('Error writing to localStorage:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          LOG.error('Error writing to localStorage', {
+            key: service.PREFIX + key,
+            error: errorMessage,
+            stack: errorStack
+          });
           return Promise.reject(error);
         }
       },
@@ -105,7 +128,13 @@ export class StorageService {
           localStorage.removeItem(service.PREFIX + key);
           return Promise.resolve();
         } catch (error) {
-          console.error('Error removing from localStorage:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          LOG.error('Error removing from localStorage', {
+            key: service.PREFIX + key,
+            error: errorMessage,
+            stack: errorStack
+          });
           return Promise.reject(error);
         }
       },
@@ -116,7 +145,13 @@ export class StorageService {
             .forEach(key => localStorage.removeItem(key));
           return Promise.resolve();
         } catch (error) {
-          console.error('Error clearing storage:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          LOG.error('Error clearing storage', {
+            prefix: service.PREFIX,
+            error: errorMessage,
+            stack: errorStack
+          });
           return Promise.reject(error);
         }
       }
@@ -128,7 +163,7 @@ export class StorageService {
    */
   get<T>(key: string): Observable<T | null> {
     if (!this.store) {
-      console.error('Store is not initialized');
+      LOG.error('Store is not initialized', { method: 'set', key });
       return of(null);
     }
     return from(Promise.resolve(this.store.getItem<CacheItem<T>>(key))).pipe(
@@ -149,7 +184,7 @@ export class StorageService {
    */
   set<T>(key: string, value: T, ttl: number = 24 * 60 * 60 * 1000): Observable<T> {
     if (!this.store) {
-      console.error('Store is not initialized');
+      LOG.error('Store is not initialized', { method: 'set', key });
       return of(value);
     }
     const item: CacheItem<T> = {
@@ -167,13 +202,19 @@ export class StorageService {
    */
   remove(key: string): Observable<void> {
     if (!this.store) {
-      console.error('Store is not initialized');
+      LOG.error('Store is not initialized', { method: 'set', key });
       return of(undefined);
     }
     return from(Promise.resolve(this.store.removeItem(key))).pipe(
       map(() => undefined),
       catchError(error => {
-        console.error('Storage remove error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        LOG.error('Storage remove error', {
+          key,
+          error: errorMessage,
+          stack: errorStack
+        });
         return of(undefined);
       })
     );
@@ -184,13 +225,18 @@ export class StorageService {
    */
   clear(): Observable<void> {
     if (!this.store) {
-      console.error('Store is not initialized');
+      LOG.error('Store is not initialized', { method: 'clear' });
       return of(undefined);
     }
     return from(Promise.resolve(this.store.clear())).pipe(
       map(() => undefined),
       catchError(error => {
-        console.error('Storage clear error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        LOG.error('Storage clear error', {
+          error: errorMessage,
+          stack: errorStack
+        });
         return of(undefined);
       })
     );
