@@ -4,6 +4,40 @@
   height: 100%;
 }
 
+/* --- Markdown Overflow Fixes --- */
+:host ::ng-deep .prose pre,
+:host ::ng-deep .markdown-content pre {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  white-space: pre !important;
+  background: #18181b;
+  color: #e5e7eb;
+  border-radius: 6px;
+  padding: 1em;
+  margin: 1.2em 0;
+}
+
+:host ::ng-deep .prose code,
+:host ::ng-deep .markdown-content code {
+  word-break: break-all !important;
+  white-space: pre-wrap !important;
+}
+
+:host ::ng-deep .prose table,
+:host ::ng-deep .markdown-content table {
+  display: block !important;
+  width: 100% !important;
+  overflow-x: auto !important;
+  max-width: 100% !important;
+}
+
+:host ::ng-deep .prose td,
+:host ::ng-deep .prose th,
+:host ::ng-deep .markdown-content td,
+:host ::ng-deep .markdown-content th {
+  word-break: break-word !important;
+}
+
 /* Dark mode for Leger theme */
 :host-context(.dark) .leger-theme-container {
   background-color: #0d1117;

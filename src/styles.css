@@ -35,6 +35,40 @@
   }
 }
 
+/* --- Markdown Overflow Global Fixes --- */
+.prose pre,
+.markdown-content pre {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  white-space: pre !important;
+  background: #18181b;
+  color: #e5e7eb;
+  border-radius: 6px;
+  padding: 1em;
+  margin: 1.2em 0;
+}
+
+.prose code,
+.markdown-content code {
+  word-break: break-all !important;
+  white-space: pre-wrap !important;
+}
+
+.prose table,
+.markdown-content table {
+  display: block !important;
+  width: 100% !important;
+  overflow-x: auto !important;
+  max-width: 100% !important;
+}
+
+.prose td,
+.prose th,
+.markdown-content td,
+.markdown-content th {
+  word-break: break-word !important;
+}
+
 /* Highlight.js GitHub theme */
 .hljs {
   display: block;
