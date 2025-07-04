@@ -1,5 +1,9 @@
 /* Leger Theme for Markdown Content */
 
+strong {
+  font-weight: 400 !important;
+} 
+
 /* Base styles */
 .leger-theme {
   --text: #24292f;
