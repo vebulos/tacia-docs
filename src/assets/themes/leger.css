@@ -43,6 +43,10 @@
   background-color: #0d1117;
 }
 
+.dark .content-wrapper {
+  background-color: #0d1117;
+}
+
 /* Headings */
 .leger-theme h1,
 .leger-theme h2,
