@@ -34,6 +34,7 @@
     "marked": "^16.0.0",
     "mathjs": "^14.5.3",
     "rxjs": "~7.8.0",
+    "slugify": "^1.6.6",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
