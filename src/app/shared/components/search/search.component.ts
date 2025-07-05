@@ -314,14 +314,33 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
     
     const currentValue = this.searchControl.value || '';
     const terms = currentValue.split(' ').filter(t => t.trim() !== '');
+    const termLower = term.toLowerCase();
     
-    // Add the term if it's not already in the search
-    if (!terms.includes(term)) {
+    // Check if the term is already in the search (case insensitive)
+    const termExists = terms.some(t => t.toLowerCase() === termLower);
+    
+    if (!termExists) {
+      // Add the term to the search
       terms.push(term);
       const newSearch = terms.join(' ');
+      
+      // Update the search control value
       this.searchControl.setValue(newSearch);
-      // Trigger search
-      this.searchService.search(newSearch);
+      
+      // Reset search results and show loading state
+      this.searchResults = [];
+      this.isLoading = true;
+      
+      // Trigger a new search
+      this.searchService.search(newSearch).subscribe({
+        next: (results: SearchResult[]) => {
+          this.handleSearchResults(results);
+          // Ensure the search results are visible
+          this.isFocused = true;
+          this.showRecentSearches = false;
+        },
+        error: (error: Error) => this.handleSearchError(error)
+      });
     }
     
     // Focus the search input
