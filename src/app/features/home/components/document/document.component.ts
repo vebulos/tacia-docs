@@ -237,34 +237,50 @@ export class DocumentComponent implements OnInit, OnDestroy {
 
   private loadDocument(path: string): Observable<MarkdownApiResponse> {
     return this.markdownService.getMarkdownFile(path).pipe(
-      map((response: MarkdownApiResponse) => {
+      switchMap((response: MarkdownApiResponse) => {
         if (response && response.html) {
-          // If we have HTML content, ensure it's a string and process it
-          let htmlString: string;
-          if (typeof response.html === 'string') {
-            htmlString = response.html;
-          } else {
-            htmlString = this.sanitizer.sanitize(SecurityContext.HTML, response.html) || '';
-          }
-          
-          // Process the HTML to fix links and add IDs to headings
-          const processedHtml = this.processDocumentContent(htmlString, path);
-          
-          // Return the response with processed HTML
-          return {
-            ...response,
-            html: processedHtml,
-            // Ensure we have headings even if not provided
-            headings: response.headings || []
-          };
+          // Convert markdown to HTML using Markdown2HtmlService
+          return this.markdown2htmlService.parseMarkdown(response.html).pipe(
+            map(parseResult => {
+              try {
+                // Get the string value from SafeHtml
+                const htmlString = typeof parseResult.html === 'string' 
+                  ? parseResult.html 
+                  : this.sanitizer.sanitize(SecurityContext.HTML, parseResult.html) || '';
+                
+                // Process the HTML to fix links and add IDs to headings
+                const processedHtml = this.processDocumentContent(htmlString, path);
+                
+                // Return the response with processed HTML and extracted metadata
+                return {
+                  ...response,
+                  html: processedHtml,
+                  metadata: {
+                    ...response.metadata,
+                    ...(parseResult.metadata || {})
+                  },
+                  // Use extracted headings or fallback to response.headings or empty array
+                  headings: parseResult.headings?.length > 0 ? parseResult.headings : (response.headings || [])
+                };
+              } catch (error) {
+                console.error('Error processing markdown:', error);
+                return {
+                  ...response,
+                  html: '<p>Error processing markdown content</p>',
+                  metadata: { ...response.metadata, error: true },
+                  error: true
+                };
+              }
+            })
+          );
         }
-        return response;
+        return of(response);
       }),
       catchError(error => {
         console.error('Error loading document:', error);
         // Return a valid MarkdownApiResponse with error information
         return of({
-          html: '<p>Erreur lors du chargement du document</p>',
+          html: '<p>Error loading document</p>',
           headings: [],
           metadata: { error: true },
           path: path,
@@ -285,20 +301,22 @@ export class DocumentComponent implements OnInit, OnDestroy {
     try {
       // Extract tags from metadata if available
       this.tags = response.metadata?.tags || [];
-      LOG.debug('Document tags:', { tags: this.tags });
+      LOG.debug('Processing content', { 
+        path: fullPath,
+        hasHtml: !!response.html,
+        tags: this.tags 
+      });
       
       // Update tags in the content service to share with other components
       this.contentService.updateCurrentTags(this.tags);
       
-      // Create a temporary div to manipulate the HTML
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = typeof response.html === 'string' ? response.html : '';
+      // The HTML is already processed by markdown2htmlService in loadDocument
+      // We just need to ensure it's safe to display
+      const htmlContent = typeof response.html === 'string' ? response.html : '';
+      this.content = this.sanitizer.bypassSecurityTrustHtml(htmlContent);
       
-      // Process links after the content is loaded
-      const processedHtml = this.processDocumentContent(tempDiv.innerHTML, fullPath);
-      
-      // Update the content with processed HTML in a single operation
-      this.content = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
+      // Update the view
+      this.cdr.detectChanges();
       
       // If headings are provided in the response, use them
       if (response.headings && response.headings.length > 0) {
