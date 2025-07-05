@@ -1,12 +1,13 @@
-import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject, ChangeDetectorRef, ViewChild, Renderer2 } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, EventEmitter, ElementRef, inject, ChangeDetectorRef, ViewChild, Renderer2, SecurityContext } from '@angular/core';
 import { RefreshService } from '@app/core/services/refresh/refresh.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink, RouterModule, ParamMap } from '@angular/router';
 import { MarkdownService, MarkdownApiResponse } from '@app/core/services/markdown.service';
+import { Markdown2HtmlService, MarkdownParseResult } from '@app/core/services/markdown2html.service';
 import { ContentService } from '@app/core/services/content.service';
 import { RelatedDocumentsService, type RelatedDocument } from '@app/core/services/related-documents.service';
-import { tap, takeUntil, catchError, switchMap } from 'rxjs/operators';
-import { Subject, Subscription, of, Observable, forkJoin } from 'rxjs';
+import { tap, takeUntil, catchError, switchMap, map, finalize } from 'rxjs/operators';
+import { Subject, Subscription, of, Observable, forkJoin, throwError } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { PathUtils } from '@app/core/utils/path.utils';
 import { FirstDocumentService } from '@app/core/services/first-document.service';
@@ -63,27 +64,24 @@ export class DocumentComponent implements OnInit, OnDestroy {
   private fragmentClickHandler: ((event: MouseEvent) => void) | null = null;
   loadingRelated = false;
   relatedDocumentsError: string | null = null;
-
-  private elementRef = inject(ElementRef);
-  private renderer = inject(Renderer2);
   private destroy$ = new Subject<void>();
-  private firstDocumentService: FirstDocumentService;
-  private headingsService = inject(HeadingsService);
-  private contentService: ContentService;
-  private themeService: ThemeService;
   currentTheme: Theme = 'default';
   
   constructor(
-    route: ActivatedRoute,
+    private route: ActivatedRoute,
     private router: Router,
     private markdownService: MarkdownService,
+    private markdown2htmlService: Markdown2HtmlService,
+    private contentService: ContentService,
     private relatedDocumentsService: RelatedDocumentsService,
-    private sanitizer: DomSanitizer,
     private refreshService: RefreshService,
+    private sanitizer: DomSanitizer,
+    private firstDocumentService: FirstDocumentService,
+    private headingsService: HeadingsService,
+    private themeService: ThemeService,
     private cdr: ChangeDetectorRef,
-    firstDocumentService: FirstDocumentService,
-    contentService: ContentService,
-    themeService: ThemeService
+    private renderer: Renderer2,
+    private elementRef: ElementRef
   ) {
     this.firstDocumentService = firstDocumentService;
     this.contentService = contentService;
@@ -99,8 +97,6 @@ export class DocumentComponent implements OnInit, OnDestroy {
     this.themeService.toggleTheme();
   }
 
-  private route = inject(ActivatedRoute);
-  
   ngOnInit(): void {
     LOG.debug('Document component initialized', {
       currentPath: this.route.snapshot.url.map((segment: any) => segment.path).join('/') || '/',
@@ -236,93 +232,56 @@ export class DocumentComponent implements OnInit, OnDestroy {
     this.headings = [];
     this.headingsChange.emit(this.headings);
     
-    // Create a subject to handle the response
-    const responseSubject = new Subject<MarkdownApiResponse>();
-    
-    // First, clear the cache and then get the file
-    this.markdownService.clearCache(fullPath).subscribe({
-      next: () => {
-        this.markdownService.getMarkdownFile(fullPath).subscribe({
-          next: (response) => {
-            this.handleDocumentSuccess(response, fullPath);
-            responseSubject.next(response);
-            responseSubject.complete();
-          },
-          error: (error) => {
-            // If error after cache clear, try to load without clearing cache
-            LOG.error('Error after cache clear, trying to load without clearing cache:', { error });
-            this.markdownService.getMarkdownFile(fullPath).subscribe({
-              next: (response) => {
-                this.handleDocumentSuccess(response, fullPath);
-                responseSubject.next(response);
-                responseSubject.complete();
-              },
-              error: (err) => {
-                this.handleDocumentLoadError(err, fullPath);
-                responseSubject.error(err);
-              }
-            });
+    return this.loadDocument(fullPath);
+  }
+
+  private loadDocument(path: string): Observable<MarkdownApiResponse> {
+    return this.markdownService.getMarkdownFile(path).pipe(
+      map((response: MarkdownApiResponse) => {
+        if (response && response.html) {
+          // If we have HTML content, ensure it's a string and process it
+          let htmlString: string;
+          if (typeof response.html === 'string') {
+            htmlString = response.html;
+          } else {
+            htmlString = this.sanitizer.sanitize(SecurityContext.HTML, response.html) || '';
           }
-        });
-      },
-      error: (error) => {
-        LOG.error('Error clearing cache, trying to load anyway:', { error });
-        this.markdownService.getMarkdownFile(fullPath).subscribe({
-          next: (response) => {
-            this.handleDocumentSuccess(response, fullPath);
-            responseSubject.next(response);
-            responseSubject.complete();
-          },
-          error: (err) => {
-            this.handleDocumentLoadError(err, fullPath);
-            responseSubject.error(err);
-          }
-        });
-      }
-    });
-    
-    return responseSubject.asObservable();
+          
+          // Process the HTML to fix links and add IDs to headings
+          const processedHtml = this.processDocumentContent(htmlString, path);
+          
+          // Return the response with processed HTML
+          return {
+            ...response,
+            html: processedHtml,
+            // Ensure we have headings even if not provided
+            headings: response.headings || []
+          };
+        }
+        return response;
+      }),
+      catchError(error => {
+        console.error('Error loading document:', error);
+        // Return a valid MarkdownApiResponse with error information
+        return of({
+          html: '<p>Erreur lors du chargement du document</p>',
+          headings: [],
+          metadata: { error: true },
+          path: path,
+          name: path.split('/').pop() || 'document',
+          error: true
+        } as MarkdownApiResponse);
+      })
+    );
   }
   
   /**
    * Handle successful document load
    */
-  private handleDocumentSuccess(response: MarkdownApiResponse, fullPath: string): void {
-    try {
-      // Process the content
-      this.processContent(response, fullPath);
-      
-      // Update the UI
-      this.loading = false;
-      
-      // Emit the new headings to update the navigation
-      this.headingsChange.emit(this.headings);
-      
-      // If there's a fragment in the URL, navigate to it
-      const fragment = this.router.parseUrl(this.router.url).fragment;
-      if (fragment) {
-        setTimeout(() => this.handleFragmentNavigation(), 100);
-      }
-      
-      // Force change detection
-      this.cdr.detectChanges();
-    } catch (error) {
-      LOG.error('Error processing document:', { error });
-      this.error = 'An error occurred while processing the document.';
-      this.loading = false;
-      this.cdr.detectChanges();
-    }
-  }
-  
   /**
-   * Handles document content after it's loaded
+   * Process the document content and update the view
    */
-
   private processContent(response: MarkdownApiResponse, fullPath: string): void {
-    if (!response || !response.html) {
-      throw new Error('No content in response');
-    }
-    
     try {
       // Extract tags from metadata if available
       this.tags = response.metadata?.tags || [];
@@ -333,10 +292,10 @@ export class DocumentComponent implements OnInit, OnDestroy {
       
       // Create a temporary div to manipulate the HTML
       const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = response.html;
+      tempDiv.innerHTML = typeof response.html === 'string' ? response.html : '';
       
       // Process links after the content is loaded
-      const processedHtml = this.processHtmlLinks(tempDiv.innerHTML, fullPath);
+      const processedHtml = this.processDocumentContent(tempDiv.innerHTML, fullPath);
       
       // Update the content with processed HTML in a single operation
       this.content = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
@@ -356,37 +315,49 @@ export class DocumentComponent implements OnInit, OnDestroy {
           }
         }, 0);
       }
+      
+      // Emit the headings
+      this.headingsChange.emit(this.headings);
+      
+      // If there's a fragment in the URL, navigate to it
+      const fragment = this.router.parseUrl(this.router.url).fragment;
+      if (fragment) {
+        setTimeout(() => this.handleFragmentNavigation(), 100);
+      }
+      
+      // Update the UI
+      this.loading = false;
+      this.error = null;
+      this.cdr.detectChanges();
+      
     } catch (error) {
-      LOG.error('Error processing content:', { error });
-      throw error;
+      console.error('Error processing document:', error);
+      this.error = 'An error occurred while processing the document.';
+      this.loading = false;
+      this.cdr.detectChanges();
     }
   }
-  
+
   /**
    * Extract headings from the HTML content
    */
   private extractHeadingsFromContent(container: HTMLElement): void {
-    const headings: Array<{text: string, level: number, id: string}> = [];
+    if (!container) return;
+    
     const headingElements = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    const headings: Array<{ text: string; level: number; id: string }> = [];
     
     headingElements.forEach((heading) => {
+      const level = parseInt(heading.tagName.substring(1), 10);
       const text = heading.textContent?.trim() || '';
-      if (text) {
-        const level = parseInt(heading.tagName.substring(1), 10);
-        let id = heading.id;
-        
-        // If no ID, create one
-        if (!id) {
-          id = this.createId(text);
-          heading.id = id;
-        }
-        
-        // Add to headings array
-        headings.push({ text, level, id });
-      }
+      const id = this.createId(text);
+      
+      // Set the ID on the heading element
+      heading.id = id;
+      
+      headings.push({ text, level, id });
     });
-
-    // Update the headings through the service
+    
     this.updateHeadings(headings);
   }
   
@@ -457,8 +428,49 @@ export class DocumentComponent implements OnInit, OnDestroy {
     }
   }
   
+  
   /**
-   * Handles document loading errors
+   * Handle successful document load
+   * @param response The API response containing the markdown content
+   * @param path The path of the loaded document
+   */
+  private handleDocumentSuccess(response: MarkdownApiResponse, path: string): void {
+    try {
+      // Process the document content
+      this.processContent(response, path);
+      
+      // Update the content service with the new content
+      // Note: updateCurrentContent is not available in ContentService, so we only update tags
+      this.contentService.updateCurrentTags(this.tags);
+      
+      // Load related documents
+      this.loadRelatedDocuments(path).subscribe({
+        next: (result) => {
+          this.relatedDocuments = result.related;
+          this.relatedDocumentsChange.emit(this.relatedDocuments);
+        },
+        error: (error) => {
+          console.error('Error loading related documents:', error);
+          this.relatedDocumentsError = 'Failed to load related documents';
+        }
+      });
+      
+      // Update UI state
+      this.loading = false;
+      this.error = null;
+      this.showNotFound = false;
+      
+      // Trigger change detection
+      this.cdr.detectChanges();
+      
+    } catch (error) {
+      console.error('Error in handleDocumentSuccess:', error);
+      this.handleDocumentLoadError(error, path);
+    }
+  }
+  
+  /**
+   * Handle document loading errors
    * @param error The error that occurred
    * @param path The path of the document that failed to load
    */
@@ -479,8 +491,8 @@ export class DocumentComponent implements OnInit, OnDestroy {
       };
       // Force update the not found component if it's already initialized
       if (this.notFoundComponent) {
-        this.notFoundComponent.errorMessage = this.notFoundError.message;
-        this.notFoundComponent.originalUrl = this.notFoundError.originalUrl;
+        (this.notFoundComponent as any).errorMessage = this.notFoundError.message;
+        (this.notFoundComponent as any).originalUrl = this.notFoundError.originalUrl;
       }
     } else {
       // For other errors, show an error message
@@ -748,15 +760,26 @@ export class DocumentComponent implements OnInit, OnDestroy {
     }
   }
 
-  private processHtmlLinks(html: string, currentPath: string): string {
+  /**
+   * Processes the document content to handle headings and links
+   * - Adds IDs to headings and anchor links
+   * - Processes relative and anchor links
+   * - Adds smooth scrolling for fragment links
+   * @param html The HTML content to process
+   * @param currentPath The current document path for link resolution
+   * @returns Processed HTML as string
+   */
+  private processDocumentContent(html: string, currentPath: string): string {
+    if (!html) return '';
+    
     try {
       // Use DocumentFragment for better performance with DOM operations
       const fragment = document.createDocumentFragment();
       const container = document.createElement('div');
+      container.innerHTML = html;
       fragment.appendChild(container);
       
-      // Set HTML content
-      container.innerHTML = html;
+      // HTML content is already set when creating the container
       
       // First pass: Process all headings to ensure they have consistent IDs
       const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
@@ -912,7 +935,7 @@ export class DocumentComponent implements OnInit, OnDestroy {
     LOG.debug('Document component destroyed');
   }
 
-  // Fragment handling is now managed by fragmentClickHandler in processHtmlLinks
+  // Fragment handling is now managed by fragmentClickHandler in processDocumentContent
 
   goHome(): void {
     this.router.navigate(['/']);

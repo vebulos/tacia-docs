@@ -23,9 +23,10 @@ export interface Heading {
 }
 
 export interface MarkdownParseResult {
-  html: string;
+  html: string | SafeHtml;  // Can be either string or SafeHtml
   metadata: Record<string, any>;
   headings: Heading[];
+  rawContent: string;      // Raw markdown content
   path?: string;
   name?: string;
 }
@@ -199,20 +200,41 @@ export class Markdown2HtmlService implements OnDestroy {
 
   /**
    * Extracts headings from HTML content
-   * @param html HTML content
+   * @param html The HTML content to extract headings from
+   * @returns Array of heading objects with text, level, and id
+   */
+  /**
+   * Creates a URL-friendly ID from a heading text
+   * @param text The heading text
+   * @returns A URL-friendly ID
+   */
+  private createHeadingId(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')  // Remove special characters
+      .replace(/\s+/g, '-')       // Replace spaces with hyphens
+      .replace(/-+/g, '-')        // Replace multiple hyphens with one
+      .replace(/^-+|-+$/g, '')    // Remove leading/trailing hyphens
+      .substring(0, 50)           // Truncate to 50 chars
+      .replace(/-+$/, '');        // Remove any trailing hyphen
+  }
+
+  /**
+   * Extracts headings from HTML content
+   * @param html The HTML content to extract headings from
+   * @returns Array of heading objects with text, level, and id
    */
   private extractHeadings(html: string): Heading[] {
-    // Create virtual document for parsing
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
     const headings = Array.from(doc.querySelectorAll('h1, h2, h3, h4, h5, h6'));
     const headingIds = new Map<string, number>();
     
-    return headings.map((heading: Element) => {
+    return headings.map((heading) => {
       const text = heading.textContent || '';
-      let id = heading.id || this.createId(text);
+      let id = heading.id || this.createHeadingId(text);
       
-      // Handle duplicate IDs
+      // Handle duplicate IDs by appending a number
       if (id) {
         const count = (headingIds.get(id) || 0) + 1;
         headingIds.set(id, count);
@@ -254,25 +276,28 @@ export class Markdown2HtmlService implements OnDestroy {
     );
   }
 
-  /**
-   * Processes Markdown content (internal method)
-   */
   private processMarkdown(fileContent: string, filePath?: string): Observable<MarkdownParseResult> {
     try {
-      const { metadata, markdown } = this.extractFrontMatter(fileContent);
-      const html = this.markdownToHtml(markdown);
+      const { metadata, markdown: content } = this.extractFrontMatter(fileContent);
+      
+      // Parse markdown to HTML
+      const html = this.markdownToHtml(content);
+      
+      // Sanitize HTML for security
+      const sanitizedHtml = this.sanitizer.bypassSecurityTrustHtml(html);
+      
+      // Extract headings from the HTML
       const headings = this.extractHeadings(html);
       
+      // Prepare the result
       const result: MarkdownParseResult = {
-        html,
+        html: sanitizedHtml,
         metadata,
         headings,
-        path: filePath
+        rawContent: content,
+        path: filePath,
+        name: filePath ? filePath.split('/').pop() : ''
       };
-      
-      if (filePath) {
-        result.name = filePath.split('/').pop() || '';
-      }
       
       return of(result);
     } catch (error) {
@@ -281,6 +306,7 @@ export class Markdown2HtmlService implements OnDestroy {
         html: `<pre>${fileContent}</pre>`,
         metadata: {},
         headings: [],
+        rawContent: fileContent,
         path: filePath,
         name: filePath ? filePath.split('/').pop() : ''
       });
