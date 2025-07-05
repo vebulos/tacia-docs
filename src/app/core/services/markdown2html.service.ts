@@ -12,8 +12,11 @@ declare global {
   }
 }
 
-// Import types for marked and highlight.js
-import * as Marked from 'marked';
+// Import marked and its types
+import { marked } from 'marked';
+import type { MarkedOptions } from 'marked';
+
+// Import types for highlight.js
 import * as HighlightJS from 'highlight.js';
 
 export interface Heading {
@@ -59,28 +62,31 @@ export class Markdown2HtmlService implements OnDestroy {
     if (this.isInitialized) return;
 
     try {
-      // Dynamically load marked
-      const markedModule = await import('marked');
-      window.marked = markedModule.marked;
-      
-      // Configure marked
-      window.marked.setOptions({
-        highlight: (code: string, lang: string) => {
-          if (lang && window.hljs?.getLanguage(lang)) {
-            return window.hljs.highlight(code, { language: lang }).value;
-          }
-          return window.hljs ? window.hljs.highlightAuto(code).value : code;
-        },
-        langPrefix: 'hljs language-',
+      // Configure marked with proper typing
+      const markedOptions: any = {
         gfm: true,
         breaks: true,
-        silent: true
-      });
+        silent: true,
+        // Marked v4+ requires these options to be set this way
+        langPrefix: 'hljs language-',
+        highlight: (code: string, lang: string): string => {
+          const hljs = (window as any).hljs;
+          if (hljs) {
+            if (lang && hljs.getLanguage(lang)) {
+              return hljs.highlight(code, { language: lang }).value;
+            }
+            return hljs.highlightAuto(code).value;
+          }
+          return code;
+        }
+      };
+      
+      marked.setOptions(markedOptions);
 
       // Load highlight.js if needed
-      if (!window.hljs) {
+      if (!(window as any).hljs) {
         const hljsModule = await import('highlight.js');
-        window.hljs = hljsModule.default || hljsModule;
+        (window as any).hljs = hljsModule.default || hljsModule;
       }
 
       this.isInitialized = true;
@@ -141,11 +147,19 @@ export class Markdown2HtmlService implements OnDestroy {
    * Converts Markdown to HTML
    * @param markdown Markdown content to convert
    */
-  private markdownToHtml(markdown: string): string {
-    if (!window.marked) {
+  private async markdownToHtml(markdown: string): Promise<string> {
+    if (!marked) {
       throw new Error('Marked.js is not loaded');
     }
-    return window.marked.parse(markdown);
+    
+    try {
+      // Ensure we're using the latest marked version's parse method
+      const html = await marked.parse(markdown);
+      return typeof html === 'string' ? html : '';
+    } catch (error) {
+      LOG.error('Error parsing markdown', error);
+      return markdown; // Return original markdown on error
+    }
   }
 
   /**
@@ -225,34 +239,35 @@ export class Markdown2HtmlService implements OnDestroy {
    * @returns Array of heading objects with text, level, and id
    */
   private extractHeadings(html: string): Heading[] {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const headings = Array.from(doc.querySelectorAll('h1, h2, h3, h4, h5, h6'));
-    const headingIds = new Map<string, number>();
-    
-    return headings.map((heading) => {
-      const text = heading.textContent || '';
-      let id = heading.id || this.createHeadingId(text);
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const headingIds = new Map<string, number>();
       
-      // Handle duplicate IDs by appending a number
-      if (id) {
-        const count = (headingIds.get(id) || 0) + 1;
-        headingIds.set(id, count);
+      return Array.from(doc.querySelectorAll('h1, h2, h3, h4, h5, h6')).map(heading => {
+        const text = heading.textContent || '';
+        let id = this.createHeadingId(text);
         
-        if (count > 1) {
-          id = `${id}-${count}`;
+        // Handle duplicate IDs by appending a number
+        if (id) {
+          const count = (headingIds.get(id) || 0) + 1;
+          headingIds.set(id, count);
+          
+          if (count > 1) {
+            id = `${id}-${count}`;
+          }
         }
         
-        // Update ID in virtual DOM
-        heading.id = id;
-      }
-      
-      return {
-        text,
-        level: parseInt(heading.tagName.substring(1), 10),
-        id
-      };
-    });
+        return {
+          text,
+          level: parseInt(heading.tagName.substring(1), 10),
+          id
+        };
+      });
+    } catch (error) {
+      LOG.error('Error extracting headings', error);
+      return [];
+    }
   }
 
   /**
@@ -262,13 +277,23 @@ export class Markdown2HtmlService implements OnDestroy {
    */
   public parseMarkdown(fileContent: string, filePath?: string): Observable<MarkdownParseResult> {
     return new Observable<MarkdownParseResult>(subscriber => {
+      const process = async () => {
+        try {
+          const result = await this.processMarkdown(fileContent, filePath);
+          subscriber.next(result);
+          subscriber.complete();
+        } catch (error) {
+          subscriber.error(error);
+        }
+      };
+
       if (!this.isInitialized) {
         this.isReady().subscribe({
-          next: () => this.processMarkdown(fileContent, filePath).subscribe(subscriber),
+          next: () => process(),
           error: (err) => subscriber.error(err)
         });
       } else {
-        this.processMarkdown(fileContent, filePath).subscribe(subscriber);
+        process();
       }
     }).pipe(
       takeUntil(this.destroy$),
@@ -276,45 +301,37 @@ export class Markdown2HtmlService implements OnDestroy {
     );
   }
 
-  private processMarkdown(fileContent: string, filePath?: string): Observable<MarkdownParseResult> {
+  private async processMarkdown(fileContent: string, filePath?: string): Promise<MarkdownParseResult> {
     try {
       const { metadata, markdown: content } = this.extractFrontMatter(fileContent);
-      
-      // Parse markdown to HTML
-      const html = this.markdownToHtml(content);
-      
-      // Sanitize HTML for security
+      const html = await this.markdownToHtml(content);
       const sanitizedHtml = this.sanitizer.bypassSecurityTrustHtml(html);
-      
-      // Extract headings from the HTML
       const headings = this.extractHeadings(html);
       
-      // Prepare the result
-      const result: MarkdownParseResult = {
+      return {
         html: sanitizedHtml,
         metadata,
         headings,
         rawContent: content,
         path: filePath,
-        name: filePath ? filePath.split('/').pop() : ''
+        name: filePath ? filePath.split('/').pop() || '' : ''
       };
-      
-      return of(result);
     } catch (error) {
       LOG.error('Error processing markdown', error);
-      return of({
-        html: `<pre>${fileContent}</pre>`,
+      return {
+        html: this.sanitizer.bypassSecurityTrustHtml(`<pre>${fileContent}</pre>`),
         metadata: {},
         headings: [],
         rawContent: fileContent,
         path: filePath,
-        name: filePath ? filePath.split('/').pop() : ''
-      });
+        name: filePath ? filePath.split('/').pop() || '' : ''
+      };
     }
   }
 
   /**
-   * Sanitizes and secures generated HTML
+   * Sanitizes HTML content
+   * @param html HTML content to sanitize
    */
   public sanitizeHtml(html: string): SafeHtml {
     return this.sanitizer.bypassSecurityTrustHtml(html);
