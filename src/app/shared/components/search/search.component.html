@@ -82,8 +82,6 @@
     role="listbox"
     aria-label="Search results"
     (keydown.escape)="clearSearch()"
-    (keydown.arrowdown)="$event.preventDefault(); navigateResults(1)"
-    (keydown.arrowup)="$event.preventDefault(); navigateResults(-1)"
     tabindex="-1"
   >
     <!-- Loading State -->
@@ -126,8 +124,7 @@
              (click)="selectResult(result)"
              (keydown.enter)="selectResult(result)"
              (keydown.space)="$event.preventDefault(); selectResult(result)"
-             (keydown.arrowdown)="$event.preventDefault(); navigateResults(1)"
-             (keydown.arrowup)="$event.preventDefault(); navigateResults(-1)"
+
              (keydown.home)="$event.preventDefault(); activeResultIndex = 0; scrollToActiveResult()"
              (keydown.end)="$event.preventDefault(); activeResultIndex = searchResults.length - 1; scrollToActiveResult()"
              role="option"
@@ -167,8 +164,7 @@
             (click)="selectRecentSearch(term, $event)"
             (keydown.enter)="selectRecentSearch(term, $event)"
             (keydown.space)="$event.preventDefault(); selectRecentSearch(term, $event)"
-            (keydown.arrowdown)="$event.preventDefault(); navigateResults(1)"
-            (keydown.arrowup)="$event.preventDefault(); navigateResults(-1)"
+
             (keydown.home)="$event.preventDefault(); activeResultIndex = 0; scrollToActiveResult()"
             (keydown.end)="$event.preventDefault(); activeResultIndex = searchResults.length + recentSearches.length - 1; scrollToActiveResult()"
             role="option"

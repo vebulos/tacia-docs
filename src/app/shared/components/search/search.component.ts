@@ -389,11 +389,18 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
         break;
         
       case 'ArrowDown':
-        this.handleArrowNavigation(1);
+        if (this.isFocused) {
+          event.preventDefault();
+          event.stopPropagation(); // Stop the event from bubbling up to prevent double calls
+          this.handleArrowNavigation(1);
+        }
         break;
-        
       case 'ArrowUp':
-        this.handleArrowNavigation(-1);
+        if (this.isFocused) {
+          event.preventDefault();
+          event.stopPropagation(); // Stop the event from bubbling up to prevent double calls
+          this.handleArrowNavigation(-1);
+        }
         break;
         
       case 'Enter':
@@ -521,35 +528,39 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
    * Handle arrow key navigation in search results
    * @param direction 1 for down, -1 for up
    */
+  private isNavigating = false;
+
   private handleArrowNavigation(direction: number): void {
-    if (this.isLoading) return;
+    // Prevent multiple calls
+    if (this.isNavigating || this.isLoading || !this.searchResultsElement?.nativeElement) return;
     
-    const totalItems = this.searchResults.length + (this.showRecentSearches ? this.recentSearches.length : 0);
+    this.isNavigating = true;
     
-    if (totalItems === 0) {
-      this.activeResultIndex = -1;
-      return;
-    }
-    
-    // Initialize index if needed
-    if (this.activeResultIndex === -1) {
-      this.activeResultIndex = direction > 0 ? 0 : totalItems - 1;
-    } else {
-      // Calculate new index with wrapping
-      let newIndex = this.activeResultIndex + direction;
-      
-      // Handle wrapping
-      if (newIndex < 0) {
-        newIndex = totalItems - 1;
-      } else if (newIndex >= totalItems) {
-        newIndex = 0;
+    try {
+      const resultElements = this.searchResultsElement.nativeElement.querySelectorAll('.search-result, .recent-search');
+      const totalItems = resultElements.length;
+
+      if (totalItems === 0) {
+        this.activeResultIndex = -1;
+        return;
       }
-      
+
+      let newIndex = this.activeResultIndex + direction;
+
+      if (newIndex >= totalItems) {
+        newIndex = 0; // Wrap to the start
+      } else if (newIndex < 0) {
+        newIndex = totalItems - 1; // Wrap to the end
+      }
+
       this.activeResultIndex = newIndex;
+      this.scrollToActiveResult();
+    } finally {
+      // Reset the flag after a small delay to allow for smooth navigation
+      setTimeout(() => {
+        this.isNavigating = false;
+      }, 50);
     }
-    
-    // Scroll to make the active result visible
-    this.scrollToActiveResult();
   }
   
   /**
@@ -561,18 +572,16 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
    */
   public scrollToActiveResult(): void {
     if (this.activeResultIndex < 0 || !this.searchResultsElement?.nativeElement) return;
-    
-    const resultElements = this.searchResultsElement.nativeElement.querySelectorAll('.search-result-item');
-    if (resultElements.length > 0 && this.activeResultIndex < resultElements.length) {
-      const activeElement = resultElements[this.activeResultIndex] as HTMLElement;
-      if (activeElement) {
-        activeElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest'
-        });
-        // Focus the element for better keyboard navigation
-        activeElement.focus();
-      }
+
+    const resultElements = this.searchResultsElement.nativeElement.querySelectorAll('.search-result, .recent-search');
+    const activeElement = resultElements[this.activeResultIndex] as HTMLElement;
+
+    if (activeElement) {
+      activeElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+      activeElement.focus(); // Ensure the focused element is the active one
     }
   }
 
