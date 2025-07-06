@@ -452,22 +452,19 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.notificationService.info('Updating content and search index...', 0);
     
-    // Notify all components to refresh their content
-    this.refreshService.requestRefresh();
-    
     // Call the search service to refresh the index
     this.searchService.refreshIndex().subscribe({
       next: () => {
         // Handle successful refresh
         this.isLoading = false;
         this.notificationService.clearAll();
-        this.notificationService.success('Content and search index have been updated successfully', 5000);
+        this.notificationService.success('Content and search index have been updated successfully. Reloading page...', 2000);
         LOG.info('Content and search index refreshed successfully');
         
-        // Refocus the search input if it was focused before
-        if (this.isFocused && this.searchInput?.nativeElement) {
-          this.searchInput.nativeElement.focus();
-        }
+        // Force reload the page after a short delay to show the success message
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
       },
       error: (error) => {
         // Handle refresh error
