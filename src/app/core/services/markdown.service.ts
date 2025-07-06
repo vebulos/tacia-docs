@@ -77,7 +77,7 @@ export class MarkdownService implements OnDestroy {
     }
 
     // Fetch from backend API (returns { html, metadata, headings, path, name })
-    const apiUrl = `${this.apiUrl}/${encodeURIComponent(normalizedPath)}`;
+    const apiUrl = `${this.apiUrl}/${encodedPath}`;
     LOG.debug('Fetching from backend API', { apiUrl });
     
     const request$ = this.http.get<MarkdownApiResponse>(apiUrl, {

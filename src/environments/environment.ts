@@ -5,7 +5,7 @@ import { EnvironmentConfig, defaultConfig } from './environment.types';
  */
 export const environment: EnvironmentConfig = {
   production: false,
-  apiUrl: 'http://localhost:4201/api',
+  apiUrl: 'http://localhost:8080/api',
   search: {
     maxResults: 50,
     maxRecentSearches: 10,

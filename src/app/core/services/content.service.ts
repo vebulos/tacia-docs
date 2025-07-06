@@ -163,8 +163,8 @@ export class ContentService {
    * @returns Observable of ContentItem array
    */
   private fetchContent(path: string): Observable<ContentItem[]> {
-    // Encode the path to handle spaces and special characters
-    const encodedPath = encodeURIComponent(path);
+    // Encode the path in pieces to handle spaces and special characters
+    const encodedPath = path.split('/').map(encodeURIComponent).join('/')
     
     LOG.debug('Fetching content structure', { path });
     
