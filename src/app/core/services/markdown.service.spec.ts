@@ -60,8 +60,8 @@ Some content`;
       service.getMarkdownFile('test/path').subscribe(result => {
         expect(result.metadata.title).toBe('Test Title');
         expect(result.metadata.categories).toEqual(['test', 'docs']);
-        expect(result.html).toContain('<h1 id="heading-1">');
-        expect(result.html).toContain('Some content');
+        expect(result.markdown).toContain('# Heading 1');
+        expect(result.markdown).toContain('Some content');
         expect(result.path).toBe('test/path');
         expect(result.headings.length).toBe(1);
         expect(result.headings[0].text).toBe('Heading 1');
@@ -89,8 +89,8 @@ Some content`;
         expect(result.metadata).toBeDefined();
         expect(result.metadata.title).toBeUndefined(); // No title in markdown without frontmatter
         
-        expect(result.html).toContain('<h1 id="heading-1">');
-        expect(result.html).toContain('Some content');
+        expect(result.markdown).toContain('# Heading 1');
+        expect(result.markdown).toContain('Some content');
         expect(result.path).toBe('test/path');
         expect(result.headings.length).toBe(1);
         expect(result.headings[0].text).toBe('Heading 1');
@@ -211,7 +211,7 @@ Some content`;
     const path1 = 'test/path1';
     const path2 = 'test/path2';
     const mockResponse = {
-      html: '<h1>Test</h1>',
+      markdown: '# Test\n\nTest content',
       metadata: {},
       headings: [],
       path: 'test/path',

@@ -467,8 +467,8 @@ export class SearchService {
           tagCount: markdownFile.metadata?.tags?.length || 0
         });
         
-        // Extract text content from HTML for full-text search
-        const textContent = this.extractTextFromHtml(markdownFile.html);
+        // Extract text content from markdown for full-text search
+        const textContent = this.cleanMarkdownForSearch(markdownFile.markdown);
         searchResult.content = textContent;
         
         // Update tags from the markdown file metadata if available
@@ -1133,6 +1133,39 @@ export class SearchService {
         return throwError(() => new Error('Failed to initialize search index'));
       })
     );
+  }
+
+  /**
+   * Clean markdown content for search indexing
+   * Removes markdown syntax while preserving text content
+   * @param markdown Markdown content to clean
+   * @returns Cleaned text content
+   */
+  private cleanMarkdownForSearch(markdown: string): string {
+    if (!markdown) return '';
+    
+    // Remove code blocks (```code```)
+    let cleaned = markdown.replace(/```[\s\S]*?```/g, '');
+    
+    // Remove inline code (`code`)
+    cleaned = cleaned.replace(/`[^`]+`/g, '');
+    
+    // Remove headers (#, ##, etc.)
+    cleaned = cleaned.replace(/^#+\s+/gm, '');
+    
+    // Remove emphasis (*, **, _)
+    cleaned = cleaned.replace(/[*_]{1,2}([^*_]+)[*_]{1,2}/g, '$1');
+    
+    // Remove images and links
+    cleaned = cleaned.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1');
+    
+    // Remove HTML tags
+    cleaned = cleaned.replace(/<[^>]+>/g, '');
+    
+    // Remove extra whitespace and normalize
+    return cleaned
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   /**

@@ -238,9 +238,9 @@ export class DocumentComponent implements OnInit, OnDestroy {
   private loadDocument(path: string): Observable<MarkdownApiResponse> {
     return this.markdownService.getMarkdownFile(path).pipe(
       switchMap((response: MarkdownApiResponse) => {
-        if (response && response.html) {
+        if (response && response.markdown) {
           // Convert markdown to HTML using Markdown2HtmlService
-          return this.markdown2htmlService.parseMarkdown(response.html).pipe(
+          return this.markdown2htmlService.parseMarkdown(response.markdown).pipe(
             map(parseResult => {
               try {
                 // Get the string value from SafeHtml
@@ -251,13 +251,14 @@ export class DocumentComponent implements OnInit, OnDestroy {
                 // Process the HTML to fix links and add IDs to headings
                 const processedHtml = this.processDocumentContent(htmlString, path);
                 
-                // Return the response with processed HTML and extracted metadata
+                // Return the response with the original markdown and metadata
+                // The processed HTML will be used directly in processContent
                 return {
                   ...response,
-                  html: processedHtml,
                   metadata: {
                     ...response.metadata,
-                    ...(parseResult.metadata || {})
+                    ...(parseResult.metadata || {}),
+                    _processedHtml: processedHtml // Store processed HTML in metadata temporarily
                   },
                   // Use extracted headings or fallback to response.headings or empty array
                   headings: parseResult.headings?.length > 0 ? parseResult.headings : (response.headings || [])
@@ -280,12 +281,11 @@ export class DocumentComponent implements OnInit, OnDestroy {
         console.error('Error loading document:', error);
         // Return a valid MarkdownApiResponse with error information
         return of({
-          html: '<p>Error loading document</p>',
+          markdown: '# Error loading document\n\nAn error occurred while loading the document.',
           headings: [],
           metadata: { error: true },
           path: path,
-          name: path.split('/').pop() || 'document',
-          error: true
+          name: path.split('/').pop() || 'document'
         } as MarkdownApiResponse);
       })
     );
@@ -303,27 +303,31 @@ export class DocumentComponent implements OnInit, OnDestroy {
       this.tags = response.metadata?.tags || [];
       LOG.debug('Processing content', { 
         path: fullPath,
-        hasHtml: !!response.html,
+        hasMarkdown: !!response.markdown,
         tags: this.tags 
       });
       
       // Update tags in the content service to share with other components
       this.contentService.updateCurrentTags(this.tags);
       
-      // The HTML is already processed by markdown2htmlService in loadDocument
-      // We just need to ensure it's safe to display
-      const htmlContent = typeof response.html === 'string' ? response.html : '';
-      this.content = this.sanitizer.bypassSecurityTrustHtml(htmlContent);
+      // Get the processed HTML from metadata (stored in loadDocument)
+      const processedHtml = response.metadata?.['_processedHtml'];
+      if (!processedHtml) {
+        LOG.error('No processed HTML content available');
+        this.content = '';
+      } else {
+        this.content = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
+      }
       
-      // Update the view
+      // Force view update
       this.cdr.detectChanges();
       
       // If headings are provided in the response, use them
       if (response.headings && response.headings.length > 0) {
         this.updateHeadings([...response.headings]);
       } else {
-        // Otherwise, we'll extract headings after the content is rendered
-        // We use setTimeout to ensure the content is in the DOM
+        // Otherwise, extract headings after the content is rendered
+        // setTimeout ensures the content is in the DOM
         setTimeout(() => {
           const contentElement = this.elementRef.nativeElement.querySelector('.markdown-content');
           if (contentElement) {

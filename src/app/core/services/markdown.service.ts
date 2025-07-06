@@ -15,7 +15,7 @@ import { PathUtils } from '../utils/path.utils';
 
 // Interface for the backend API response for markdown content
 export interface MarkdownApiResponse {
-  html: string;
+  markdown: string;
   metadata: {
     title?: string;
     categories?: string[];
