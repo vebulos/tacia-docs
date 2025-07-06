@@ -342,17 +342,37 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
       return;
     }
     
+    // Add to recent searches first
+    this.searchService.addToRecentSearches(term);
+    
     // Update the search input value and trigger search
     this.searchControl.setValue(term, { emitEvent: true });
+    
+    // Force a search even if the value didn't change
+    this.searchService.search(term).subscribe({
+      next: (results) => {
+        this.searchResults = results;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        this.error = 'Failed to perform search';
+        this.isLoading = false;
+        LOG.error('Search error:', error);
+      }
+    });
     
     // Update UI state
     this.isFocused = true;
     this.showRecentSearches = false;
     this.activeResultIndex = -1;
+    this.isLoading = true;
     
-    // Ensure the input maintains focus
+    // Ensure the input maintains focus and cursor is at the end
     if (this.searchInput?.nativeElement) {
       this.searchInput.nativeElement.focus();
+      // Move cursor to the end of the input
+      const length = term.length;
+      this.searchInput.nativeElement.setSelectionRange(length, length);
     }
   }
 
