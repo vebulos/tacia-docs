@@ -123,14 +123,6 @@
   height: auto;
 }
 
-/*
-  The root cause of badges appearing on separate lines is the <br> tags.
-  This rule hides them within paragraphs that contain badges.
-*/
-.markdown-content p:has(img[alt*="badge"], img[alt*="Badge"], img[alt*="BADGE"], img[src*="shields.io"]) br {
-  display: none;
-}
-
 /* Styles for the badge images themselves. */
 .markdown-content p a img[alt*="badge"],
 .markdown-content p a img[alt*="Badge"],

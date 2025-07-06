@@ -41,26 +41,29 @@ export class ThemeService {
       this.themeLink = null;
     }
 
-    // Only load the theme if it's not the default theme
-    if (theme !== 'default') {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.type = 'text/css';
-      link.href = `assets/themes/${theme}.css`;
-      link.onload = () => {
-        this.themeLink = link;
-        if (!initialLoad) {
-          this.currentThemeSubject.next(theme);
-        }
-        localStorage.setItem('markdown-theme', theme);
-      };
-      document.head.appendChild(link);
-    } else {
+    // Always load the theme stylesheet, including for default theme
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.type = 'text/css';
+    link.href = `assets/themes/${theme}.css`;
+    
+    link.onload = () => {
+      this.themeLink = link;
       if (!initialLoad) {
         this.currentThemeSubject.next(theme);
       }
       localStorage.setItem('markdown-theme', theme);
-    }
+    };
+    
+    link.onerror = () => {
+      console.error(`Failed to load theme: ${theme}`);
+      if (!initialLoad) {
+        this.currentThemeSubject.next(theme);
+      }
+      localStorage.setItem('markdown-theme', theme);
+    };
+    
+    document.head.appendChild(link);
   }
 
   public toggleTheme(): void {
