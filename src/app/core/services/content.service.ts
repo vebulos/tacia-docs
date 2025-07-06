@@ -168,8 +168,8 @@ export class ContentService {
     
     LOG.debug('Fetching content structure', { path });
     
-    // Use the new URL format with path in the URL only
-    const url = `http://localhost:4201/api/content/${path || ''}`;
+    // Use environment.apiUrl for the base URL
+    const url = `${environment.apiUrl}/content/${path || ''}`;
     LOG.debug('Making API request', { 
       path,
       url: url.replace(/\?.*$/, '') // Remove query params from URL in logs

@@ -32,7 +32,7 @@ export interface MarkdownApiResponse {
 })
 export class MarkdownService implements OnDestroy {
   private readonly cache: LruCache<Observable<MarkdownApiResponse>>;
-  private readonly apiUrl = 'http://localhost:4201/api/content';
+  private readonly apiUrl = `${environment.apiUrl}/content`;
   private readonly destroy$ = new Subject<void>();
   private readonly contentBasePath: string;
 
