@@ -66,7 +66,7 @@ export class Markdown2HtmlService implements OnDestroy {
       // Configure marked with proper typing
       const markedOptions: any = {
         gfm: true,
-        breaks: true,
+        breaks: false, // Disable conversion of line breaks to <br> tags
         silent: true,
         // Marked v4+ requires these options to be set this way
         langPrefix: 'hljs language-',
