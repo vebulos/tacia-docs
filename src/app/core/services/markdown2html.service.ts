@@ -1,4 +1,5 @@
 import { Injectable, OnDestroy } from '@angular/core';
+import slugify from 'slugify';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { BehaviorSubject, Observable, of, from, ReplaySubject } from 'rxjs';
 import { map, catchError, takeUntil, shareReplay } from 'rxjs/operators';
@@ -12,8 +13,11 @@ declare global {
   }
 }
 
-// Import types for marked and highlight.js
-import * as Marked from 'marked';
+// Import marked and its types
+import { marked } from 'marked';
+import type { MarkedOptions } from 'marked';
+
+// Import types for highlight.js
 import * as HighlightJS from 'highlight.js';
 
 export interface Heading {
@@ -23,9 +27,10 @@ export interface Heading {
 }
 
 export interface MarkdownParseResult {
-  html: string;
+  html: string | SafeHtml;  // Can be either string or SafeHtml
   metadata: Record<string, any>;
   headings: Heading[];
+  rawContent: string;      // Raw markdown content
   path?: string;
   name?: string;
 }
@@ -58,28 +63,31 @@ export class Markdown2HtmlService implements OnDestroy {
     if (this.isInitialized) return;
 
     try {
-      // Dynamically load marked
-      const markedModule = await import('marked');
-      window.marked = markedModule.marked;
-      
-      // Configure marked
-      window.marked.setOptions({
-        highlight: (code: string, lang: string) => {
-          if (lang && window.hljs?.getLanguage(lang)) {
-            return window.hljs.highlight(code, { language: lang }).value;
-          }
-          return window.hljs ? window.hljs.highlightAuto(code).value : code;
-        },
-        langPrefix: 'hljs language-',
+      // Configure marked with proper typing
+      const markedOptions: any = {
         gfm: true,
         breaks: true,
-        silent: true
-      });
+        silent: true,
+        // Marked v4+ requires these options to be set this way
+        langPrefix: 'hljs language-',
+        highlight: (code: string, lang: string): string => {
+          const hljs = (window as any).hljs;
+          if (hljs) {
+            if (lang && hljs.getLanguage(lang)) {
+              return hljs.highlight(code, { language: lang }).value;
+            }
+            return hljs.highlightAuto(code).value;
+          }
+          return code;
+        }
+      };
+      
+      marked.setOptions(markedOptions);
 
       // Load highlight.js if needed
-      if (!window.hljs) {
+      if (!(window as any).hljs) {
         const hljsModule = await import('highlight.js');
-        window.hljs = hljsModule.default || hljsModule;
+        (window as any).hljs = hljsModule.default || hljsModule;
       }
 
       this.isInitialized = true;
@@ -140,113 +148,102 @@ export class Markdown2HtmlService implements OnDestroy {
    * Converts Markdown to HTML
    * @param markdown Markdown content to convert
    */
-  private markdownToHtml(markdown: string): string {
-    if (!window.marked) {
+  private async markdownToHtml(markdown: string): Promise<string> {
+    if (!marked) {
       throw new Error('Marked.js is not loaded');
     }
-    return window.marked.parse(markdown);
-  }
-
-  /**
-   * Creates a URL-friendly ID from text
-   * @param text Text to convert to ID
-   */
-  private createId(text: string): string {
-    if (!text || typeof text !== 'string') return '';
     
-    // Special characters mapping
-    const umlautMap: Record<string, string> = {
-      'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 'ss',
-      'Ä': 'A', 'Ö': 'O', 'Ü': 'U',
-      'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'å': 'a',
-      'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
-      'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
-      'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ø': 'o',
-      'ù': 'u', 'ú': 'u', 'û': 'u',
-      'ý': 'y', 'ÿ': 'y',
-      'ñ': 'n', 'ç': 'c', 'æ': 'ae', 'œ': 'oe'
-    };
-    
-    // Create regex pattern for all special characters
-    const umlautRegex = new RegExp(`[${Object.keys(umlautMap).join('')}]`, 'g');
-    
-    // Process text to create ID
-    let id = text
-      // Remplacement des caractères spéciaux
-      .replace(umlautRegex, match => umlautMap[match] || match)
-      // Convert to lowercase
-      .toLowerCase()
-      // Replace special characters with hyphens
-      .replace(/[^\w\s-]/g, '-')
-      // Replace spaces with hyphens
-      .replace(/\s+/g, '-')
-      // Replace multiple hyphens with single hyphen
-      .replace(/-+/g, '-')
-      // Remove leading/trailing hyphens
-      .replace(/^-+|-+$/g, '')
-      // Truncate to 50 characters
-      .substring(0, 50)
-      // Remove trailing hyphen if exists
-      .replace(/-+$/, '');
-    
-    // If ID is empty, use default value
-    if (!id) {
-      id = 'section';
+    try {
+      // Ensure we're using the latest marked version's parse method
+      const html = await marked.parse(markdown);
+      return typeof html === 'string' ? html : '';
+    } catch (error) {
+      LOG.error('Error parsing markdown', error);
+      return markdown; // Return original markdown on error
     }
-    
-    return id;
   }
 
-  /**
-   * Extracts headings from HTML content
-   * @param html HTML content
-   */
   private extractHeadings(html: string): Heading[] {
-    // Create virtual document for parsing
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const headings = Array.from(doc.querySelectorAll('h1, h2, h3, h4, h5, h6'));
-    const headingIds = new Map<string, number>();
-    
-    return headings.map((heading: Element) => {
-      const text = heading.textContent || '';
-      let id = heading.id || this.createId(text);
-      
-      // Handle duplicate IDs
-      if (id) {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const headingIds = new Map<string, number>();
+      const headingsArr = Array.from(doc.querySelectorAll('h1, h2, h3, h4, h5, h6')).map((heading) => {
+        const text = heading.textContent || '';
+        const level = parseInt(heading.tagName.substring(1), 10);
+        let slug = '';
+        try {
+          const preSlug = text.replace(/ß/g, 'ss');
+          slug = slugify(preSlug, { lower: true, strict: true, locale: 'de' });
+        } catch (e) {
+          
+        }
+        let id = `h${level}-${slug}`;
         const count = (headingIds.get(id) || 0) + 1;
         headingIds.set(id, count);
+        if (count > 1) id = `${id}-${count}`;
         
-        if (count > 1) {
-          id = `${id}-${count}`;
-        }
-        
-        // Update ID in virtual DOM
-        heading.id = id;
-      }
+        return { text, level, id };
+      });
       
-      return {
-        text,
-        level: parseInt(heading.tagName.substring(1), 10),
-        id
-      };
-    });
+      return headingsArr;
+    } catch (err) {
+      console.error('[extractHeadings] Error during heading extraction', err);
+      return [];
+    }
   }
 
   /**
-   * Parses a complete Markdown document (main method)
-   * @param fileContent Markdown file content
+   * Injects heading IDs into the HTML string for headings (h1-h6)
+   * @param html HTML string
+   * @param headings Array of heading objects with id, level, text
+   * @returns HTML string with IDs injected
+   */
+  private injectHeadingIds(html: string, headings: { id: string, level: number, text: string }[]): string {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      let headingIdx = 0;
+      const headingTags = ['H1','H2','H3','H4','H5','H6'];
+      const allHeadings = Array.from(doc.body.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+      for (let i = 0; i < allHeadings.length; i++) {
+        const el = allHeadings[i];
+        if (headingIdx < headings.length) {
+          el.setAttribute('id', headings[headingIdx].id);
+          headingIdx++;
+        }
+      }
+      return doc.body.innerHTML;
+    } catch (err) {
+      console.error('[injectHeadingIds] Error injecting heading IDs', err); // Keep this one for actual error tracking
+      return html;
+    }
+  }
+
+  /**
+   * Parses Markdown content and returns the result
+   * @param fileContent Markdown content to parse
    * @param filePath File path (optional)
    */
   public parseMarkdown(fileContent: string, filePath?: string): Observable<MarkdownParseResult> {
     return new Observable<MarkdownParseResult>(subscriber => {
+      const process = async () => {
+        try {
+          const result = await this.processMarkdown(fileContent, filePath);
+          subscriber.next(result);
+          subscriber.complete();
+        } catch (error) {
+          subscriber.error(error);
+        }
+      };
+
       if (!this.isInitialized) {
         this.isReady().subscribe({
-          next: () => this.processMarkdown(fileContent, filePath).subscribe(subscriber),
+          next: () => process(),
           error: (err) => subscriber.error(err)
         });
       } else {
-        this.processMarkdown(fileContent, filePath).subscribe(subscriber);
+        process();
       }
     }).pipe(
       takeUntil(this.destroy$),
@@ -254,41 +251,38 @@ export class Markdown2HtmlService implements OnDestroy {
     );
   }
 
-  /**
-   * Processes Markdown content (internal method)
-   */
-  private processMarkdown(fileContent: string, filePath?: string): Observable<MarkdownParseResult> {
+  private async processMarkdown(fileContent: string, filePath?: string): Promise<MarkdownParseResult> {
     try {
-      const { metadata, markdown } = this.extractFrontMatter(fileContent);
-      const html = this.markdownToHtml(markdown);
+      const { metadata, markdown: content } = this.extractFrontMatter(fileContent);
+      const html = await this.markdownToHtml(content);
       const headings = this.extractHeadings(html);
+      const htmlWithIds = this.injectHeadingIds(html, headings);
+      const sanitizedHtml = this.sanitizer.bypassSecurityTrustHtml(htmlWithIds);
       
-      const result: MarkdownParseResult = {
-        html,
+      return {
+        html: sanitizedHtml,
         metadata,
         headings,
-        path: filePath
+        rawContent: content,
+        path: filePath,
+        name: filePath ? filePath.split('/').pop() || '' : ''
       };
-      
-      if (filePath) {
-        result.name = filePath.split('/').pop() || '';
-      }
-      
-      return of(result);
     } catch (error) {
       LOG.error('Error processing markdown', error);
-      return of({
-        html: `<pre>${fileContent}</pre>`,
+      return {
+        html: this.sanitizer.bypassSecurityTrustHtml(`<pre>${fileContent}</pre>`),
         metadata: {},
         headings: [],
+        rawContent: fileContent,
         path: filePath,
-        name: filePath ? filePath.split('/').pop() : ''
-      });
+        name: filePath ? filePath.split('/').pop() || '' : ''
+      };
     }
   }
 
   /**
-   * Sanitizes and secures generated HTML
+   * Sanitizes HTML content
+   * @param html HTML content to sanitize
    */
   public sanitizeHtml(html: string): SafeHtml {
     return this.sanitizer.bypassSecurityTrustHtml(html);
