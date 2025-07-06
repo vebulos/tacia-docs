@@ -4,7 +4,7 @@ import 'zone.js/testing';
 import { getTestBed } from '@angular/core/testing';
 import { BrowserDynamicTestingModule, platformBrowserDynamicTesting } from '@angular/platform-browser-dynamic/testing';
 
-declare const jest: any; // Déclaration pour éviter les erreurs de type avec Jest
+declare const jest: any; // Declaration to avoid type errors with Jest
 
 // First, initialize the Zone
 const { defineProperty } = Object;

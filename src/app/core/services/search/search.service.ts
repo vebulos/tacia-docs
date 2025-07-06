@@ -7,10 +7,10 @@ import { MarkdownService } from '../markdown.service';
 import { SearchResult } from '../../interfaces/search.interface';
 import { ContentItem } from '../content.interface';
 
-// Type pour les tags qui peuvent être soit des strings soit des objets avec une propriété name
+// Type for tags that can be either strings or objects with a name property
 type TagType = string | { name: string; [key: string]: any };
 
-// Type pour les résultats de recherche
+// Type for search results
 type SearchResultType = {
   title: string;
   path: string;

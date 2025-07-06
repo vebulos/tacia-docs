@@ -2,7 +2,7 @@ import { environment } from '../../../environments/environment';
 import { Observable } from 'rxjs';
 import { LOG } from '../services/logging/bun-logger.service';
 
-// Interface pour la compatibilité avec le module path de Node.js
+// Interface for compatibility with Node.js path module
 type PathObject = {
   dir: string;
   base: string;

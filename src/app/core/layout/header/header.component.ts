@@ -18,7 +18,7 @@ import { ThemeService } from '@app/core/services/theme.service';
   styleUrls: ['./header.component.css'],
 })
 export class HeaderComponent implements OnInit, OnDestroy {
-  // Méthode pour arrondir vers le haut
+  // Method to round up
   ceil(value: number): number {
     return Math.ceil(value);
   }
