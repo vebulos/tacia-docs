@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy } from '@angular/core';
-import slugify from 'slugify';
+import slugify from '@sindresorhus/slugify';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { BehaviorSubject, Observable, of, from, ReplaySubject } from 'rxjs';
 import { map, catchError, takeUntil, shareReplay } from 'rxjs/operators';
@@ -174,7 +174,16 @@ export class Markdown2HtmlService implements OnDestroy {
         let slug = '';
         try {
           const preSlug = text.replace(/ß/g, 'ss');
-          slug = slugify(preSlug, { lower: true, strict: true, locale: 'de' });
+          slug = slugify(preSlug, {
+            lowercase: true,
+            separator: '-',
+            customReplacements: [
+              ['ä', 'ae'],
+              ['ö', 'oe'],
+              ['ü', 'ue'],
+              ['ß', 'ss']
+            ]
+          });
         } catch (e) {
           
         }
