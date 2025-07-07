@@ -32,6 +32,7 @@ This frontend can work with either of these backend implementations:
 
 1. **Node.js Backend** (Recommended for development)
    ```bash
+   git clone https://github.com/vebulos/tacia-docs-backend-js.git
    cd ../backend-js
    npm install
    npm run dev
@@ -39,6 +40,7 @@ This frontend can work with either of these backend implementations:
 
 2. **Java Backend** (Recommended for production)
    ```bash
+   git clone https://github.com/vebulos/tacia-docs-backend-java.git
    cd ../backend-java
    mvn spring-boot:run
    ```
@@ -48,7 +50,7 @@ This frontend can work with either of these backend implementations:
 1. Clone the repository:
    ```bash
    git clone https://github.com/vebulos/tacia-docs.git
-   cd tacia-docs/frontend
+   cd tacia-docs
    ```
 
 2. Install dependencies:
@@ -67,13 +69,12 @@ The application will be available at `http://localhost:4200/`
 
 ### Environment Variables
 
-Create an `environment.ts` file in `src/environments/` with the appropriate configuration based on your backend choice:
+Adjust `environment.ts` (dev) in `src/environments/` with the appropriate configuration based on your backend choice:
 
 ```typescript
 export const environment = {
   production: false,
-  // For Node.js backend (default port 3000)
-  apiUrl: 'http://localhost:3000/api',
+  apiUrl: 'http://localhost:4201/api',
   
   // For Java backend (default port 8080)
   // apiUrl: 'http://localhost:8080/api',
@@ -88,9 +89,6 @@ export const environment = {
 ```bash
 # Run unit tests
 ng test
-
-# Run end-to-end tests
-ng e2e
 
 # Build for production
 ng build --configuration production
