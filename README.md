@@ -24,8 +24,26 @@ Modern documentation platform for TaciaNet, providing an intuitive interface for
 
 - Node.js 18+ and npm 9+
 - Angular CLI 19+
+- (For Java backend) Java 17+ and Maven 3.8+
 
-### Installation
+### Backend Options
+
+This frontend can work with either of these backend implementations:
+
+1. **Node.js Backend** (Recommended for development)
+   ```bash
+   cd ../backend-js
+   npm install
+   npm run dev
+   ```
+
+2. **Java Backend** (Recommended for production)
+   ```bash
+   cd ../backend-java
+   mvn spring-boot:run
+   ```
+
+### Frontend Installation
 
 1. Clone the repository:
    ```bash
@@ -49,12 +67,17 @@ The application will be available at `http://localhost:4200/`
 
 ### Environment Variables
 
-Create an `environment.ts` file in `src/environments/` with the following configuration:
+Create an `environment.ts` file in `src/environments/` with the appropriate configuration based on your backend choice:
 
 ```typescript
 export const environment = {
   production: false,
+  // For Node.js backend (default port 3000)
   apiUrl: 'http://localhost:3000/api',
+  
+  // For Java backend (default port 8080)
+  // apiUrl: 'http://localhost:8080/api',
+  
   defaultLanguage: 'en',
   availableLanguages: ['en', 'fr']
 };
