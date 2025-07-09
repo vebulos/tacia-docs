@@ -5,7 +5,7 @@
   "description": "Tacia Documentation Site",
   "scripts": {
     "start": "npm run dev",
-    "dev": "npx ng serve --open --port=4200",
+    "dev": "npx ng serve --host 0.0.0.0 --port=4200 --disable-host-check --proxy-config proxy.conf.json",
     "build": "npx ng build --configuration=production",
     "build:dev": "npx ng build --configuration=development",
     "watch": "npx ng build --watch --configuration=development",
@@ -48,7 +48,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/user-event": "^14.6.1",
     "@types/highlight.js": "^9.12.4",
-    "@types/node": "^20.19.1",
+    "@types/node": "^20.19.6",
     "@vitest/coverage-v8": "^3.2.4",
     "autoprefixer": "^10.4.21",
     "bun-types": "^1.2.18",
