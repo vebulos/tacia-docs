@@ -5,7 +5,7 @@
   "description": "Tacia Documentation Site",
   "scripts": {
     "start": "npm run dev",
-    "dev": "npx ng serve --host 0.0.0.0 --port=4200 --disable-host-check --proxy-config proxy.conf.json",
+    "dev": "npx ng serve --port=4200 --proxy-config proxy.conf.json",
     "build": "npx ng build --configuration=production",
     "build:dev": "npx ng build --configuration=development",
     "watch": "npx ng build --watch --configuration=development",
