@@ -32,16 +32,16 @@ This frontend can work with either of these backend implementations:
 
 1. **Node.js Backend** (Recommended for development)
    ```bash
-   git clone https://github.com/vebulos/tacia-docs-backend-js.git
-   cd ../backend-js
+   git clone https://github.com/vebulos/tacia-docs-backend-js.git backend-js
+   cd backend-js
    npm install
    npm run dev
    ```
 
 2. **Java Backend** (Recommended for production)
    ```bash
-   git clone https://github.com/vebulos/tacia-docs-backend-java.git
-   cd ../backend-java
+   git clone https://github.com/vebulos/tacia-docs-backend-java.git backend-java
+   cd backend-java
    mvn spring-boot:run
    ```
 
