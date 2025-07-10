@@ -168,8 +168,8 @@ export class ContentService {
     
     LOG.debug('Fetching content structure', { path });
     
-    // Use environment.apiUrl for the base URL
-    const url = `${environment.apiUrl}/content/${path || ''}`;
+    // Use environment.apiUrl for the base URL with the new structure endpoint
+    const url = `${environment.apiUrl}/structure/${path || ''}`;
     LOG.debug('Making API request', { 
       path,
       url: url.replace(/\?.*$/, '') // Remove query params from URL in logs
