@@ -32,10 +32,9 @@ export class FirstDocumentService {
     }
 
     // Create and cache the observable
-    const apiUrl = `${PathUtils.API_BASE_PATH}/first-document`;
-    const params = { directory: normalizedDir };
+    const apiUrl = `${PathUtils.API_BASE_PATH}/first-document/${normalizedDir}`;
     
-    this.cachedPaths[cacheKey] = this.http.get<FirstDocumentResponse>(apiUrl, { params }).pipe(
+    this.cachedPaths[cacheKey] = this.http.get<FirstDocumentResponse>(apiUrl).pipe(
       map(response => {
         if (response.path) {
           return PathUtils.removeFileExtension(response.path);
