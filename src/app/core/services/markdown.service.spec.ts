@@ -43,7 +43,7 @@ Some content`;
   it('should parse markdown with frontmattºer', async () => {
     // Mock the HTTP response
     const mockResponse = {
-      html: '<h1 id="heading-1">Heading 1</h1>\n<p>Some content</p>',
+      markdown: mockMarkdownWithFrontmatter,
       metadata: {
         title: 'Test Title',
         categories: ['test', 'docs']
@@ -73,7 +73,7 @@ Some content`;
   it('should handle markdown without frontmatter', async () => {
     // Mock the HTTP response without frontmatter
     const mockResponse = {
-      html: '<h1 id="heading-1">Heading 1</h1>\n<p>Some content</p>',
+      markdown: mockMarkdownWithoutFrontmatter,
       metadata: {},
       headings: [{ text: 'Heading 1', level: 1, id: 'heading-1' }],
       path: 'test/path',
@@ -251,11 +251,10 @@ Some content`;
     const calledUrl = httpGetSpy.mock.calls[0][0];
     expect(decodeURIComponent(calledUrl)).toContain('test/path.md');
     
-    // Just verify the URL contains the path and that the headers are correct
-    expect(httpGetSpy).toHaveBeenCalledWith(
-      expect.stringContaining('test%2Fpath.md'),
-      { headers: { 'Cache-Control': 'no-cache' } }
-    );
+    // Verify the URL structure and headers
+    const [url, options] = httpGetSpy.mock.calls[0];
+    expect(url).toContain('/api/content/test/path.md');
+    expect(options.headers['Cache-Control']).toBe('no-cache');
   });
 
   it('should preload markdown', async () => {
