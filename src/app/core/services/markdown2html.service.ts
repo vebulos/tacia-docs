@@ -2,7 +2,7 @@ import { Injectable, OnDestroy } from '@angular/core';
 import slugify from '@sindresorhus/slugify';
 import * as yaml from 'js-yaml';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { BehaviorSubject, ReplaySubject, Observable, lastValueFrom } from 'rxjs';
+import { BehaviorSubject, ReplaySubject, Observable, from, lastValueFrom } from 'rxjs';
 import { filter, take, shareReplay, takeUntil, map, catchError } from 'rxjs/operators';
 import { LOG } from './logging/bun-logger.service';
 
@@ -225,27 +225,35 @@ export class Markdown2HtmlService implements OnDestroy {
    * @param fileContent Markdown content to parse
    * @param filePath File path (optional)
    */
-  public async convertMarkdown(markdown: string, path?: string): Promise<MarkdownParseResult> {
-    try {
-      await this.isReadyForTest(); // Ensure initialization is complete
-      const { metadata, markdown: content } = this.extractFrontMatter(markdown);
-      const html = await this.markdownToHtml(content);
-      const headings = this.extractHeadings(html);
-      const finalHtml = this.injectHeadingIds(html, headings);
-      const safeHtml = this.sanitizer.bypassSecurityTrustHtml(finalHtml);
-      return {
-        html: safeHtml,
-        metadata,
-        headings,
-        rawContent: content,
-        path,
-        name: path?.split('/').pop() || 'document'
-      };
-    } catch (error) {
-      LOG.error('Error in convertMarkdown:', error);
-      throw error; // Re-throw the error to be caught by the caller
-    }
+  public parseMarkdown(markdown: string, path?: string): Observable<MarkdownParseResult> {
+    // Wrap the async logic in a promise and convert it to an observable
+    return from((async () => {
+      try {
+        await this.isReadyForTest(); // Ensure initialization is complete
+        const { metadata, markdown: content } = this.extractFrontMatter(markdown);
+        const html = await this.markdownToHtml(content);
+        const headings = this.extractHeadings(html);
+        const finalHtml = this.injectHeadingIds(html, headings);
+        const safeHtml = this.sanitizer.bypassSecurityTrustHtml(finalHtml);
+        return {
+          html: safeHtml,
+          metadata,
+          headings,
+          rawContent: content,
+          path,
+          name: path?.split('/').pop() || 'document'
+        };
+      } catch (error) {
+        LOG.error('Error in parseMarkdown:', error);
+        throw error; // Re-throw the error to be caught by the caller
+      }
+    })());
   }
+
+  // Alias for backward compatibility if needed, can be removed later
+  public convertMarkdown = (markdown: string, path?: string): Promise<MarkdownParseResult> => {
+    return lastValueFrom(this.parseMarkdown(markdown, path));
+  };
 
   /**
    * Sanitizes HTML content

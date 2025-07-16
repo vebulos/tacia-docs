@@ -157,14 +157,6 @@ export class MarkdownService implements OnDestroy {
   }
   
   /**
-   * Gets a cached markdown file or loads it if not in cache
-   * @deprecated Use getMarkdownFile directly
-   */
-  getCachedOrLoad(path: string): Observable<MarkdownApiResponse> {
-    return this.getMarkdownFile(path);
-  }
-  
-  /**
    * Preloads a markdown file into the cache
    * @param path Path to the markdown file to preload
    */

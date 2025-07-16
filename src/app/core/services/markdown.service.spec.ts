@@ -244,7 +244,7 @@ Some content`;
     
     httpGetSpy.mockReturnValue(of(mockResponse));
     
-    const result = await lastValueFrom(service.getCachedOrLoad(path));
+    const result = await lastValueFrom(service.getMarkdownFile(path));
     expect(result).toEqual(mockResponse);
     
     // Verify the URL contains the correct path, handling encoding
