@@ -127,7 +127,7 @@ Some content`;
     // Test cache clearing for a specific path
     const path = 'test/path';
     const mockResponse = {
-      html: '<h1>Test</h1>',
+      markdown: '# Test',
       metadata: {},
       headings: [],
       path: path,
@@ -159,7 +159,7 @@ Some content`;
     // This test specifically verifies HTTP behavior after clearing the cache
     const path = 'test/path';
     const mockResponse = {
-      html: '<h1>Test</h1>',
+      markdown: '# Test',
       metadata: {},
       headings: [],
       path: path,
@@ -235,7 +235,7 @@ Some content`;
   it('should use getCachedOrLoad to get markdown', async () => {
     const path = 'test/path';
     const mockResponse = {
-      html: '<h1>Test</h1>',
+      markdown: '# Test',
       metadata: {},
       headings: [],
       path: path,
@@ -260,7 +260,7 @@ Some content`;
   it('should preload markdown', async () => {
     const path = 'test/path';
     const mockResponse = {
-      html: '<h1>Test</h1>',
+      markdown: '# Test',
       metadata: {},
       headings: [],
       path: path,
@@ -280,7 +280,7 @@ Some content`;
   it('should get cache statistics', async () => {
     const path = 'test/path';
     const mockResponse = {
-      html: '<h1>Test</h1>',
+      markdown: '# Test',
       metadata: {},
       headings: [],
       path: path,
