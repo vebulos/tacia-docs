@@ -1,5 +1,4 @@
 import { HttpErrorResponse, HttpEvent, HttpHandlerFn, HttpRequest, HttpEventType, HttpResponse } from '@angular/common/http';
-import { inject } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 
 /**
