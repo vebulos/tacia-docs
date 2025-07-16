@@ -25,8 +25,111 @@ Modern (documentation) platform for any project, providing an intuitive interfac
 - Node.js 18+ and npm 9+
 - Angular CLI 19+
 - (For Java backend) Java 17+ and Maven 3.8+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/macOS) or Docker Engine (Linux)
 
-### Backend Options
+---
+
+### Backend Setup (Manual or for Local Development)
+
+You can use either backend implementation with this frontend:
+
+1. **Node.js Backend** (Recommended for development)
+   ```bash
+   git clone https://github.com/vebulos/tacia-docs-backend-js.git backend-js
+   cd backend-js
+   npm install
+   npm run dev
+   ```
+
+2. **Java Backend** (Recommended for production)
+   ```bash
+   git clone https://github.com/vebulos/tacia-docs-backend-java.git backend-java
+   cd backend-java
+   mvn spring-boot:run
+   ```
+
+---
+
+### 🐳 Dockerized Full Stack Setup
+
+For production or integrated testing, use Docker Compose for a fully containerized setup. You can choose between the Java or JavaScript backend, and dynamically mount your documentation content folder.
+
+#### 1. Prepare Your Content Directory
+
+Ensure your markdown documentation is organized in a folder (e.g. `../DATA/content`). Example structure:
+
+```
+content/
+  guides/
+    getting-started/
+      installation.md
+  api/
+    reference.md
+```
+
+#### 2. Start the Application
+
+From the `docker` directory, run:
+
+```sh
+./start-app.sh [js|java] <path_to_content_directory>
+```
+- `js` for the Node.js backend, `java` for the Java backend
+- `<path_to_content_directory>` is the path to your documentation root (absolute or relative)
+
+**Examples:**
+```sh
+./start-app.sh js ../DATA/content
+./start-app.sh java ../DATA/content
+```
+
+The script will:
+- Build all Docker images (frontend, backend, testpoint)
+- Mount your content directory into the backend container
+- Dynamically set up environment variables for backend selection
+- Wait for the backend to be ready (health check)
+- (Optional) You can add integration tests or frontend tests in the script
+
+#### 3. Access the App
+
+- Frontend: [http://localhost](http://localhost)
+- API: [http://localhost/api/](http://localhost/api/)
+
+#### 4. Stopping and Cleaning Up
+
+To stop and remove all containers, networks, and volumes:
+```sh
+./clean-docker.sh
+```
+
+---
+
+### ⚙️ Environment Variables
+
+- `BACKEND_SERVICE`: (set automatically) Chooses between `backend-js` and `backend-java`
+- `CONTENT_DIR_HOST`: (set automatically) Path to your content directory (auto-converted for Windows/Cygwin)
+
+---
+
+### 🛠️ Frontend Installation (Manual/Development)
+
+You can still run the frontend locally for development:
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/vebulos/tacia-docs.git
+   cd tacia-docs
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Run the development server:
+   ```bash
+   npm start
+   ```
+
+See the backend instructions above for running a backend locally.
 
 This frontend can work with either of these backend implementations:
 
