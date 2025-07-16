@@ -1,8 +1,9 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import slugify from '@sindresorhus/slugify';
+import * as yaml from 'js-yaml';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { BehaviorSubject, Observable, of, from, ReplaySubject } from 'rxjs';
-import { map, catchError, takeUntil, shareReplay } from 'rxjs/operators';
+import { BehaviorSubject, ReplaySubject, Observable, lastValueFrom } from 'rxjs';
+import { filter, take, shareReplay, takeUntil, map, catchError } from 'rxjs/operators';
 import { LOG } from './logging/bun-logger.service';
 
 // Type declarations for external libraries
@@ -103,10 +104,14 @@ export class Markdown2HtmlService implements OnDestroy {
    * Checks if the service is ready to be used
    */
   public isReady(): Observable<boolean> {
-    return this.initializationSubject.asObservable().pipe(
-      takeUntil(this.destroy$),
-      shareReplay(1)
-    );
+    return this.initializationSubject.asObservable().pipe(filter((isReady: boolean) => isReady));
+  }
+
+  /**
+   * A test-only method to await initialization.
+   */
+  public isReadyForTest(): Promise<boolean> {
+    return lastValueFrom(this.isReady().pipe(take(1)));
   }
 
   /**
@@ -114,34 +119,20 @@ export class Markdown2HtmlService implements OnDestroy {
    * @param content Raw Markdown content
    */
   private extractFrontMatter(content: string): { metadata: Record<string, any>, markdown: string } {
-    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
-    
-    if (!frontMatterMatch) {
-      return { metadata: {}, markdown: content };
-    }
-
-    const yamlContent = frontMatterMatch[1];
-    const markdown = frontMatterMatch[2];
-    const metadata: Record<string, any> = {};
-
-    yamlContent.split('\n').forEach(line => {
-      if (line.includes(':')) {
-        const [key, ...valueParts] = line.split(':');
-        const value = valueParts.join(':').trim();
-        
-        // Handle arrays
-        if (value.startsWith('[') && value.endsWith(']')) {
-          metadata[key.trim()] = value
-            .slice(1, -1)
-            .split(',')
-            .map((item: string) => item.trim().replace(/^['"]|['"]$/g, ''));
-        } else {
-          metadata[key.trim()] = value.replace(/^['"]|['"]$/g, '');
-        }
+    const match = content.match(/^---\r?\n([\s\S]+?)\r?\n---\r?\n/);
+    if (match) {
+      const frontMatter = match[1];
+      try {
+        const metadata = yaml.load(frontMatter) as Record<string, any> || {};
+        const markdown = content.substring(match[0].length);
+        return { metadata, markdown };
+      } catch (e) {
+        LOG.error('Error parsing front matter:', e);
+        // Return content as-is if front matter parsing fails
+        return { metadata: {}, markdown: content };
       }
-    });
-
-    return { metadata, markdown };
+    }
+    return { metadata: {}, markdown: content };
   }
 
   /**
@@ -234,58 +225,25 @@ export class Markdown2HtmlService implements OnDestroy {
    * @param fileContent Markdown content to parse
    * @param filePath File path (optional)
    */
-  public parseMarkdown(fileContent: string, filePath?: string): Observable<MarkdownParseResult> {
-    return new Observable<MarkdownParseResult>(subscriber => {
-      const process = async () => {
-        try {
-          const result = await this.processMarkdown(fileContent, filePath);
-          subscriber.next(result);
-          subscriber.complete();
-        } catch (error) {
-          subscriber.error(error);
-        }
-      };
-
-      if (!this.isInitialized) {
-        this.isReady().subscribe({
-          next: () => process(),
-          error: (err) => subscriber.error(err)
-        });
-      } else {
-        process();
-      }
-    }).pipe(
-      takeUntil(this.destroy$),
-      shareReplay(1)
-    );
-  }
-
-  private async processMarkdown(fileContent: string, filePath?: string): Promise<MarkdownParseResult> {
+  public async convertMarkdown(markdown: string, path?: string): Promise<MarkdownParseResult> {
     try {
-      const { metadata, markdown: content } = this.extractFrontMatter(fileContent);
+      await this.isReadyForTest(); // Ensure initialization is complete
+      const { metadata, markdown: content } = this.extractFrontMatter(markdown);
       const html = await this.markdownToHtml(content);
       const headings = this.extractHeadings(html);
-      const htmlWithIds = this.injectHeadingIds(html, headings);
-      const sanitizedHtml = this.sanitizer.bypassSecurityTrustHtml(htmlWithIds);
-      
+      const finalHtml = this.injectHeadingIds(html, headings);
+      const safeHtml = this.sanitizer.bypassSecurityTrustHtml(finalHtml);
       return {
-        html: sanitizedHtml,
+        html: safeHtml,
         metadata,
         headings,
         rawContent: content,
-        path: filePath,
-        name: filePath ? filePath.split('/').pop() || '' : ''
+        path,
+        name: path?.split('/').pop() || 'document'
       };
     } catch (error) {
-      LOG.error('Error processing markdown', error);
-      return {
-        html: this.sanitizer.bypassSecurityTrustHtml(`<pre>${fileContent}</pre>`),
-        metadata: {},
-        headings: [],
-        rawContent: fileContent,
-        path: filePath,
-        name: filePath ? filePath.split('/').pop() || '' : ''
-      };
+      LOG.error('Error in convertMarkdown:', error);
+      throw error; // Re-throw the error to be caught by the caller
     }
   }
 
