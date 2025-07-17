@@ -20,20 +20,19 @@ export class ThemeService {
     // Apply the theme immediately
     this.loadTheme(savedTheme, true);
     
-    // Listen for changes to apply them immediately
-    this.currentTheme$.subscribe(theme => {
-      if (theme !== this.currentThemeValue) {
-        this.loadTheme(theme, false);
-      }
-    });
+
   }
 
   public get currentThemeValue(): Theme {
     return this.currentThemeSubject.value;
   }
 
-  public loadTheme(theme: Theme, initialLoad: boolean = false): void {
-    if (theme === this.currentThemeValue && !initialLoad) return;
+  public loadTheme(theme: Theme, initialLoad: boolean = false): Promise<void> {
+    return new Promise((resolve, reject) => {
+    if (theme === this.currentThemeValue && !initialLoad) {
+      resolve();
+      return;
+    }
 
     // Remove existing theme link if it exists
     if (this.themeLink && this.themeLink.parentNode) {
@@ -49,25 +48,23 @@ export class ThemeService {
     
     link.onload = () => {
       this.themeLink = link;
-      if (!initialLoad) {
-        this.currentThemeSubject.next(theme);
-      }
+      this.currentThemeSubject.next(theme);
       localStorage.setItem('markdown-theme', theme);
+      resolve();
     };
     
     link.onerror = () => {
       console.error(`Failed to load theme: ${theme}`);
-      if (!initialLoad) {
-        this.currentThemeSubject.next(theme);
-      }
-      localStorage.setItem('markdown-theme', theme);
+      // Do not update theme on failure, the old theme remains active.
+      reject(new Error(`Failed to load theme: ${theme}`));
     };
     
     document.head.appendChild(link);
+    });
   }
 
-  public toggleTheme(): void {
+  public toggleTheme(): Promise<void> {
     const newTheme = this.currentThemeValue === 'default' ? 'leger' : 'default';
-    this.loadTheme(newTheme);
+    return this.loadTheme(newTheme);
   }
 }
