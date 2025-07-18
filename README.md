@@ -22,35 +22,42 @@ Modern (documentation) platform for any project, providing an intuitive interfac
 
 ### Prerequisites
 
-- Node.js 18+ and npm 9+
-- Angular CLI 19+
-- (For Java backend) Java 17+ and Maven 3.8+
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/macOS) or Docker Engine (Linux)
+- (For development) Node.js 18+, npm 9+, Angular CLI 19+
+- (For Java backend development) Java 17+, Maven 3.8+
 
----
+### Quick Start with Docker (Recommended)
 
-### Backend Setup (Manual or for Local Development)
-
-You can use either backend implementation with this frontend:
-
-1. **Node.js Backend** (Recommended for development)
+1. **Clone the backend** (choose one):
    ```bash
+   # For development (Node.js backend)
    git clone https://github.com/vebulos/tacia-docs-backend-js.git backend-js
-   cd backend-js
-   npm install
-   npm run dev
-   ```
-
-2. **Java Backend** (Recommended for production)
-   ```bash
+   
+   # OR for production (Java backend)
    git clone https://github.com/vebulos/tacia-docs-backend-java.git backend-java
-   cd backend-java
-   mvn spring-boot:run
    ```
 
----
+2. **Clone the frontend**:
+   ```bash
+   git clone https://github.com/vebulos/tacia-docs.git frontend
+   ```
 
-### 🐳 Dockerized Full Stack Setup
+3. **Clone the docker setup**:
+   ```bash
+   git clone https://github.com/vebulos/tacia-docs-docker.git docker
+   ```
+
+4. **Start the application**:
+   ```bash
+   cd docker
+   ./start-app.sh [js|java] <path_to_content_directory>
+   ```
+   - Use `js` for Node.js backend or `java` for Java backend
+   - Example: `./start-app.sh js ../DATA/content`
+
+5. Access the application at [http://localhost](http://localhost)
+
+### Manual Development Setup
 
 For production or integrated testing, use Docker Compose for a fully containerized setup. You can choose between the Java or JavaScript backend, and dynamically mount your documentation content folder.
 
@@ -111,62 +118,47 @@ To stop and remove all containers, networks, and volumes:
 
 ---
 
-### 🛠️ Frontend Installation (Manual/Development)
+### Manual Development Setup
 
-You can still run the frontend locally for development:
+#### 1. Backend Setup
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/vebulos/tacia-docs.git
-   cd tacia-docs
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Run the development server:
-   ```bash
-   npm start
-   ```
+Choose one backend implementation:
 
-See the backend instructions above for running a backend locally.
+**Node.js Backend** (Recommended for development):
+```bash
+git clone https://github.com/vebulos/tacia-docs-backend-js.git backend-js
+cd backend-js
+npm install
+npm run dev
+```
 
-This frontend can work with either of these backend implementations:
+**Java Backend** (Recommended for production):
+```bash
+git clone https://github.com/vebulos/tacia-docs-backend-java.git backend-java
+cd backend-java
+mvn spring-boot:run
+```
 
-1. **Node.js Backend** (Recommended for development)
-   ```bash
-   git clone https://github.com/vebulos/tacia-docs-backend-js.git backend-js
-   cd backend-js
-   npm install
-   npm run dev
-   ```
+#### 2. Frontend Setup
 
-2. **Java Backend** (Recommended for production)
-   ```bash
-   git clone https://github.com/vebulos/tacia-docs-backend-java.git backend-java
-   cd backend-java
-   mvn spring-boot:run
-   ```
-
-### Frontend Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/vebulos/tacia-docs.git
-   cd tacia-docs
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the development server:
-   ```bash
-   ng serve
-   ```
+```bash
+git clone https://github.com/vebulos/tacia-docs.git frontend
+cd frontend
+npm install
+npm start  # or 'npm run dev'
+```
 
 The application will be available at `http://localhost:4200/`
+
+#### 3. Docker Setup (Optional for Development)
+
+For a containerized development environment:
+
+```bash
+git clone https://github.com/vebulos/tacia-docs-docker.git docker
+cd docker
+./start-app.sh [js|java] <path_to_content_directory>
+```
 
 ## 🛠 Development
 
@@ -212,11 +204,18 @@ frontend/
 │   │   └── app.component.* # Root component
 │   ├── assets/             # Static assets
 │   └── environments/       # Environment configurations
-├── scripts/               # Utility scripts
-└── server/                # Development server
+└── scripts/               # Utility scripts
+
 ```
 
-## 🚀 Deployment
+## 🚀 Deployment (Docker recommended)
+
+### Docker Deployment
+
+```bash
+docker build -t tacia-docs-frontend .
+docker run -p 80:80 tacia-docs-frontend
+```
 
 ### Production Build
 
@@ -226,13 +225,6 @@ frontend/
    ng build --configuration production
    ```
 3. Production files will be available in the `dist/` directory
-
-### Docker Deployment
-
-```bash
-docker build -t tacia-docs-frontend .
-docker run -p 80:80 tacia-docs-frontend
-```
 
 ## 🤝 Contributing
 
