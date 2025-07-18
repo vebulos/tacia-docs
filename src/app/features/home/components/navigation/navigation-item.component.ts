@@ -67,7 +67,9 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
   
   private closeTimer: any = null;
 
-  ngOnInit(): void {
+    ngOnInit(): void {
+    if (!this.item) return;
+
     // Load children for initially open item
     if (this.item.isOpen && !this.item.childrenLoaded && !this.item.isLoading) {
       this.loadChildren();
