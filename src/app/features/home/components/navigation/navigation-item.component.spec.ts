@@ -216,6 +216,51 @@ describe('NavigationItemComponent', () => {
     expect(navItem).toBeTruthy();
   });
 
+  describe('getNavigationLink with spaces', () => {
+    it('should create a correct link for a path with spaces', () => {
+      const item: NavigationItem = {
+        name: 'file with space.md',
+        path: 'folder with space/file with space.md',
+        parentPath: 'folder with space',
+        isDirectory: false,
+        children: [],
+        childrenLoaded: false,
+        isLoading: false,
+        hasError: false
+      };
+
+      host.item = item;
+      fixture.detectChanges();
+      const navItemInstance = fixture.debugElement.query(By.directive(NavigationItemComponent)).componentInstance;
+      const result = navItemInstance.getNavigationLink(item);
+
+      const expectedLink = ['/', 'folder with space', 'file with space'];
+      expect(result.link).toEqual(expectedLink);
+    });
+
+    it('should not duplicate path segments when parentPath is present', () => {
+      const item: NavigationItem = {
+        name: 'file.md',
+        path: 'folder with space/file.md',
+        parentPath: 'folder with space',
+        isDirectory: false,
+        children: [],
+        childrenLoaded: false,
+        isLoading: false,
+        hasError: false
+      };
+
+      host.item = item;
+      fixture.detectChanges();
+      const navItemInstance = fixture.debugElement.query(By.directive(NavigationItemComponent)).componentInstance;
+      const result = navItemInstance.getNavigationLink(item);
+
+      const expectedLink = ['/', 'folder with space', 'file'];
+      expect(result.link).toEqual(expectedLink);
+      expect(result.state.path).toBe('folder with space/file.md');
+    });
+  });
+
   it('should show nested children recursively', () => {
     // Mock the getContent method to return an empty array
     vi.spyOn(contentService, 'getContent').mockReturnValue(of([]));
