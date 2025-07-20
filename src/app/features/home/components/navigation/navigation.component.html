@@ -36,7 +36,7 @@
   <div *ngIf="!loading && !error" class="flex-1 overflow-y-auto">
     <div class="space-y-1 px-2">
       <app-navigation-item 
-        *ngFor="let item of contentStructure; trackBy: trackByFn"
+        *ngFor="let item of items; trackBy: trackByFn"
         [item]="item"
         [level]="0"
         [activePath]="activePath"
@@ -45,7 +45,7 @@
     </div>
     
     <!-- Empty State -->
-    <div *ngIf="contentStructure.length === 0" class="p-8 text-center text-gray-500 dark:text-gray-400">
+    <div *ngIf="items.length === 0" class="p-8 text-center text-gray-500 dark:text-gray-400">
       <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.3 24.3 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591l4.091 4.101a2.25 2.25 0 01-.659 1.591v.003a2.25 2.25 0 01-1.5.655H5.25a2.25 2.25 0 01-1.5-.655v-.003a2.25 2.25 0 01-.659-1.591L3 10.5m14.25-7.5v5.714a2.25 2.25 0 01-.659 1.591L15 12.5M3 10.5h18m-9.75 7.5h.008v.008H11.25v-.008z" />
       </svg>

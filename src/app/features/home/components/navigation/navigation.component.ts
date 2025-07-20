@@ -23,7 +23,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private hoverTimers = new Map<string, any>();
   private currentPath: string = '';
   
-  contentStructure: NavigationItem[] = [];
+  public items: NavigationItem[] = [];
   loading = true;
   error: string | null = null;
   activePath = '';
@@ -239,7 +239,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     
     this.getRootContentItems(skipCache, directory).subscribe({
       next: (items) => {
-        this.contentStructure = items;
+        this.items = items;
         this.loading = false;
         this.updateActiveStates();
         LOG.debug('Directory content loaded successfully', {
@@ -486,7 +486,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       ? PathUtils.normalizePath(url.substring(homeBase.length + 1))
       : '';
       
-    this.setActiveStates(this.contentStructure, this.activePath);
+    this.setActiveStates(this.items, this.activePath);
   }
 
   private setActiveStates(items: NavigationItem[], currentPath: string): boolean {

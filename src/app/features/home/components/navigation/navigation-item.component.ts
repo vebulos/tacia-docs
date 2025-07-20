@@ -17,6 +17,7 @@ export interface NavigationItem extends ContentItem {
   childrenLoaded?: boolean;
   children?: NavigationItem[];
   parentPath?: string; // Parent directory path for relative paths
+  isActive?: boolean;
 }
 
 @Component({
