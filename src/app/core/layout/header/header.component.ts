@@ -157,19 +157,19 @@ export class HeaderComponent implements OnInit, OnDestroy {
       this.contentService.getContent('', true).subscribe({
         next: (items) => {
           if (items && Array.isArray(items)) {
-            this.mainNavItems = items
-              .filter((item: ContentItem) => item.isDirectory)
-              .map((item: ContentItem) => {
-                const sectionPath = item.path || `/${item.name}`;
-                return {
-                  ...item,
-                  title: (item as any).title || item.name,
-                  sectionPath: sectionPath,
-                  firstDocPath: sectionPath, // Default to section path, will be updated
-                };
-              });
+            this.mainNavItems = items.map((item: ContentItem) => {
+              const sectionPath = item.path || `/${item.name}`;
+              return {
+                ...item,
+                title: (item as any).title || item.name,
+                sectionPath: sectionPath,
+                firstDocPath: item.isDirectory ? sectionPath : sectionPath, // For files, the path is the file itself
+              };
+            });
             
-            this.preloadFirstDocuments(this.mainNavItems);
+            // Only preload first documents for directories
+            const directories = this.mainNavItems.filter(item => item.isDirectory);
+            this.preloadFirstDocuments(directories);
           }
         },
         error: (error) => {
@@ -194,11 +194,19 @@ export class HeaderComponent implements OnInit, OnDestroy {
     });
   }
 
-  // Navigate to the first document of a section, used to override default routerLink behavior
-  navigateToFirstDoc(item: { firstDocPath: string }, event: Event): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.router.navigateByUrl(item.firstDocPath);
+  /**
+   * Navigate to the first document of a section
+   * Only called for directory items to override default routerLink behavior
+   * @param item The navigation item
+   * @param event The click event
+   */
+  navigateToFirstDoc(item: { firstDocPath: string; isDirectory?: boolean }, event: Event): void {
+    // Only prevent default for directories to allow normal navigation for files
+    if (item.isDirectory) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.router.navigateByUrl(item.firstDocPath);
+    }
   }
 
   private checkDarkMode(): void {

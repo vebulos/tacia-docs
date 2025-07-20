@@ -13,9 +13,9 @@
           <a
             *ngFor="let item of mainNavItems"
             [routerLink]="item.sectionPath"
-            (click)="navigateToFirstDoc(item, $event)"
+            (click)="item.isDirectory ? navigateToFirstDoc(item, $event) : null"
             routerLinkActive="header-link-active"
-            [routerLinkActiveOptions]="{ exact: false }"
+            [routerLinkActiveOptions]="{ exact: !item.isDirectory }"
             class="cursor-pointer text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white font-medium transition-colors duration-200"
           >
             {{ item.title || item.name }}
