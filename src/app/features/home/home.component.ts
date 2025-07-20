@@ -1,8 +1,8 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterOutlet, RouterModule, ActivatedRoute } from '@angular/router';
+import { Router, RouterOutlet, RouterModule, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { Subject, Observable } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { takeUntil, filter } from 'rxjs/operators';
 import { NavigationComponent } from './components/navigation/navigation.component';
 import { HeadingsService } from '@app/core/services/headings.service';
 
@@ -32,6 +32,7 @@ export class HomeComponent implements OnInit, OnDestroy {
   public headings$: Observable<Heading[]>;
   public relatedDocuments: RelatedDocument[] = [];
   public currentPath: string = '';
+  public hasNavigationItems: boolean = true;
   
   private destroy$ = new Subject<void>();
 
@@ -52,6 +53,22 @@ export class HomeComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$)
     ).subscribe((params) => {
       this.currentPath = params.get('path') || '';
+    });
+    
+    // Listen for router navigation events to update sidebar visibility
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd),
+      takeUntil(this.destroy$)
+    ).subscribe((event: NavigationEnd) => {
+      // When navigating to a directory, ensure sidebar is visible
+      const url = event.urlAfterRedirects || event.url;
+      const path = url.startsWith('/') ? url.substring(1) : url;
+      
+      // If we're navigating to a directory path (no file extension), show the sidebar
+      // Also show for root path or empty path
+      if (!path || (path && !path.match(/\.[a-zA-Z0-9]+$/))) {
+        this.hasNavigationItems = true;
+      }
     });
   }
 
@@ -81,6 +98,11 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.relatedDocuments = Array.isArray(docs) ? docs : [];
       });
     }
+  }
+
+  // Handle navigation items change event
+  onNavigationItemsChange(items: any[]): void {
+    this.hasNavigationItems = items && items.length > 0;
   }
 
   ngOnDestroy(): void {

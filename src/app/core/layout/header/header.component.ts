@@ -158,12 +158,18 @@ export class HeaderComponent implements OnInit, OnDestroy {
         next: (items) => {
           if (items && Array.isArray(items)) {
             this.mainNavItems = items.map((item: ContentItem) => {
-              const sectionPath = item.path || `/${item.name}`;
+              let sectionPath = item.path || `/${item.name}`;
+              
+              // Remove .md extension from file paths for routing
+              if (!item.isDirectory && sectionPath.endsWith('.md')) {
+                sectionPath = sectionPath.replace(/\.md$/, '');
+              }
+              
               return {
                 ...item,
                 title: (item as any).title || item.name,
                 sectionPath: sectionPath,
-                firstDocPath: item.isDirectory ? sectionPath : sectionPath, // For files, the path is the file itself
+                firstDocPath: item.isDirectory ? sectionPath : sectionPath,
               };
             });
             

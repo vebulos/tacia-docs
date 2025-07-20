@@ -1,9 +1,9 @@
-<div class="home-container">
+<div class="home-container" [class.no-left-sidebar]="!hasNavigationItems">
   <!-- Left Sidebar -->
-  <div class="sidebar left-sidebar">
+  <div class="sidebar left-sidebar" *ngIf="hasNavigationItems">
     <div class="p-4">
       <!-- Navigation Component -->
-      <app-navigation></app-navigation>
+      <app-navigation (itemsChange)="onNavigationItemsChange($event)"></app-navigation>
     </div>
   </div>
   

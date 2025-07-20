@@ -13,6 +13,15 @@
   right: 50%;
   margin-left: -50vw;
   margin-right: -50vw;
+  transition: grid-template-columns 0.15s ease;
+}
+
+.home-container.no-left-sidebar {
+  grid-template-columns: 0 1fr 20rem;
+}
+
+.home-container.no-left-sidebar .left-sidebar {
+  display: none;
 }
 
 /* Sidebar styles */

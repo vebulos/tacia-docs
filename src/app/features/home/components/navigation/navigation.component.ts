@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { Observable, of, Subject } from 'rxjs';
@@ -19,6 +19,7 @@ import { LOG } from '@app/core/services/logging/bun-logger.service';
   styleUrls: ['./navigation.component.css']
 })
 export class NavigationComponent implements OnInit, OnDestroy {
+  @Output() itemsChange = new EventEmitter<any[]>();
   private destroy$ = new Subject<void>();
   private hoverTimers = new Map<string, any>();
   private currentPath: string = '';
@@ -123,14 +124,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Extract the first segment of the path for the parent directory
+    // For directory paths, load the content of that directory
+    // For file paths, load the content of the parent directory
     const segments = path.split('/');
-    const parentPath = segments[0];
     
-    if (parentPath) {
-      this.loadRootContent(true, parentPath);
+    // If it's a single segment (root level), load that directory's content
+    if (segments.length === 1) {
+      this.loadRootContent(true, path);
     } else {
-      this.loadRootContent();
+      // For nested paths, load the parent directory content
+      const parentPath = segments[0];
+      this.loadRootContent(true, parentPath);
     }
   }
 
@@ -239,9 +243,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     
     this.getRootContentItems(skipCache, directory).subscribe({
       next: (items) => {
-        this.items = items;
-        this.loading = false;
-        this.updateActiveStates();
+        this.updateItems(items);
         LOG.debug('Directory content loaded successfully', {
           directory: directory || 'root',
           itemCount: items?.length || 0
@@ -255,6 +257,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
         });
         this.handleChildLoadError({ path: directory } as NavigationItem, 'Failed to load content structure.');
         this.loading = false;
+        // Emit empty items on error to update sidebar visibility
+        this.itemsChange.emit([]);
       }
     });
   }
@@ -489,6 +493,16 @@ export class NavigationComponent implements OnInit, OnDestroy {
         item.isOpen = !item.isOpen;
       }
     }
+      
+    this.setActiveStates(this.items, this.activePath);
+  }
+
+  private updateItems(newItems: NavigationItem[]): void {
+    this.items = newItems;
+    this.loading = false;
+    // Always emit items change, even if empty
+    this.itemsChange.emit(newItems || []);
+    this.updateActiveStates();
   }
 
   /**
