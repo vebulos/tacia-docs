@@ -258,62 +258,184 @@ export class ContentService {
    * @param parentPath Parent path for building full paths
    * @returns Array of transformed ContentItem objects
    */
-  private transformStructure(items: any[], parentPath: string = ''): ContentItem[] {
-    LOG.debug('Transforming items:', { items, parentPath });
+  private transformStructure(items: any[], parentPath: string = '', depth: number = 0, callId: string = Math.random().toString(36).substring(2, 8)): ContentItem[] {
+    LOG.info('[transformStructure] CALLED', { parentPath, itemCount: items?.length, depth, callId });
+    const logPrefix = `[${callId}]`.padEnd(8);
+    
+    LOG.debug(`${logPrefix} [Depth:${depth}] Starting transformStructure`, { 
+      itemCount: items?.length || 0,
+      parentPath: parentPath || '(root)',
+      callId,
+      depth
+    });
+    
     if (!items) {
-      LOG.error('[ContentService] transformStructure called with null/undefined items');
+      LOG.error(`${logPrefix} transformStructure called with null/undefined items`);
       return [];
     }
+    
     if (!Array.isArray(items)) {
-      LOG.error('[ContentService] transformStructure called with non-array items:', items);
+      LOG.error(`${logPrefix} transformStructure called with non-array items:`, { 
+        type: typeof items,
+        value: items 
+      });
       return [];
     }
 
-    const transformedItems = items.map(item => {
+    const transformedItems = items.map((item, index) => {
       const isDirectory = item.isDirectory ?? false;
       let path = item.path || item.name;
+      const itemId = `${callId}-${index}`;
       
+      LOG.debug(`${logPrefix} [${itemId}] Processing item`, {
+        name: item.name,
+        originalPath: item.path,
+        itemType: isDirectory ? 'directory' : 'file',
+        parentPath: parentPath || '(root)',
+        itemId,
+        hasChildren: !!item.children?.length
+      });
+
+      // Robust path prefix check (decode and compare by segments)
+      const decode = (p: string) => decodeURIComponent(p || '');
+      const parentPathDecoded = decode(parentPath);
+      const pathDecoded = decode(path);
+      const parentSegments = parentPathDecoded.split('/').filter(Boolean);
+      const pathSegments = pathDecoded.split('/').filter(Boolean);
+      const pathHasParentPrefix = parentSegments.length > 0 && parentSegments.every((seg, i) => seg === pathSegments[i]);
+      const needsPathConcatenation = parentPath && !pathHasParentPrefix;
+      
+      LOG.debug(`${logPrefix} [${itemId}] Path analysis`, {
+        path,
+        parentPath: parentPath || '(none)',
+        parentPathDecoded,
+        pathDecoded,
+        parentSegments,
+        pathSegments,
+        pathHasParentPrefix,
+        needsPathConcatenation,
+        pathLength: path.length,
+        parentPathLength: parentPath.length
+      });
+
       // Construct full path with proper formatting
-      const fullPath = parentPath && !path.startsWith(parentPath) 
-        ? `${parentPath}/${path}`.replace(/\/+/g, '/')
+      const fullPath = needsPathConcatenation 
+        ? `${parentPath}/${path}`.replace(/\/+/g, '/') 
         : path;
+      
+      LOG.debug(`${logPrefix} [${itemId}] Path construction result`, {
+        originalPath: path,
+        fullPath,
+        pathChanged: path !== fullPath,
+        fullPathParts: fullPath.split('/'),
+        parentPathParts: parentPath ? parentPath.split('/') : []
+      });
+
+      // Process children recursively if they exist
+      let processedChildren: ContentItem[] | undefined;
+      if (item.children) {
+        LOG.debug(`${logPrefix} [${itemId}] Processing children`, {
+          childCount: item.children.length,
+          fullPath
+        });
+        
+        processedChildren = this.transformStructure(
+          item.children, 
+          fullPath, 
+          depth + 1, 
+          `${callId}-${index}`
+        );
+        
+        LOG.debug(`${logPrefix} [${itemId}] Processed children`, {
+          childCount: processedChildren.length,
+          fullPath
+        });
+      }
 
       // Create the item with all properties
       const transformedItem: ContentItem = {
         name: item.name,
-        path: fullPath, // Complete path including parent and file extension
+        path: fullPath,
         isDirectory: isDirectory,
-        children: item.children ? this.transformStructure(item.children, fullPath) : undefined,
+        children: processedChildren,
         metadata: item.metadata || {}
       };
 
       // If we have a title in metadata, use it as the display name
       if (item.metadata?.title) {
+        const oldName = transformedItem.name;
         transformedItem.name = item.metadata.title;
+        LOG.debug(`${logPrefix} [${itemId}] Using title from metadata`, {
+          oldName,
+          newName: transformedItem.name
+        });
       } else if (!isDirectory) {
         // For files without a title, generate a nice display name from the filename
-        // Extract the base name from the path (handles both / and \ separators)
         const pathParts = fullPath.split(/[\\/]/);
         let baseName = pathParts[pathParts.length - 1];
         
-        // Remove extension which supposed to be available
+        // Remove extension which is supposed to be available
+        const oldBaseName = baseName;
         baseName = PathUtils.removeFileExtension(baseName);
       
-        transformedItem.name = baseName
+        const formattedName = baseName
           .replace(/[-_]/g, ' ') // Replace underscores and hyphens with spaces
           .replace(/\b\w/g, (l: string) => l.toUpperCase()); // Capitalize first letter of each word
+        
+        LOG.debug(`${logPrefix} [${itemId}] Generated display name`, {
+          original: oldBaseName,
+          withoutExtension: baseName,
+          formatted: formattedName
+        });
+        
+        transformedItem.name = formattedName;
       }
       
       return transformedItem;
     });
 
-    LOG.debug('Processed items', {
+    // Log summary of processed items
+    const summary = {
       path: parentPath || '/',
       itemCount: transformedItems.length,
-      hasDirectories: transformedItems.some(item => item.isDirectory),
-      hasFiles: transformedItems.some(item => !item.isDirectory)
-    });
+      directoryCount: transformedItems.filter(item => item.isDirectory).length,
+      fileCount: transformedItems.filter(item => !item.isDirectory).length,
+      allPaths: transformedItems.map(item => item.path),
+      callId,
+      depth
+    };
     
+    // Only log full details for small sets or in development
+    if (transformedItems.length <= 5 || !environment.production) {
+      LOG.debug(`${logPrefix} [Depth:${depth}] Processed items (detailed)`, summary);
+    } else {
+      LOG.debug(`${logPrefix} [Depth:${depth}] Processed items`, {
+        ...summary,
+        allPaths: '[truncated]',
+        _message: `Processed ${transformedItems.length} items (${summary.directoryCount} directories, ${summary.fileCount} files)`
+      });
+    }
+    
+    // Log potential path duplication issues
+    const pathCounts = transformedItems.reduce((acc, item) => {
+      acc[item.path] = (acc[item.path] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    const duplicatePaths = Object.entries(pathCounts)
+      .filter(([_, count]) => count > 1)
+      .map(([path]) => path);
+      
+    if (duplicatePaths.length > 0) {
+      LOG.warn(`${logPrefix} [Depth:${depth}] Found duplicate paths in results`, {
+        duplicatePaths,
+        callId,
+        depth,
+        parentPath
+      });
+    }
+    
+    LOG.info('[transformStructure] RETURN', { parentPath, itemCount: transformedItems.length, depth, callId });
     return transformedItems;
   }
 

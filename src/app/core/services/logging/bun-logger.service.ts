@@ -93,6 +93,7 @@ const writeToFile = async (level: 'debug' | 'info' | 'warn' | 'error', message: 
   providedIn: 'root'
 })
 export class BunLoggerService {
+  private logLevel: 'debug' | 'info' | 'warn' | 'error' = 'debug'; // Default to debug in development
   constructor() {
     // Ensure log directory exists
     if (!isBrowser && typeof Bun !== 'undefined') {
@@ -106,27 +107,52 @@ export class BunLoggerService {
   }
 
   // Public logging methods
+  private shouldLog(level: 'debug' | 'info' | 'warn' | 'error'): boolean {
+    const levels = { debug: 0, info: 1, warn: 2, error: 3 };
+    return levels[this.logLevel] <= levels[level];
+  }
+
   debug(message: string, context?: any): void {
-    const isDev = !isBrowser && 
-      (typeof process !== 'undefined' && 
-       process.env && 
-       process.env['NODE_ENV'] !== 'production');
-    
-    if (typeof Bun !== 'undefined' || isDev) {
-      writeToFile('debug', message, context);
+    if (!this.shouldLog('debug')) return;
+    const logEntry = formatLog('debug', message, context);
+    // Always show debug logs in browser
+    if (isBrowser) {
+      // Use console.debug for debug level
+      console.debug(logEntry);
+    } else {
+      // Node/Bun: write to file and also log to console
+      console.debug(logEntry);
+      if (typeof Bun !== 'undefined') {
+        writeToFile('debug', message, context).catch(console.error);
+      }
     }
   }
 
   info(message: string, context?: any): void {
-    writeToFile('info', message, context);
+    if (!this.shouldLog('info')) return;
+    const logEntry = formatLog('info', message, context);
+    console.log(logEntry);
+    if (!isBrowser) {
+      writeToFile('info', message, context).catch(console.error);
+    }
   }
 
   warn(message: string, context?: any): void {
-    writeToFile('warn', message, context);
+    if (!this.shouldLog('warn')) return;
+    const logEntry = formatLog('warn', message, context);
+    console.warn(logEntry);
+    if (!isBrowser) {
+      writeToFile('warn', message, context).catch(console.error);
+    }
   }
 
   error(message: string, context?: any): void {
-    writeToFile('error', message, context);
+    if (!this.shouldLog('error')) return;
+    const logEntry = formatLog('error', message, context);
+    console.error(logEntry);
+    if (!isBrowser) {
+      writeToFile('error', message, context).catch(console.error);
+    }
   }
 }
 

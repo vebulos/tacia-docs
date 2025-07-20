@@ -289,11 +289,28 @@ export class NavigationComponent implements OnInit, OnDestroy {
         // Transform items to navigation items with proper structure
         const transformedItems = this.transformContentItems(items);
         
-        // Add parentPath to each item
-        return transformedItems.map(item => ({
-          ...item,
-          parentPath: directory
-        }));
+        // Add parentPath to each item, but only if needed
+        return transformedItems.map(item => {
+          // Clean paths for comparison
+          const cleanItemPath = (item.path || '').toLowerCase().trim();
+          const cleanDirectory = (directory || '').toLowerCase().trim();
+          
+          // Only add parentPath if the item path doesn't already include the directory
+          const needsParentPath = !cleanDirectory || !cleanItemPath.startsWith(cleanDirectory);
+          
+          LOG.debug('Processing navigation item path', {
+            itemName: item.name,
+            itemPath: item.path,
+            directory,
+            addingParentPath: needsParentPath
+          });
+          
+          return {
+            ...item,
+            // Only set parentPath if needed to avoid path duplication
+            parentPath: needsParentPath ? directory : undefined
+          };
+        });
       }),
       catchError(error => {
         LOG.error('Error loading root content', {

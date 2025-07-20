@@ -265,6 +265,53 @@ describe('NavigationItemComponent', () => {
       // The path in state should not include .md for consistency
       expect(result.state.path).toBe('folder with space/file');
     });
+
+    it('should handle URL encoded paths without duplication', () => {
+      // Test case that reproduces the issue from the user's example
+      const item: NavigationItem = {
+        name: 'javascript-implementation.md',
+        path: '3.%20backend/javascript-implementation.md', // URL encoded path from backend
+        parentPath: '3. backend', // Decoded parent path
+        isDirectory: false,
+        children: [],
+        childrenLoaded: false,
+        isLoading: false,
+        hasError: false
+      };
+
+      host.item = item;
+      fixture.detectChanges();
+      const navItemInstance = fixture.debugElement.query(By.directive(NavigationItemComponent)).componentInstance;
+      const result = navItemInstance.getNavigationLink(item);
+
+      // Should not duplicate the parent path
+      const expectedLink = ['/', '3. backend', 'javascript-implementation'];
+      expect(result.link).toEqual(expectedLink);
+      expect(result.state.path).toBe('3. backend/javascript-implementation');
+    });
+
+    it('should handle mixed encoded and decoded paths', () => {
+      // Another test case with different encoding scenarios
+      const item: NavigationItem = {
+        name: 'test file.md',
+        path: 'parent%20folder/test%20file.md', // URL encoded
+        parentPath: 'parent folder', // Decoded
+        isDirectory: false,
+        children: [],
+        childrenLoaded: false,
+        isLoading: false,
+        hasError: false
+      };
+
+      host.item = item;
+      fixture.detectChanges();
+      const navItemInstance = fixture.debugElement.query(By.directive(NavigationItemComponent)).componentInstance;
+      const result = navItemInstance.getNavigationLink(item);
+
+      const expectedLink = ['/', 'parent folder', 'test file'];
+      expect(result.link).toEqual(expectedLink);
+      expect(result.state.path).toBe('parent folder/test file');
+    });
   });
 
   it('should show nested children recursively', () => {

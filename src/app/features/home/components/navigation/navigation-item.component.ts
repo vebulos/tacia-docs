@@ -138,9 +138,28 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
         // Transform the children items to ensure consistent structure
         const transformedChildren = this.transformContentItems(children || []);
         
-        // Set parentPath for each child
+        // Set parentPath for each child, but only if needed
         transformedChildren.forEach(child => {
-          child.parentPath = this.item.path;
+          // Avoid setting parentPath if the child path already includes the parent path
+          // This prevents path duplication in getNavigationLink
+          const cleanChildPath = child.path?.toLowerCase().trim() || '';
+          const cleanParentPath = this.item.path?.toLowerCase().trim() || '';
+          
+          if (!cleanChildPath.startsWith(cleanParentPath)) {
+            // Only set parentPath if the child path doesn't already include parent path
+            child.parentPath = this.item.path;
+            LOG.debug('Setting parentPath for child', {
+              childName: child.name,
+              childPath: child.path,
+              parentPath: this.item.path
+            });
+          } else {
+            LOG.debug('Child path already contains parent path, not setting parentPath', {
+              childName: child.name,
+              childPath: child.path,
+              parentPath: this.item.path
+            });
+          }
         });
         
         this.item.children = transformedChildren;
@@ -280,11 +299,17 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     LOG.debug('Building navigation link', {
       itemName: item.name,
       isDirectory: item.isDirectory,
-      originalPath: item.path
+      originalPath: item.path,
+      parentPath: item.parentPath
     });
     
-    // Clean paths by removing leading/trailing slashes
-    const cleanPath = (p: string) => p ? p.replace(/^\/+|\/+$/g, '') : '';
+    // Clean paths by removing leading/trailing slashes and decode URL components
+    const cleanPath = (p: string) => {
+      if (!p) return '';
+      // Decode URL components to handle encoded spaces and special characters
+      const decoded = decodeURIComponent(p);
+      return decoded.replace(/^\/+|\/+$/g, '');
+    };
     
     // Get and clean paths
     const parentPath = cleanPath(item.parentPath || '');
@@ -305,15 +330,63 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     let fullPath = '';
     
     if (!parentPath) {
+      // No parent path, use item path directly
       fullPath = itemPath;
     } else if (!itemPath) {
+      // No item path, use parent path
       fullPath = parentPath;
     } else {
-      // Check if itemPath already contains parentPath
-      if (itemPath.startsWith(parentPath)) {
+      // Check if itemPath already contains parentPath (accounting for URL encoding)
+      const normalizedParentPath = parentPath.toLowerCase().trim();
+      const normalizedItemPath = itemPath.toLowerCase().trim();
+      
+      LOG.debug('Checking path containment', {
+        normalizedParentPath,
+        normalizedItemPath,
+        startsWithParentAndSlash: normalizedItemPath.startsWith(normalizedParentPath + '/'),
+        equalsParent: normalizedItemPath === normalizedParentPath
+      });
+      
+      // More robust check: if itemPath starts with parentPath followed by '/' or equals parentPath
+      if (normalizedItemPath.startsWith(normalizedParentPath + '/') || normalizedItemPath === normalizedParentPath) {
+        // Item path already contains parent path, use it directly
         fullPath = itemPath;
+        LOG.debug('Item path already contains parent path', {
+          itemPath,
+          parentPath,
+          usingPath: fullPath
+        });
       } else {
-        fullPath = `${parentPath}/${itemPath}`;
+        // Additional check: split both paths and compare segments to handle complex cases
+        const parentSegments = normalizedParentPath.split('/').filter(Boolean);
+        const itemSegments = normalizedItemPath.split('/').filter(Boolean);
+        
+        // Check if item path starts with all parent path segments
+        const parentContainedInItem = parentSegments.every((segment, index) => {
+          return index < itemSegments.length && itemSegments[index] === segment;
+        });
+        
+        if (parentContainedInItem && itemSegments.length > parentSegments.length) {
+          // Parent path is already contained in item path
+          fullPath = itemPath;
+          LOG.debug('Parent path segments found in item path', {
+            itemPath,
+            parentPath,
+            parentSegments,
+            itemSegments,
+            usingPath: fullPath
+          });
+        } else {
+          // Combine parent and item paths
+          fullPath = `${parentPath}/${itemPath}`;
+          LOG.debug('Combining parent and item paths', {
+            itemPath,
+            parentPath,
+            parentSegments,
+            itemSegments,
+            combinedPath: fullPath
+          });
+        }
       }
     }
     
