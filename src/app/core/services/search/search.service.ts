@@ -647,36 +647,22 @@ export class SearchService {
     // Check if this is a tag search (starts with #)
     const isTagSearch = queryLower.startsWith('#');
     
-    LOG.debug('Processing search query', { 
-      query: queryLower, 
-      isTagSearch,
-      queryLength: queryLower.length 
-    });
+    LOG.debug('Processing search query:', queryLower);
     
-    // Log search index stats
-    LOG.debug('Search index stats', {
-      totalItems: this.searchIndex.length,
-      itemsWithTags: this.searchIndex.filter(item => item.tags && item.tags.length > 0).length,
-      itemsWithMetadata: this.searchIndex.filter(item => item.metadata).length,
-      totalTags: new Set(
-        this.searchIndex.flatMap(item => 
-          (item.tags || []).map(tag => getTagValue(tag).toLowerCase())
-        )
-      ).size
-    });
-    
-    // Log sample of items with tags
-    const itemsWithTags = this.searchIndex.filter(item => item.tags && item.tags.length > 0);
-    if (itemsWithTags.length > 0) {
-      LOG.debug('Sample of items with tags', {
-        totalItemsWithTags: itemsWithTags.length,
-        sample: itemsWithTags.slice(0, 3).map(item => ({
-          path: item.path,
-          title: item.title,
-          tagCount: item.tags ? item.tags.length : 0
-        }))
-      });
+    // Debug problematic items
+    const problematicItems = this.searchIndex.filter(item => item.tags && typeof item.tags !== 'function' && !Array.isArray(item.tags));
+    if (problematicItems.length > 0) {
+      LOG.warn('Found items with non-array tags:', problematicItems);
     }
+    
+    // Ensure all items have a tags array
+    const sanitizedIndex = this.searchIndex.map(item => ({
+      ...item,
+      tags: Array.isArray(item.tags) ? item.tags : []
+    }));
+    
+    // Update search index with sanitized items
+    this.searchIndex = sanitizedIndex;
     
     // Process the query terms
     let tagTerms: string[] = [];
