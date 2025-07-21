@@ -7,7 +7,8 @@ import { animate, state, style, transition, trigger } from '@angular/animations'
 import { Subject, takeUntil, take } from 'rxjs';
 import { PathUtils } from '@app/core/utils/path.utils';
 import { NavigationStateService } from '../../services/navigation-state.service';
-import { LOG } from '@app/core/services/logging/bun-logger.service';
+import { getLogger } from '@app/core/services/logging/logger';
+const LOG = getLogger('NavigationItemComponent');
 
 // Extend the ContentItem with navigation-specific properties
 export interface NavigationItem extends ContentItem {

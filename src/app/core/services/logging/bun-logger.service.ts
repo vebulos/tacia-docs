@@ -19,10 +19,22 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const MAX_FILES = 5;
 const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
 
+// Get the file name from the call stack
+const getCallerFile = (): string => {
+  const error = new Error();
+  const stack = error.stack?.split('\n') || [];
+  // The 4th line in the stack trace is the caller of the log function
+  const callerLine = stack[3] || '';
+  // Extract file name from the stack line
+  const match = callerLine.match(/\/([^/]+\.[tj]s):\d+:\d+/);
+  return match ? match[1] : 'unknown';
+};
+
 // Format log message
 const formatLog = (level: string, message: string, context?: any): string => {
   const timestamp = new Date().toISOString();
-  let logEntry = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
+  const callerFile = getCallerFile();
+  let logEntry = `[${timestamp}] [${level.toUpperCase()}] [${callerFile}] ${message}`;
   
   if (context) {
     try {

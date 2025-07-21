@@ -3,7 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { LOG } from './logging/bun-logger.service';
+import { getLogger } from './logging/logger';
+const LOG = getLogger('RelatedDocumentsService');
 
 export interface RelatedDocument {
   path: string;

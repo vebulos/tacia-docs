@@ -4,7 +4,8 @@ import * as yaml from 'js-yaml';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { BehaviorSubject, ReplaySubject, Observable, from, lastValueFrom } from 'rxjs';
 import { filter, take, shareReplay, takeUntil, map, catchError } from 'rxjs/operators';
-import { LOG } from './logging/bun-logger.service';
+import { getLogger } from './logging/logger';
+const LOG = getLogger('Markdown2HtmlService');
 
 // Type declarations for external libraries
 declare global {

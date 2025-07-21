@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 import { FirstDocumentService } from '../first-document.service';
-import { LOG } from '../logging/bun-logger.service';
+import { getLogger } from '../logging/logger';
+const LOG = getLogger('RefreshService');
 
 export enum RefreshType {
   NORMAL = 'normal',  // Standard refresh

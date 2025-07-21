@@ -6,7 +6,8 @@ import { StorageService } from './storage.service';
 import { environment } from '../../../environments/environment';
 import { ContentItem } from './content.interface';
 import { PathUtils } from '../utils/path.utils';
-import { LOG } from './logging/bun-logger.service';
+import { getLogger } from './logging/logger';
+const LOG = getLogger('ContentService');
 
 export interface CacheItem<T> {
   data: T;

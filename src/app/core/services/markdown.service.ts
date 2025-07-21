@@ -1,5 +1,6 @@
 import { Injectable, OnDestroy } from '@angular/core';
-import { LOG } from './logging/bun-logger.service';
+import { getLogger } from './logging/logger';
+const LOG = getLogger('MarkdownService');
 
 // Global configuration for supported markdown extensions (expand as needed)
 const SUPPORTED_MARKDOWN_EXTENSIONS = ['.md'];

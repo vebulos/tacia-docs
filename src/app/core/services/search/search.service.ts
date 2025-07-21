@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { LOG } from '../logging/bun-logger.service';
+import { getLogger } from '../logging/logger';
+const LOG = getLogger('SearchService');
 import { BehaviorSubject, Observable, of, forkJoin, firstValueFrom, throwError, from, concat } from 'rxjs';
 import { map, catchError, switchMap, tap, finalize, concatMap, delay, toArray } from 'rxjs/operators';
 import { MarkdownService } from '../markdown.service';
@@ -69,16 +70,13 @@ export class SearchService {
     private contentService: ContentService,
     private storageService: StorageService
   ) {
-    LOG.debug('SearchService constructor called');
     this.loadRecentSearches();
     this.loadSearchIndexFromStorage();
     
     // Check if we need to rebuild the index
     if (this.shouldRebuildIndex()) {
-      LOG.info('Index is outdated or missing, rebuilding...');
       this.initializeSearchIndex().subscribe();
     } else {
-      LOG.debug('Using cached search index');
       this.indexReady = true;
     }
   }
@@ -647,22 +645,11 @@ export class SearchService {
     // Check if this is a tag search (starts with #)
     const isTagSearch = queryLower.startsWith('#');
     
-    LOG.debug('Processing search query:', queryLower);
-    
-    // Debug problematic items
-    const problematicItems = this.searchIndex.filter(item => item.tags && typeof item.tags !== 'function' && !Array.isArray(item.tags));
-    if (problematicItems.length > 0) {
-      LOG.warn('Found items with non-array tags:', problematicItems);
-    }
-    
     // Ensure all items have a tags array
-    const sanitizedIndex = this.searchIndex.map(item => ({
+    this.searchIndex = this.searchIndex.map(item => ({
       ...item,
       tags: Array.isArray(item.tags) ? item.tags : []
     }));
-    
-    // Update search index with sanitized items
-    this.searchIndex = sanitizedIndex;
     
     // Process the query terms
     let tagTerms: string[] = [];

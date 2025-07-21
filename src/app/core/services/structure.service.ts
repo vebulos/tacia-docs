@@ -5,7 +5,8 @@ import { catchError, map, retryWhen, shareReplay, switchMap, tap } from 'rxjs/op
 import { StorageService } from './storage.service';
 import { environment } from '../../../environments/environment';
 import { ContentItem } from './content.interface';
-import { LOG } from './logging/bun-logger.service';
+import { getLogger } from './logging/logger';
+const LOG = getLogger('StructureService');
 
 export interface CacheItem<T> {
   data: T;

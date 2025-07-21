@@ -9,7 +9,8 @@ import { ContentService } from '@app/core/services/content.service';
 import { ContentItem } from '@app/core/services/content.interface';
 import { NavigationItemComponent, NavigationItem } from './navigation-item.component';
 import { RefreshService } from '@app/core/services/refresh/refresh.service';
-import { LOG } from '@app/core/services/logging/bun-logger.service';
+import { getLogger } from '@app/core/services/logging/logger';
+const LOG = getLogger('NavigationComponent');
 
 @Component({
   selector: 'app-navigation',
@@ -63,10 +64,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
    */
   private loadInitialContent(): void {
     const initialPath = this.getCurrentPathFromUrl();
-    LOG.debug('Loading initial navigation path', { 
-      path: initialPath || '/',
-      url: this.router.url 
-    });
     this.loadContentForPath(initialPath);
     this.updateActiveStates();
   }
@@ -94,7 +91,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.refreshService.refreshRequested$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(() => {
-      LOG.debug('Refresh requested, reloading navigation content');
       this.refreshContent();
     });
   }
