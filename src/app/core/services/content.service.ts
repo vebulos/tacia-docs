@@ -363,9 +363,9 @@ export class ContentService {
       };
 
       // If we have a title in metadata, use it as the display name
-      if (item.metadata?.title) {
+      if (item.metadata?.name) {
         const oldName = transformedItem.name;
-        transformedItem.name = item.metadata.title;
+        transformedItem.name = item.metadata.name;
         LOG.debug(`${logPrefix} [${itemId}] Using title from metadata`, {
           oldName,
           newName: transformedItem.name
