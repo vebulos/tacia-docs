@@ -147,8 +147,8 @@ export class HomeSearchComponent implements OnInit, OnDestroy {
    * Global keyboard event handler
    */
   private handleKeyDown(event: KeyboardEvent): void {
-    // Check if Ctrl+F or Cmd+F is pressed
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+    // Check if Ctrl+K or Cmd+K is pressed
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
       // Prevent browser's default search dialog from opening
       event.preventDefault();
       // Focus the search input field
