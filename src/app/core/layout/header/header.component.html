@@ -1,15 +1,51 @@
 <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-20 h-16">
     <div class="w-full mx-auto px-4 sm:px-6 lg:px-8 h-16">
-      <div class="flex items-center h-16">
-        <!-- Logo -->
-        <div class="flex-shrink-0 w-[13rem] flex justify-start">
-          <a routerLink="/" class="flex items-center">
+      <div class="flex items-center h-16 gap-3">
+        <!-- Logo / Category (responsive) -->
+        <div class="md:flex-shrink-0 md:w-[13rem] w-auto flex items-center justify-start">
+          <!-- Desktop: show full brand -->
+          <a routerLink="/" class="hidden md:flex items-center">
             <span class="text-xl font-bold text-gray-900 dark:text-white">TaciaDocs</span>
           </a>
+          <!-- Mobile: compact icon + active category selector -->
+          <div class="flex md:hidden items-center gap-3">
+            <!-- Simple placeholder icon -->
+            <a routerLink="/" class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M6 4h9a3 3 0 013 3v11a2 2 0 11-4 0H6a2 2 0 01-2-2V6a2 2 0 012-2zm0 2v10h8V7a1 1 0 011-1H6z"/></svg>
+            </a>
+            <!-- Active category selector -->
+            <div class="relative">
+              <button type="button" (click)="isCategoryDropdownOpen = !isCategoryDropdownOpen"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 text-base font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900">
+                <span>{{ (tempSelectedCategoryName || activeTopCategory?.name) || 'All' }}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+              </button>
+              <div *ngIf="isCategoryDropdownOpen" class="absolute mt-1 w-44 rounded-md shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 z-40">
+                <ul class="py-1 max-h-64 overflow-y-auto text-sm">
+                  <li *ngFor="let cat of mainNavItems">
+                    <a (click)="onSelectCategory(cat, $event)" class="block px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">{{ cat.name }}</a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
 
+        <!-- Mobile button: toggle LEFT sidebar -->
+        <button 
+          (click)="toggleLeftSidebar()"
+          class="md:hidden p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 relative z-30"
+          aria-label="Toggle navigation menu"
+          aria-expanded="false"
+          type="button"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+
         <!-- Main Navigation -->  
-        <nav class="hidden md:flex space-x-6" *ngIf="mainNavItems.length > 0">
+        <nav class="hidden lg:flex space-x-6 flex-shrink-0" *ngIf="mainNavItems.length > 0">
           <a
             *ngFor="let item of mainNavItems"
             [routerLink]="item.sectionPath"
@@ -22,15 +58,17 @@
           </a>
         </nav>
         
-        <!-- Search Bar - Centered with equal spacing -->
-        <div class="flex-1 flex justify-center">
-          <div class="w-full max-w-2xl mx-6">
+        <!-- No separate header mobile drawer; header button controls left sidebar -->
+        
+        <!-- Search Bar - wider on mobile -->
+        <div class="flex-1 min-w-0 flex">
+          <div class="w-full max-w-full sm:max-w-5xl px-2 md:px-0">
             <app-home-search #searchComponent></app-home-search>
           </div>
         </div>
         
-        <!-- Tags section - Fixed width with consistent spacing -->
-        <div class="flex flex-col space-y-0.5 text-xs w-[13rem] flex-shrink-0">
+        <!-- Tags section - Hidden on mobile and medium screens -->
+        <div class="hidden lg:flex flex-col space-y-0.5 text-xs w-[13rem] flex-shrink-0">
           <!-- Tags container -->
           <div class="flex flex-wrap gap-x-2 gap-y-1">
             <ng-container *ngFor="let tag of visibleTags">
@@ -76,11 +114,11 @@
           </div>
         </div>
         
-        <div class="flex items-center space-x-2">
+        <div class="flex items-center space-x-1 sm:space-x-2 flex-shrink-0 w-auto md:w-[11rem] justify-end">
           <!-- Theme Toggle Button -->
           <button 
             (click)="toggleTheme()" 
-            class="p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            class="hidden sm:inline-flex p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             [title]="currentTheme === 'leger' ? 'Switch to default theme' : 'Switch to Leger theme'"
             aria-label="Toggle theme">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -91,7 +129,7 @@
           <!-- Dark/Light Mode Toggle -->
           <button 
             (click)="toggleDarkMode()" 
-            class="p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            class="hidden sm:inline-flex p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             aria-label="Toggle dark mode">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
@@ -103,7 +141,7 @@
             href="https://github.com/vebulos/tacia-docs" 
             target="_blank" 
             rel="noopener noreferrer"
-            class="p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            class="hidden sm:inline-flex p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
             <span class="sr-only">GitHub</span>
             <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
               <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd" />

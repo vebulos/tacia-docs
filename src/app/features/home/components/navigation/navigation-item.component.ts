@@ -304,17 +304,16 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
       parentPath: item.parentPath
     });
     
-    // Clean paths by removing leading/trailing slashes and decode URL components
-    const cleanPath = (p: string) => {
-      if (!p) return '';
-      // Decode URL components to handle encoded spaces and special characters
-      const decoded = decodeURIComponent(p);
-      return decoded.replace(/^\/+|\/+$/g, '');
-    };
+    // Initialize variables
+    let parentPath = item.parentPath || '';
+    let itemPath = item.path || '';
     
-    // Get and clean paths
-    const parentPath = cleanPath(item.parentPath || '');
-    let itemPath = cleanPath(item.path || '');
+    LOG.debug('Checking path containment', {
+      normalizedParentPath: parentPath,
+      normalizedItemPath: itemPath,
+      startsWithParentAndSlash: itemPath.startsWith(parentPath + '/'),
+      equalsParent: itemPath === parentPath
+    });
     
     LOG.debug('Navigation link path details', {
       parentPath,
@@ -403,7 +402,8 @@ export class NavigationItemComponent implements OnInit, OnDestroy {
     return {
       link: ['/', ...pathSegments], // Ensure we start with a single '/'
       state: {
-        path: fullPath // Keep the full path in state
+        path: fullPath, // Keep the full path in state
+        skipReload: true // Signal to prevent full page reload
       }
     };
   }

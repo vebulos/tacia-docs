@@ -29,6 +29,7 @@
   background-color: white;
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden; /* prevent horizontal scrollbar */
   z-index: 10;
 }
 
@@ -306,15 +307,91 @@
 
 @media (max-width: 768px) {
   .home-container {
-    grid-template-columns: 1fr;
-    grid-template-areas: "main";
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: none;
+    grid-template-areas: none;
+    position: relative;
+    left: 0;
+    right: 0;
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
   }
   
   .left-sidebar {
+    position: fixed;
+    top: 4rem; /* Below header */
+    left: -100%;
+    width: 80%;
+    max-width: 20rem;
+    height: calc(100vh - 4rem);
+    background-color: white;
+    border-right: 1px solid #e5e7eb;
+    z-index: 40;
+    transition: left 0.3s ease-in-out;
+    overflow-y: auto;
+    overflow-x: hidden; /* avoid horizontal scrollbar on mobile */
+  }
+  
+  .dark .left-sidebar {
+    background-color: #111827;
+    border-right-color: #374151;
+  }
+  
+  .left-sidebar.mobile-open {
+    left: 0;
+  }
+  
+  .mobile-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 35;
     display: none;
   }
   
+  .mobile-menu-overlay.show {
+    display: block;
+  }
+  
+  .main-content {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  
   .content-wrapper {
-    padding: 1rem; /* p-4 */
+    padding: 1rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  
+  /* Ensure text content wraps properly */
+  .content-wrapper * {
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  /* Handle long code blocks */
+  .content-wrapper pre {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  
+  .content-wrapper code {
+    word-break: break-all;
+  }
+  
+  /* Ensure tables are scrollable */
+  .content-wrapper table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
   }
 }

@@ -76,11 +76,19 @@ export class NavigationComponent implements OnInit, OnDestroy {
       filter((event): event is NavigationEnd => event instanceof NavigationEnd),
       takeUntil(this.destroy$)
     ).subscribe(event => {
+      // Check if navigation event has skipReload state
+      const navigation = this.router.getCurrentNavigation();
+      const skipReload = navigation?.extras?.state?.['skipReload'] || false;
+      
       const path = this.getPathFromNavigationEvent(event);
       this.activePath = path;
       this.setActivePath(path);
-      this.loadContentForPath(path);
-      this.updateActiveStates();
+      
+      // Only reload content if skipReload is not set
+      if (!skipReload) {
+        this.loadContentForPath(path);
+        this.updateActiveStates();
+      }
     });
   }
 

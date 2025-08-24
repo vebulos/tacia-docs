@@ -1,6 +1,16 @@
 <div class="home-container" [class.no-left-sidebar]="!hasNavigationItems">
+  
+  
+  <!-- Mobile menu overlay -->
+  <div 
+    class="mobile-menu-overlay" 
+    [class.show]="isMobileMenuOpen"
+    (click)="toggleMobileMenu()" 
+    *ngIf="hasNavigationItems">
+  </div>
+  
   <!-- Left Sidebar -->
-  <div class="sidebar left-sidebar" *ngIf="hasNavigationItems">
+  <div class="sidebar left-sidebar" [class.mobile-open]="isMobileMenuOpen" *ngIf="hasNavigationItems">
     <div class="p-4">
       <!-- Navigation Component -->
       <app-navigation (itemsChange)="onNavigationItemsChange($event)"></app-navigation>

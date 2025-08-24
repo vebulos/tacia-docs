@@ -65,6 +65,59 @@ export class HeaderComponent implements OnInit, OnDestroy {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   }
   
+  // Mobile menu state
+  isMobileMenuOpen = false;
+  // Category selector state (mobile)
+  isCategoryDropdownOpen = false;
+  // Temporary selected category name to reflect immediate UI change before navigation completes
+  tempSelectedCategoryName: string | null = null;
+  
+  // Toggle mobile menu
+  toggleMobileMenu(): void {
+    this.isMobileMenuOpen = !this.isMobileMenuOpen;
+  }
+
+  // Check if current route is home route to coordinate mobile menus
+  isHomeRoute(): boolean {
+    return this.router.url === '/' || this.router.url.startsWith('/docs/') || this.router.url.startsWith('/src/');
+  }
+
+  // Compute active top category based on current URL
+  get activeTopCategory(): { name: string; sectionPath: string; firstDocPath: string; isDirectory?: boolean } | null {
+    if (!this.mainNavItems || this.mainNavItems.length === 0) return null;
+    const url = this.router.url || '/';
+
+    // Helper to normalize a path segment for comparison
+    const norm = (s: string) => decodeURIComponent((s || '').toLowerCase().trim())
+      .replace(/^\/+|\/+$/g, '')
+      .split('/')[0] // only first segment
+      .replace(/[\s_]+/g, '-') // spaces/underscores -> hyphens
+      .replace(/-+/g, '-');
+
+    const currentTopSeg = norm(url);
+
+    // Try strict first-segment match against sectionPath OR firstDocPath
+    let match = this.mainNavItems.find(i => {
+      const segA = norm(i.sectionPath);
+      const segB = norm(i.firstDocPath);
+      return segA === currentTopSeg || segB === currentTopSeg;
+    });
+
+    if (!match) {
+      // Fallback: try prefix match using firstDocPath as well
+      match = this.mainNavItems
+        .filter(i => url === i.sectionPath || url.startsWith((i.sectionPath || '') + '/') || url.startsWith((i.firstDocPath || '') + '/'))
+        .sort((a, b) => Math.max(b.sectionPath?.length || 0, b.firstDocPath?.length || 0) - Math.max(a.sectionPath?.length || 0, a.firstDocPath?.length || 0))[0];
+    }
+
+    return match || null;
+  }
+
+  // Toggle left sidebar (dispatch a global event for HomeComponent to listen)
+  toggleLeftSidebar(): void {
+    window.dispatchEvent(new CustomEvent('toggleLeftSidebar'));
+  }
+  
   constructor(
     private router: Router,
     private route: ActivatedRoute,
@@ -102,6 +155,16 @@ export class HeaderComponent implements OnInit, OnDestroy {
       });
     
     this.subscriptions.add(initialTagsSubscription);
+
+    // Close dropdowns on navigation
+    this.subscriptions.add(
+      this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => {
+        this.isCategoryDropdownOpen = false;
+        this.isMobileMenuOpen = false;
+        // Clear the temporary name after navigation so the computed activeTopCategory takes over
+        this.tempSelectedCategoryName = null;
+      })
+    );
   }
 
   /**
@@ -213,6 +276,35 @@ export class HeaderComponent implements OnInit, OnDestroy {
       event.stopPropagation();
       this.router.navigateByUrl(item.firstDocPath);
     }
+  }
+  
+  /**
+   * Handle navigation item click in mobile menu
+   * @param item The navigation item
+   * @param event The click event
+   */
+  onNavigationItemClick(item: { firstDocPath: string; isDirectory?: boolean }, event: Event): void {
+    if (item.isDirectory) {
+      this.navigateToFirstDoc(item, event);
+    }
+    this.toggleMobileMenu();
+  }
+
+  // Handle category selection (mobile)
+  onSelectCategory(item: { sectionPath: string; firstDocPath: string; isDirectory?: boolean; name?: string }, event?: Event): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    // Optimistically reflect the chosen category name in the button label
+    if (item?.name) {
+      this.tempSelectedCategoryName = item.name;
+    }
+    const target = item.isDirectory ? item.firstDocPath : item.sectionPath;
+    if (target) {
+      this.router.navigateByUrl(target);
+    }
+    this.isCategoryDropdownOpen = false;
   }
 
   private checkDarkMode(): void {
